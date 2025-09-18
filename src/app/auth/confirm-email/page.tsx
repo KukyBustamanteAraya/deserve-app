@@ -1,9 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
-export default function ConfirmEmailPage() {
+function ConfirmEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { resendConfirmation } = useAuth();
@@ -134,5 +134,24 @@ export default function ConfirmEmailPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function ConfirmEmailPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen grid place-items-center p-6 bg-gray-50">
+        <div className="w-full max-w-md space-y-6">
+          <div className="text-center">
+            <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900">Loading...</h1>
+          </div>
+        </div>
+      </main>
+    }>
+      <ConfirmEmailContent />
+    </Suspense>
   );
 }

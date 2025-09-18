@@ -58,15 +58,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       async (event, session) => {
         console.log('Auth state change:', event, session?.user?.id);
 
-        if (event === "SIGNED_UP" && session?.user) {
-          console.log("Auth state change: SIGNED_UP - User needs email confirmation");
-
-          // User signed up but needs confirmation - don't set user state yet
-          // The user will be set when they confirm email and SIGNED_IN event fires
-          setPendingEmailConfirmation(true);
-          setLoading(false);
-
-        } else if (event === "SIGNED_IN" && session?.user) {
+        if (event === "SIGNED_IN" && session?.user) {
           console.log("Auth state change: SIGNED_IN", session.user.id);
 
           // Handle email confirmation completion
@@ -122,11 +114,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           email: email,
           userType: userData.userType || 'consumer'
         });
+        setLoading(false); // Don't wait for auth state change
       }
 
       return result;
-    } finally {
+    } catch (error) {
       setLoading(false);
+      throw error;
     }
   };
 
