@@ -1,11 +1,13 @@
 "use client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
+import { signOut } from "../(auth)/actions";
 
 export default function DashboardPage() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -13,9 +15,10 @@ export default function DashboardPage() {
     }
   }, [user, loading, router]);
 
-  const handleSignOut = async () => {
-    await signOut();
-    router.push("/login");
+  const handleSignOut = () => {
+    startTransition(async () => {
+      await signOut();
+    });
   };
 
   if (loading) {
@@ -40,9 +43,10 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <button
             onClick={handleSignOut}
-            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+            disabled={isPending}
+            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Sign out
+            {isPending ? 'Cerrando...' : 'Cerrar Sesión'}
           </button>
         </div>
         
