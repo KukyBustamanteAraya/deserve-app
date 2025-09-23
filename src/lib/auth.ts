@@ -1,5 +1,8 @@
 import { supabaseClient } from './supabaseClient';
 import { User, AuthResult } from '../types';
+import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export class AuthService {
   // Sign up with email and password
@@ -138,5 +141,59 @@ export class AuthService {
       console.error('Resend confirmation error:', error);
       return { data: null, error: { message: error.message || 'Failed to resend confirmation' } };
     }
+  }
+}
+
+// Server-side auth helpers
+function createServerClient() {
+  const cookieStore = cookies();
+
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        storage: {
+          getItem(key: string) {
+            return cookieStore.get(key)?.value;
+          },
+          setItem(key: string, value: string) {
+            cookieStore.set(key, value);
+          },
+          removeItem(key: string) {
+            cookieStore.delete(key);
+          },
+        },
+      },
+    }
+  );
+}
+
+export async function requireUser(): Promise<User> {
+  const supabase = createServerClient();
+
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      redirect('/login');
+    }
+
+    // Fetch user profile from profiles table
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) {
+      console.error('Profile not found for authenticated user:', profileError);
+      redirect('/login');
+    }
+
+    return profile;
+  } catch (error) {
+    console.error('Server auth error:', error);
+    redirect('/login');
   }
 }
