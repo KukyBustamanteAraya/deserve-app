@@ -1,5 +1,34 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Local Development
+
+For reliable local development, follow these steps:
+
+1. **Use the correct Node.js version:**
+   ```bash
+   nvm use
+   ```
+
+2. **Clean and reinstall dependencies (if experiencing issues):**
+   ```bash
+   npm run clean
+   ```
+
+3. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
+
+The clean script will remove `.next`, `node_modules`, and `package-lock.json`, then reinstall all dependencies. This helps resolve common dependency conflicts and build cache issues.
+
+## Apply DB Migration (Supabase)
+
+To set up the database schema:
+
+- Open Supabase → SQL Editor
+- Paste the contents of `supabase/migrations/phase1_profiles.sql`
+- Run it on staging first, then production
+
 ## Getting Started
 
 First, run the development server:
