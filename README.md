@@ -21,6 +21,15 @@ For reliable local development, follow these steps:
 
 The clean script will remove `.next`, `node_modules`, and `package-lock.json`, then reinstall all dependencies. This helps resolve common dependency conflicts and build cache issues.
 
+## Environment Variables
+
+Copy `.env.example` to `.env.local` and fill in the required values:
+
+- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anonymous key
+
+Find these values in your Supabase dashboard: **Project Settings → API**.
+
 ## Apply DB Migration (Supabase)
 
 To set up the database schema:
