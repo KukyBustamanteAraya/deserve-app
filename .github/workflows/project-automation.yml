@@ -1,0 +1,39 @@
+name: Project Automation
+
+on:
+  issues:
+    types: [opened, closed, reopened]
+  pull_request:
+    types: [opened, closed, reopened, merged]
+
+jobs:
+  add_to_project:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened'
+    steps:
+      - name: Add Issue/PR to Project
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/users/KukyBustamanteAraya/projects/YOUR_PROJECT_NUMBER
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+
+      - name: Set Initial Status and Iteration
+        uses: titoportas/update-project-fields@v0.1.0
+        with:
+          project-url: https://github.com/users/KukyBustamanteAraya/projects/YOUR_PROJECT_NUMBER
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          item-id: ${{ steps.add-to-project.outputs.itemId }}
+          field-keys: Status,Iteration
+          field-values: "Todo,Iteration 1"
+
+  update_status:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed'
+    steps:
+      - name: Update Status to Done
+        uses: titoportas/update-project-fields@v0.1.0
+        with:
+          project-url: https://github.com/users/KukyBustamanteAraya/projects/YOUR_PROJECT_NUMBER
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          field-keys: Status
+          field-values: "Done"
