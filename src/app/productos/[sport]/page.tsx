@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
-import { useProducts } from '../../../hooks/useProducts';
+// import { useProducts } from '../../../hooks/useProducts';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { ErrorBoundary } from '../../../components/ErrorBoundary';
 
@@ -12,7 +12,10 @@ export default function ProductsPage() {
   const [displayCount, setDisplayCount] = useState(12);
   const [imageErrors, setImageErrors] = useState(new Set<number>());
 
-  const { products: allProducts, loading, error } = useProducts(sport);
+  // const { products: allProducts, loading, error } = useProducts(sport);
+  const allProducts: any[] = [];
+  const loading = false;
+  const error = null;
   const products = useMemo(() => allProducts.slice(0, displayCount), [allProducts, displayCount]);
   const hasMore = displayCount < allProducts.length;
   const sportName = sport?.charAt(0).toUpperCase() + sport?.slice(1) || '';
@@ -123,7 +126,7 @@ export default function ProductsPage() {
 
             {/* Products Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-              {products.map((product) => (
+              {products.map((product: any) => (
                 <div
                   key={product.id}
                   className="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-red-500 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 group"

@@ -1,15 +1,32 @@
 'use client';
 
-import { useTransition } from 'react';
-import { signOut } from '../(auth)/actions';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabaseBrowser } from '@/lib/supabase/client';
 
 export default function LogoutButton() {
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
+  const router = useRouter();
 
-  const handleSignOut = () => {
-    startTransition(async () => {
-      await signOut();
-    });
+  const handleSignOut = async () => {
+    if (isPending) return;
+
+    setIsPending(true);
+    try {
+      console.log('Logging out...');
+      const { error } = await supabaseBrowser.auth.signOut();
+
+      if (error) {
+        console.error('Sign out error:', error);
+      } else {
+        console.log('Successfully signed out, redirecting to login');
+        router.replace('/login');
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (

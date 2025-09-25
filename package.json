@@ -7,9 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "clean": "rimraf .next node_modules && rm -f package-lock.json && npm i"
+    "clean": "rimraf .next node_modules && rm -f package-lock.json && npm i",
+    "ts:show": "tsc --showConfig",
+    "ts:diag": "tsc --extendedDiagnostics --listFiles --noEmit",
+    "qa:auth": "node ../scripts/qa-auth.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.45.4",
     "autoprefixer": "^10.4.21",
     "next": "14.2.32",

@@ -1,7 +1,8 @@
 'use server';
 
-import { supabase } from '../../lib/supabase';
+import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { getOrigin } from '@/lib/origin';
 
 export async function sendMagicLink(formData: FormData) {
   const email = formData.get('email') as string;
@@ -11,10 +12,11 @@ export async function sendMagicLink(formData: FormData) {
   }
 
   try {
+    const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
+        emailRedirectTo: `${getOrigin()}/auth/callback`,
       },
     });
 
@@ -32,6 +34,7 @@ export async function sendMagicLink(formData: FormData) {
 
 export async function signOut() {
   try {
+    const supabase = createClient();
     const { error } = await supabase.auth.signOut();
 
     if (error) {
