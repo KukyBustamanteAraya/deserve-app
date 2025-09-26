@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supabase Migration</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 2rem; }
+        button { padding: 1rem 2rem; margin: 0.5rem; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        button:disabled { background: #9ca3af; cursor: not-allowed; }
+        #status { padding: 1rem; background: #f3f4f6; border-radius: 8px; margin-top: 1rem; }
+    </style>
+</head>
+<body>
+    <h1>Supabase Migration Tool</h1>
+    <button onclick="createTable()">1. Create Products Table</button>
+    <button onclick="createBucket()">2. Create Storage Bucket</button>
+    <button id="migrateBtn" onclick="migrateProducts()">3. Migrate Products</button>
+
+    <div id="status">Ready to migrate...</div>
+
+    <script>
+        const supabaseUrl = 'https://tirhnanxmjsasvhfphbq.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpcmhuYW54bWpzYXN2aGZwaGJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2ODc3MTUsImV4cCI6MjA3MzI2MzcxNX0.3vlfygjKY-9XU-JGTBmOqxPiv2pu2TEDsucVVZYHQU4';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        function updateStatus(message) {
+            document.getElementById('status').innerHTML = message;
+        }
+
+        async function createTable() {
+            updateStatus('Creating products table...');
+
+            // First try to create the table via direct SQL
+            const { data, error } = await supabase
+                .from('products')
+                .select('id')
+                .limit(1);
+
+            if (error && error.code === 'PGRST116') {
+                // Table doesn't exist, show instructions
+                updateStatus(`
+                    <strong>Please create the table manually in Supabase dashboard:</strong><br><br>
+                    1. Go to <a href="https://supabase.com/dashboard/project/tirhnanxmjsasvhfphbq/editor" target="_blank">your Supabase SQL Editor</a><br>
+                    2. Run this SQL:<br>
+                    <textarea style="width:100%; height:200px; font-family:monospace; margin:10px 0;">
+CREATE TABLE IF NOT EXISTS products (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  price TEXT NOT NULL,
+  sport TEXT NOT NULL,
+  category TEXT DEFAULT 'jersey',
+  image_url TEXT NOT NULL,
+  image_filename TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_products_sport ON products(sport);
+CREATE INDEX IF NOT EXISTS idx_products_created_at ON products(created_at);
+
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY IF NOT EXISTS "Public read access for products"
+  ON products FOR SELECT
+  USING (true);
+                    </textarea><br>
+                    3. Then click "Create Storage Bucket" below
+                `);
+            } else {
+                updateStatus('✅ Products table already exists!');
+            }
+        }
+
+        async function createBucket() {
+            updateStatus('Creating storage bucket...');
+
+            try {
+                const { error } = await supabase.storage.createBucket('product-images', {
+                    public: true,
+                    allowedMimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
+                    fileSizeLimit: 5242880
+                });
+
+                if (error && !error.message.includes('already exists')) {
+                    updateStatus('❌ Bucket creation failed: ' + error.message);
+                } else {
+                    updateStatus('✅ Storage bucket ready! Now you can migrate products.');
+                }
+            } catch (err) {
+                updateStatus('❌ Error: ' + err.message);
+            }
+        }
+
+        async function migrateProducts() {
+            const btn = document.getElementById('migrateBtn');
+            btn.disabled = true;
+            btn.textContent = 'Migrating...';
+
+            updateStatus('Starting product migration...');
+
+            const soccerJerseys = [
+                '2.png', 'A.png', 'AS.png', 'ASD.png', 'ASDF.png',
+                'Blue Soccer Jersey.png', 'Blue.png', 'B.png', 'Bl.png', 'Blu.png'
+            ];
+
+            try {
+                let uploadedCount = 0;
+
+                for (const filename of soccerJerseys) {
+                    try {
+                        updateStatus(`Processing ${filename}...`);
+
+                        // Fetch image from localhost:3000
+                        const response = await fetch(`http://localhost:3000/Products/Soccer/Jerseys/${filename}`);
+                        if (!response.ok) {
+                            console.log(`Skipping ${filename} - not found`);
+                            continue;
+                        }
+
+                        const blob = await response.blob();
+                        const file = new File([blob], filename, { type: 'image/png' });
+
+                        // Upload to Supabase Storage
+                        const storageFileName = `futbol/${filename}`;
+                        const { error: uploadError } = await supabase.storage
+                            .from('product-images')
+                            .upload(storageFileName, file, {
+                                cacheControl: '31536000',
+                                upsert: true
+                            });
+
+                        if (uploadError) {
+                            console.error(`Upload error for ${filename}:`, uploadError);
+                            continue;
+                        }
+
+                        // Get public URL
+                        const { data: urlData } = supabase.storage
+                            .from('product-images')
+                            .getPublicUrl(storageFileName);
+
+                        // Insert product into database
+                        const product = {
+                            name: `Camiseta de Fútbol ${filename.replace('.png', '').replace(/\s+/g, ' ')}`,
+                            price: `$${(42 + Math.floor(Math.random() * 15)).toLocaleString()}.000`,
+                            sport: 'fútbol',
+                            category: 'jersey',
+                            image_url: urlData.publicUrl,
+                            image_filename: filename
+                        };
+
+                        const { error: insertError } = await supabase
+                            .from('products')
+                            .insert([product]);
+
+                        if (!insertError) {
+                            uploadedCount++;
+                            updateStatus(`✅ Uploaded ${uploadedCount} products... (${filename})`);
+                        } else {
+                            console.error('Insert error:', insertError);
+                        }
+
+                        // Small delay to avoid rate limiting
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    } catch (err) {
+                        console.error(`Error processing ${filename}:`, err);
+                    }
+                }
+
+                updateStatus(`🎉 Migration complete! Successfully uploaded ${uploadedCount} products to Supabase.`);
+            } catch (err) {
+                updateStatus('❌ Migration failed: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '3. Migrate Products';
+            }
+        }
+    </script>
+</body>
+</html>
