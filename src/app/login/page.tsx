@@ -1,12 +1,12 @@
 // src/app/login/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import LoginForm from '@/app/components/LoginForm';
 import { useAuth } from '@/app/components/AuthProvider';
 
-export default function LoginPage() {
+function LoginPageForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
@@ -68,5 +68,13 @@ export default function LoginPage() {
         }}
       />
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginPageForm />
+    </Suspense>
   );
 }

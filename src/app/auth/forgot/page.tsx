@@ -2,9 +2,9 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordForm() {
   const searchParams = useSearchParams();
   const sent = searchParams.get('sent');
   const error = searchParams.get('error');
@@ -123,5 +123,13 @@ export default function ForgotPasswordPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ForgotPasswordForm />
+    </Suspense>
   );
 }

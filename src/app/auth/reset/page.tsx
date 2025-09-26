@@ -1,22 +1,20 @@
 // src/app/auth/reset/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { zxcvbn } from '@zxcvbn-ts/core';
+import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
 import { dictionary, adjacencyGraphs } from '@zxcvbn-ts/language-common';
-import { dictionary as englishDictionary } from '@zxcvbn-ts/language-en';
+import { dictionary as englishDictionary, translations } from '@zxcvbn-ts/language-en';
 import { getAuthStrings } from '@/lib/i18n/auth';
 
-const options = {
-  dictionary: {
-    ...dictionary,
-    ...englishDictionary,
-  },
+zxcvbnOptions.setOptions({
+  translations,
+  dictionary: { ...dictionary, ...englishDictionary },
   graphs: adjacencyGraphs,
-};
+});
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const strings = getAuthStrings();
 
@@ -35,7 +33,7 @@ export default function ResetPasswordPage() {
   // Check password strength
   useEffect(() => {
     if (password.length > 0) {
-      const result = zxcvbn(password, [], options);
+      const result = zxcvbn(password);
       setPasswordStrength(result.score);
     } else {
       setPasswordStrength(0);
@@ -268,5 +266,13 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

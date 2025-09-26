@@ -1,158 +1,47 @@
-'use client';
+import { redirect } from 'next/navigation';
+import { getMyProfile } from '@/lib/db/profiles';
+import { BackButton } from './BackButton';
 
-import { useAuth } from '@/app/components/AuthProvider';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { getMyProfile, updateMyProfile } from '@/lib/db/profiles';
-
-interface Profile {
-  id: string;
-  email: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  has_password: boolean;
+interface SearchParams {
+  emailUpdateSent?: string;
+  emailUpdated?: string;
+  emailUpdateError?: string;
 }
 
-export default function AccountSettingsPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [redirecting, setRedirecting] = useState(false);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [updating, setUpdating] = useState(false);
-  const [emailUpdating, setEmailUpdating] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+interface Props {
+  searchParams: SearchParams;
+}
 
-  // Email update state banners
-  const emailUpdateSent = searchParams?.get('emailUpdateSent') === '1';
-  const emailUpdated = searchParams?.get('emailUpdated') === '1';
-  const emailUpdateError = searchParams?.get('emailUpdateError');
+export default async function AccountSettingsPage({ searchParams }: Props) {
+  // Load profile data on server
+  const { user, profile, error } = await getMyProfile();
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!loading && !user && !redirecting) {
-      setRedirecting(true);
-      router.replace('/login');
-    }
-  }, [loading, user, router, redirecting]);
-
-  // Load profile data
-  useEffect(() => {
-    async function loadProfile() {
-      if (!user) return;
-
-      try {
-        const { user: authUser, profile: profileData, error } = await getMyProfile();
-        if (error) {
-          console.error('Failed to load profile:', error);
-          setErrorMsg('Failed to load profile data');
-        } else if (profileData) {
-          setProfile(profileData);
-          setFullName(profileData.full_name || '');
-          setEmail(profileData.email || '');
-        }
-      } catch (err) {
-        console.error('Unexpected error loading profile:', err);
-        setErrorMsg('Failed to load profile data');
-      } finally {
-        setProfileLoading(false);
-      }
-    }
-
-    if (user) {
-      loadProfile();
-    }
-  }, [user]);
-
-  async function handleUpdateName(e: React.FormEvent) {
-    e.preventDefault();
-    if (!profile || updating) return;
-
-    setUpdating(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    try {
-      const { data, error } = await updateMyProfile({ full_name: fullName.trim() });
-      if (error) {
-        setErrorMsg('Failed to update name');
-      } else {
-        setProfile(prev => prev ? { ...prev, full_name: fullName.trim() || null } : null);
-        setSuccessMsg('Name updated successfully');
-      }
-    } catch (err) {
-      setErrorMsg('Failed to update name');
-    } finally {
-      setUpdating(false);
-    }
+  if (!user) {
+    redirect('/login?next=/settings/account');
   }
 
-  async function handleUpdateEmail(e: React.FormEvent) {
-    e.preventDefault();
-    if (!profile || emailUpdating) return;
-
-    setEmailUpdating(true);
-
-    const form = new FormData();
-    form.append('email', email.trim());
-
-    try {
-      const response = await fetch('/settings/account/email', {
-        method: 'POST',
-        body: form,
-      });
-
-      // The endpoint redirects, so if we get here it means there was an error
-      // But our endpoint always redirects with neutral messaging for security
-      if (!response.ok) {
-        console.error('Email update failed:', response.status);
-      }
-
-      // The page will reload due to redirect, but just in case:
-      window.location.reload();
-    } catch (err) {
-      console.error('Email update error:', err);
-      window.location.reload();
-    } finally {
-      setEmailUpdating(false);
-    }
-  }
-
-  // Show loading state
-  if (loading || redirecting || profileLoading) {
+  if (error || !profile) {
     return (
       <main className="min-h-screen p-6 bg-gray-50">
         <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
-              <p className="text-gray-600">Loading...</p>
-            </div>
+          <div className="text-center py-20">
+            <p className="text-red-600">Failed to load profile data</p>
           </div>
         </div>
       </main>
     );
   }
 
-  // Don't render if no user (prevents flash before redirect)
-  if (!user || !profile) {
-    return null;
-  }
+  // Email update state banners
+  const emailUpdateSent = searchParams.emailUpdateSent === '1';
+  const emailUpdated = searchParams.emailUpdated === '1';
+  const emailUpdateError = searchParams.emailUpdateError;
 
   return (
     <main className="min-h-screen p-6 bg-gray-50">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center mb-8">
-          <button
-            onClick={() => router.back()}
-            className="mr-4 text-gray-600 hover:text-gray-900"
-          >
-            ← Back
-          </button>
+          <BackButton />
           <h1 className="text-3xl font-bold text-gray-900">Account Settings</h1>
         </div>
 
@@ -185,7 +74,7 @@ export default function AccountSettingsPage() {
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4 text-gray-900">Profile Information</h2>
 
-          <form onSubmit={handleUpdateName} className="space-y-4">
+          <form action="/settings/account/name" method="post" className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Full Name
@@ -193,23 +82,22 @@ export default function AccountSettingsPage() {
               <div className="flex gap-3">
                 <input
                   type="text"
-                  value={fullName}
-                  onChange={e => setFullName(e.target.value)}
+                  name="full_name"
+                  defaultValue={profile.full_name || ''}
                   placeholder="Enter your full name"
                   className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button
                   type="submit"
-                  disabled={updating || fullName.trim() === (profile.full_name || '')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                  {updating ? 'Saving...' : 'Save'}
+                  Save
                 </button>
               </div>
             </div>
           </form>
 
-          <form onSubmit={handleUpdateEmail} className="mt-4">
+          <form action="/settings/account/email" method="post" className="mt-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Email Address
@@ -217,34 +105,21 @@ export default function AccountSettingsPage() {
               <div className="flex gap-3">
                 <input
                   type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  name="email"
+                  defaultValue={profile.email || ''}
                   placeholder="Enter your email address"
                   className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
                 <button
                   type="submit"
-                  disabled={emailUpdating || email.trim() === profile.email}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                  {emailUpdating ? 'Sending...' : 'Change Email'}
+                  Change Email
                 </button>
               </div>
             </div>
           </form>
-
-          {successMsg && (
-            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md text-green-700 text-sm">
-              {successMsg}
-            </div>
-          )}
-
-          {errorMsg && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
-              {errorMsg}
-            </div>
-          )}
         </div>
 
         {/* Account Status */}
@@ -280,10 +155,10 @@ export default function AccountSettingsPage() {
                   You can sign in with either your password or magic links.
                 </p>
                 <button
-                  onClick={() => setErrorMsg('Password changes not yet implemented')}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                  disabled
+                  className="px-4 py-2 border border-gray-300 text-gray-500 rounded-md cursor-not-allowed"
                 >
-                  Change Password
+                  Change Password (Coming Soon)
                 </button>
               </div>
             ) : (
@@ -291,12 +166,12 @@ export default function AccountSettingsPage() {
                 <p className="text-sm text-gray-600 mb-3">
                   You currently sign in using magic links only. Setting a password will allow you to sign in faster.
                 </p>
-                <button
-                  onClick={() => router.push('/onboarding/set-password?next=/settings/account')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                <a
+                  href="/onboarding/set-password?next=/settings/account"
+                  className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
                   Set Password
-                </button>
+                </a>
               </div>
             )}
           </div>
