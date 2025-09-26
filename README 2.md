@@ -21,41 +21,6 @@ For reliable local development, follow these steps:
 
 The clean script will remove `.next`, `node_modules`, and `package-lock.json`, then reinstall all dependencies. This helps resolve common dependency conflicts and build cache issues.
 
-## Environment Variables
-
-Copy `.env.example` to `.env.local` and fill in the required values:
-
-- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anonymous key
-- `NEXT_PUBLIC_SITE_URL` - Your site URL (e.g., `http://localhost:3000` for dev, `https://yourapp.vercel.app` for production)
-
-Find the Supabase values in your Supabase dashboard: **Project Settings → API**.
-
-## Supabase Auth Configuration
-
-Configure your Supabase authentication settings in the Supabase dashboard:
-
-### 1. URL Configuration
-Navigate to **Authentication → URL Configuration** and set:
-
-- **Site URL**: `http://localhost:3000` (for development)
-- **Redirect URLs**: Add the following URLs:
-  - `http://localhost:3000/auth/callback` (development)
-  - `http://localhost:3001/auth/callback` (if using port 3001)
-  - `https://yourapp.vercel.app/auth/callback` (production - replace with your domain)
-
-### 2. Email Templates (Optional)
-Navigate to **Authentication → Email Templates** to customize:
-- **Magic Link** template for sign-in emails
-- **Confirm signup** template if using email confirmation
-
-### 3. Magic Link Authentication Flow
-The app uses magic link authentication:
-1. User enters email on `/login`
-2. Supabase sends magic link to email
-3. User clicks link → redirected to `/auth/callback`
-4. Callback exchanges code for session → redirects to `/dashboard`
-
 ## Apply DB Migration (Supabase)
 
 To set up the database schema:
