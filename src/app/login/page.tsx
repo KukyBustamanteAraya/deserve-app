@@ -2,22 +2,29 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import LoginForm from '@/app/components/LoginForm';
 import { useAuth } from '@/app/components/AuthProvider';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading } = useAuth();
   const [redirecting, setRedirecting] = useState(false);
+  const errorParam = searchParams.get('error');
 
-  // If already authenticated, bounce to dashboard
+  // Capture and validate the next parameter
+  const next = (searchParams.get('next') || '/dashboard').startsWith('/')
+    ? searchParams.get('next')!
+    : '/dashboard';
+
+  // If already authenticated, bounce to next destination
   useEffect(() => {
     if (!loading && user && !redirecting) {
       setRedirecting(true);
-      router.replace('/dashboard');
+      router.replace(next);
     }
-  }, [loading, user, router, redirecting]);
+  }, [loading, user, router, redirecting, next]);
 
   // Show loading during auth check or redirect
   if (loading) {
@@ -48,10 +55,18 @@ export default function LoginPage() {
   return (
     <main className="max-w-md mx-auto p-4">
       <h1 className="text-xl font-semibold mb-4">Iniciar Sesión</h1>
-      <LoginForm onSuccess={() => {
-        setRedirecting(true);
-        router.replace('/dashboard');
-      }} />
+      {errorParam && (
+        <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 mb-4">
+          {decodeURIComponent(errorParam)}
+        </div>
+      )}
+      <LoginForm
+        next={next}
+        onSuccess={() => {
+          setRedirecting(true);
+          router.replace(next);
+        }}
+      />
     </main>
   );
 }

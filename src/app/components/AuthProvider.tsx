@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { supabaseBrowser } from '@/lib/supabase/client';
+import { supabaseBrowser } from '@/utils/supabase/client';
 
 type AuthValue = {
   user: any | null;

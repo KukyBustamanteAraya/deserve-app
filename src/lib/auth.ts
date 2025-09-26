@@ -169,14 +169,17 @@ function createServerClient() {
   );
 }
 
-export async function requireUser(): Promise<User> {
+export async function requireUser(currentPath?: string): Promise<User> {
   const supabase = createServerClient();
 
   try {
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
-      redirect('/login');
+      const nextParam = currentPath && currentPath.startsWith('/')
+        ? `?next=${encodeURIComponent(currentPath)}`
+        : '';
+      redirect(`/login${nextParam}`);
     }
 
     // Fetch user profile from profiles table
@@ -188,12 +191,18 @@ export async function requireUser(): Promise<User> {
 
     if (profileError) {
       console.error('Profile not found for authenticated user:', profileError);
-      redirect('/login');
+      const nextParam = currentPath && currentPath.startsWith('/')
+        ? `?next=${encodeURIComponent(currentPath)}`
+        : '';
+      redirect(`/login${nextParam}`);
     }
 
     return profile;
   } catch (error) {
     console.error('Server auth error:', error);
-    redirect('/login');
+    const nextParam = currentPath && currentPath.startsWith('/')
+      ? `?next=${encodeURIComponent(currentPath)}`
+      : '';
+    redirect(`/login${nextParam}`);
   }
 }

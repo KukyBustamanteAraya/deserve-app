@@ -2,7 +2,7 @@
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
-export async function requireUser() {
+export async function requireUser(currentPath?: string) {
   const supabase = createSupabaseServerClient();
   const { data: { user }, error } = await supabase.auth.getUser();
 
@@ -14,7 +14,10 @@ export async function requireUser() {
 
   if (error || !user) {
     console.log('requireUser: Redirecting to login - no valid session');
-    redirect('/login');
+    const nextParam = currentPath && currentPath.startsWith('/')
+      ? `?next=${encodeURIComponent(currentPath)}`
+      : '';
+    redirect(`/login${nextParam}`);
   }
   return user; // auth-only
 }
