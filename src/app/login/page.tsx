@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import LoginForm from '@/app/components/LoginForm';
 import { useAuth } from '@/app/components/AuthProvider';
 
@@ -10,6 +10,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [redirecting, setRedirecting] = useState(false);
+  const searchParams = useSearchParams();
+  const loggedOut = searchParams.get("logout") === "1";
 
   // If already authenticated, bounce to dashboard
   useEffect(() => {
@@ -48,6 +50,11 @@ export default function LoginPage() {
   return (
     <main className="max-w-md mx-auto p-4">
       <h1 className="text-xl font-semibold mb-4">Iniciar Sesión</h1>
+      {loggedOut && (
+        <div role="status" aria-live="polite" className="rounded-md border px-3 py-2 text-sm mb-4 bg-green-50 border-green-200 text-green-800">
+          You've been signed out.
+        </div>
+      )}
       <LoginForm onSuccess={() => {
         setRedirecting(true);
         router.replace('/dashboard');
