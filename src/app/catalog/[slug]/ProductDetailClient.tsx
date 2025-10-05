@@ -3,26 +3,15 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { formatPrice, centsToCLP } from '@/lib/currency';
-import { CompactProductCard } from '@/components/catalog/ProductCard';
-import FabricSelector from '@/components/catalog/FabricSelector';
-import QuantitySlider from '@/components/catalog/QuantitySlider';
-import { TeamPricing } from '@/components/catalog/TeamPricing';
+import { formatPrice, centsToCLP, formatCLPInteger } from '@/lib/currency';
+import { CompactProductCard, FabricSelector, QuantitySlider, TeamPricing } from '@/components/catalog';
 import type { ProductDetail, ProductListItem } from '@/types/catalog';
 
 interface PricingResponse {
-  base_price_cents: number;
-  fabric_modifier_cents: number;
-  unit_price_cents: number;
-  total_price_cents: number;
-  savings_cents: number;
-  retail_price_cents: number;
-  tier: {
-    min_quantity: number;
-    max_quantity: number | null;
-    price_per_unit_cents: number;
-  };
-  currency: string;
+  unit_price: number;  // CLP integer
+  quantity: number;
+  total: number;       // CLP integer
+  discount_pct?: number;  // Optional bundle discount
 }
 
 interface ProductDetailClientProps {
@@ -56,22 +45,17 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
     setImageErrors(prev => new Set([...prev, imageId]));
   };
 
-  // Fetch pricing when quantity or fabric changes
+  // Fetch pricing when quantity changes
   useEffect(() => {
-    if (selectedFabricId) {
-      fetchPricing();
-    }
-  }, [quantity, selectedFabricId]);
+    fetchPricing();
+  }, [quantity]);
 
   const fetchPricing = async () => {
-    if (!selectedFabricId) return;
-
     setLoadingPrice(true);
     try {
       const params = new URLSearchParams({
-        product_id: product.id,
-        quantity: quantity.toString(),
-        fabric_id: selectedFabricId
+        productId: product.id.toString(),
+        quantity: quantity.toString()
       });
 
       const response = await fetch(`/api/pricing/calculate?${params}`);
@@ -173,30 +157,32 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
                 </div>
               ) : pricing ? (
                 <>
-                  <div className="flex items-baseline gap-3">
-                    <span className="text-3xl font-bold text-gray-900">
-                      {formatPrice({ cents: pricing.total_price_cents })}
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      ({formatPrice({ cents: pricing.unit_price_cents })} c/u)
-                    </span>
+                  {/* Unit Price - Prominent */}
+                  <div className="space-y-1">
+                    <div className="text-sm text-gray-600">Precio por unidad</div>
+                    <div className="text-4xl font-bold text-red-600">
+                      {formatCLPInteger(pricing.unit_price)}
+                    </div>
                   </div>
 
-                  {pricing.savings_cents > 0 && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="text-sm text-gray-500 line-through">
-                        {formatPrice({ cents: pricing.retail_price_cents * quantity })}
+                  {/* Total - Secondary */}
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">
+                        Total ({quantity} {quantity === 1 ? 'unidad' : 'unidades'})
                       </span>
-                      <span className="text-sm font-medium text-green-600">
-                        Ahorras {formatPrice({ cents: pricing.savings_cents })}
+                      <span className="text-xl font-semibold text-gray-900">
+                        {formatCLPInteger(pricing.total)}
                       </span>
                     </div>
-                  )}
+                  </div>
 
-                  {pricing.tier && (
-                    <div className="mt-2 text-xs text-gray-600">
-                      Precio por nivel: {pricing.tier.min_quantity}
-                      {pricing.tier.max_quantity ? `-${pricing.tier.max_quantity}` : '+'} unidades
+                  {/* Bundle Discount Badge */}
+                  {pricing.discount_pct && pricing.discount_pct > 0 && (
+                    <div className="mt-2">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        {pricing.discount_pct}% descuento por paquete
+                      </span>
                     </div>
                   )}
                 </>
