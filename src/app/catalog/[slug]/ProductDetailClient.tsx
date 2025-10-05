@@ -217,7 +217,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
 
             {/* Team Pricing Calculator */}
             <TeamPricing
-              productId={product.id}
+              productId={Number(product.id)}
               bundles={bundles}
             />
 

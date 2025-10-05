@@ -12,7 +12,7 @@ export interface PriceQuote {
 }
 
 interface UsePricingParams {
-  productId?: number;
+  productId?: number | string;
   quantity: number;
   bundleCode?: string;
 }
