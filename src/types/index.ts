@@ -1,6 +1,15 @@
-// Barrel export for all types
+// Barrel export for all types (conflict-safe)
 export * from './catalog';
-export * from './taxonomy';
+
+// Taxonomy: re-export explicitly, renaming Sport → TaxonomySport
+export type {
+  Sport as TaxonomySport,
+  ProductType,
+  Bundle,
+  FabricRecommendation,
+  FabricAlias,
+} from './taxonomy';
+
 export * from './roster';
 export * from './design';
 export * from './orders';
