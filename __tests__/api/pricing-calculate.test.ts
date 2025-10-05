@@ -5,7 +5,7 @@
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
-describe('GET /api/pricing/calculate', () => {
+describe('[integration] GET /api/pricing/calculate', () => {
   describe('Single Product Pricing (pricing_tiers_product + fallback)', () => {
     const testProductId = 18; // Using a known product ID
 
