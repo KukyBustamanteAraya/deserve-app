@@ -1,10 +1,10 @@
-# Pricing Calculator v2 - DB Tiers + Bundle Discounts (CLP)
+# Pricing Calculator v2 - Product-Based Tiers + Bundle Discounts (CLP)
 
 ## Overview
 
-The pricing calculator uses a DB-first approach with fallback to discount bands:
+The pricing calculator uses product-based tiers with fallback to discount bands:
 
-1. **DB Tiers First**: Queries `pricing_tiers` table for quantity-based pricing
+1. **Product-Based Tiers**: Queries `pricing_tiers_product` table for product-specific quantity pricing
 2. **Fallback Bands**: Uses hardcoded discount bands (0/5/10/15/20%) if no DB tier exists
 3. **Bundle Discounts**: Applies `discount_pct` from `bundles` table (MVP: applies to base product)
 4. **Currency**: All prices in CLP (integer pesos, zero decimals)
@@ -34,10 +34,11 @@ The pricing calculator uses a DB-first approach with fallback to discount bands:
 
 ### 1. Apply Migrations
 
-**pricing_tiers table** (optional - fallback works without it):
+**pricing_tiers_product table** (product-based tiers, optional - fallback works without it):
 ```sql
--- Apply migration 016_pricing_tiers.sql via Supabase dashboard
--- Then seed: npx tsx scripts/seed-pricing-tiers.ts
+-- Table should exist with columns:
+-- product_id BIGINT, min_quantity INT, max_quantity INT, unit_price INT
+-- Seed with product-specific pricing tiers
 ```
 
 **bundles.discount_pct column** (required for bundle pricing):
@@ -146,12 +147,12 @@ curl "http://localhost:3000/api/pricing/calculate?productId=18&quantity=25&bundl
 
 ## Migration Status
 
-- ✅ **pricing_tiers table**: Optional (fallback bands work without it)
+- ✅ **pricing_tiers_product table**: Product-based tiers (fallback bands work without it)
 - ⚠️ **bundles.discount_pct**: Required for bundle pricing (needs manual migration)
 
 ## Files Changed
 
-1. `src/app/api/pricing/calculate/route.ts` - Rewritten for DB-first + GET endpoint
-2. `supabase/migrations/017_bundles_discount_pct.sql` - New migration
-3. `__tests__/api/pricing-calculate.test.ts` - Updated for new API format
+1. `src/app/api/pricing/calculate/route.ts` - Uses pricing_tiers_product with fallback
+2. `supabase/migrations/017_bundles_discount_pct.sql` - Bundle discount column
+3. `__tests__/api/pricing-calculate.test.ts` - Updated tests for pricing_tiers_product
 4. `README_PRICING_V2.md` - This file

@@ -13,8 +13,18 @@ const DISCOUNT_BANDS = [
 /**
  * GET /api/pricing/calculate
  *
- * Calculate pricing for single product or bundle with quantity
- * Query params: productId, quantity, bundleCode (optional)
+ * Calculate pricing for products using product-based tiers
+ *
+ * Data sources (in order):
+ * 1. pricing_tiers_product (product-based tiers by quantity)
+ * 2. Fallback discount bands (0/5/10/15/20% at 1/10/25/50/100)
+ * 3. bundles.discount_pct (optional bundle discount)
+ *
+ * Query params:
+ * - productId (required): Product ID
+ * - quantity (required): Quantity (min: 1)
+ * - bundleCode (optional): Bundle code for additional discount
+ *
  * All prices in CLP (integer pesos, zero decimals)
  */
 export async function GET(request: NextRequest) {
@@ -89,7 +99,8 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Get unit price for a product using DB tiers first, then fallback to discount bands
+ * Get unit price for a product using pricing_tiers_product (product-based tiers)
+ * Falls back to discount bands if no tier found
  * Returns price in CLP (integer pesos)
  */
 async function getUnitPrice(
@@ -97,7 +108,7 @@ async function getUnitPrice(
   productId: number,
   quantity: number
 ): Promise<number | null> {
-  // Fetch product
+  // Fetch product base price
   const { data: product, error: productError } = await supabase
     .from('products')
     .select('id, price_cents, base_price_cents, retail_price_cents')
@@ -115,10 +126,10 @@ async function getUnitPrice(
     return null;
   }
 
-  // Try to get DB tier first
+  // Try to get product-based tier from pricing_tiers_product
   const { data: tiers } = await supabase
-    .from('pricing_tiers')
-    .select('price_per_unit_cents')
+    .from('pricing_tiers_product')
+    .select('unit_price')
     .eq('product_id', productId)
     .lte('min_quantity', quantity)
     .or(`max_quantity.is.null,max_quantity.gte.${quantity}`)
@@ -126,7 +137,7 @@ async function getUnitPrice(
     .limit(1);
 
   if (tiers && tiers.length > 0) {
-    return tiers[0].price_per_unit_cents;
+    return tiers[0].unit_price;
   }
 
   // Fallback to discount bands
