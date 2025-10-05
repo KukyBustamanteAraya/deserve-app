@@ -11,38 +11,25 @@ type AuthValue = {
 
 const AuthContext = createContext<AuthValue>({ user: null, loading: true });
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
+export function AuthProvider({
+  children,
+  initialUser
+}: {
+  children: React.ReactNode;
+  initialUser?: any | null;
+}) {
+  const [user, setUser] = useState<any | null>(initialUser ?? null);
+  const [loading, setLoading] = useState(false); // Not loading if seeded from server
 
   useEffect(() => {
     let mounted = true;
 
-    // Initial fetch with error handling
-    supabaseBrowser.auth.getUser().then(({ data, error }) => {
+    // Realtime subscription to auth state changes (no debounce needed with SSR seeding)
+    const { data: subscription } = supabaseBrowser.auth.onAuthStateChange((_event: any, session: any) => {
       if (!mounted) return;
 
-      if (error) {
-        console.log('Auth: Initial getUser error:', error.message);
-        setUser(null);
-      } else {
-        console.log('Auth: Initial user loaded:', data.user ? 'authenticated' : 'not authenticated');
-        setUser(data.user ?? null);
-      }
-      setLoading(false);
-    });
-
-    // Realtime subscription to auth state changes with debouncing
-    const { data: subscription } = supabaseBrowser.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return;
-
-      console.log('Auth: State change event:', event, session?.user ? 'user present' : 'no user');
-
-      // Debounce rapid auth state changes to prevent flickering
-      setTimeout(() => {
-        if (!mounted) return;
-        setUser(session?.user ?? null);
-      }, 50);
+      console.log('Auth: State change event:', _event, session?.user ? 'user present' : 'no user');
+      setUser(session?.user ?? null);
     });
 
     return () => {

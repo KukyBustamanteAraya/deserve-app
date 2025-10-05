@@ -1,29 +1,91 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-// import { useProductsBySport } from '../hooks/useProducts';
+import { useAuth } from '@/app/components/AuthProvider';
+import type { ProductListItem } from '@/types/catalog';
+
+interface Sport {
+  id: string;
+  slug: string;
+  name: string;
+}
 
 export default function Home() {
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
-  const [imageErrors, setImageErrors] = useState(new Set<number>());
+  const [imageErrors, setImageErrors] = useState(new Set<string>());
+  const [sports, setSports] = useState<Sport[]>([]);
+  const [products, setProducts] = useState<ProductListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data instead of Supabase
-  const productsBySport = {};
-  const loading = false;
-  const error = null;
+  const { user } = useAuth();
 
-  const handleImageError = (productId: number) => {
-    setImageErrors(prev => new Set([...prev, productId]));
+  // Fetch sports on mount
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    async function fetchSports() {
+      try {
+        const res = await fetch('/api/catalog/sports');
+        if (!res.ok) throw new Error('Failed to fetch sports');
+        const data = await res.json();
+        setSports(data.sports || []);
+      } catch (err: any) {
+        console.error('Error fetching sports:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchSports();
+  }, [user]);
+
+  // Fetch products when sport changes
+  useEffect(() => {
+    if (!user || !selectedSport) {
+      setProducts([]);
+      return;
+    }
+
+    async function fetchProducts() {
+      try {
+        const qs = new URLSearchParams();
+        if (selectedSport) qs.set('sport', selectedSport);
+        qs.set('limit', '8');
+
+        const res = await fetch(`/api/catalog/products?${qs.toString()}`);
+        if (!res.ok) throw new Error('Failed to fetch products');
+
+        const data = await res.json();
+        setProducts(data.items || []);
+      } catch (err: any) {
+        console.error('Error fetching products:', err);
+        setError(err.message);
+      }
+    }
+
+    fetchProducts();
+  }, [user, selectedSport]);
+
+  const handleImageError = (productId: string | number) => {
+    setImageErrors(prev => new Set([...prev, String(productId)]));
   };
 
-  const sports = [
-    { name: 'FÚTBOL', icon: '⚽', key: 'fútbol' },
-    { name: 'BÁSQUETBOL', icon: '🏀', key: 'básquetbol' },
-    { name: 'VOLEIBOL', icon: '🏐', key: 'voleibol' },
-    { name: 'RUGBY', icon: '🏉', key: 'rugby' },
-    { name: 'GOLF', icon: '⛳', key: 'golf' },
-    { name: 'EQUIPO', icon: '👥', key: 'equipo' }
-  ];
+  // Map sports to display with icons
+  const getSportIcon = (slug: string) => {
+    const iconMap: Record<string, string> = {
+      'soccer': '⚽',
+      'basketball': '🏀',
+      'volleyball': '🏐',
+      'rugby': '🏉',
+      'golf': '⛳'
+    };
+    return iconMap[slug] || '🏆';
+  };
 
   if (loading) {
     return (
@@ -64,36 +126,55 @@ export default function Home() {
           </p>
 
           {/* Sports Selection Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-16">
-            {sports.map((sport, index) => (
-              <button
-                key={index}
-                onClick={() => setSelectedSport(sport.name)}
-                className={`group relative bg-white border-2 rounded-xl p-6 hover:border-red-500 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${
-                  selectedSport === sport.name ? 'border-red-500 shadow-lg' : 'border-gray-200'
-                }`}
-              >
-                <div className="text-center">
-                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300">
-                    {sport.icon}
+          {user && sports.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-16">
+              {sports.map((sport) => (
+                <button
+                  key={sport.id}
+                  onClick={() => setSelectedSport(selectedSport === sport.slug ? null : sport.slug)}
+                  className={`group relative bg-white border-2 rounded-xl p-6 hover:border-red-500 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${
+                    selectedSport === sport.slug ? 'border-red-500 shadow-lg' : 'border-gray-200'
+                  }`}
+                >
+                  <div className="text-center">
+                    <div className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300">
+                      {getSportIcon(sport.slug)}
+                    </div>
+                    <h3 className={`text-lg font-semibold transition-colors duration-300 ${
+                      selectedSport === sport.slug ? 'text-red-600' : 'text-gray-800 group-hover:text-red-600'
+                    }`}>
+                      {sport.name.toUpperCase()}
+                    </h3>
                   </div>
-                  <h3 className={`text-lg font-semibold transition-colors duration-300 ${
-                    selectedSport === sport.name ? 'text-red-600' : 'text-gray-800 group-hover:text-red-600'
-                  }`}>
-                    {sport.name}
-                  </h3>
-                </div>
-              </button>
-            ))}
-          </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Login prompt for unauthenticated users */}
+          {!user && (
+            <div className="text-center py-8">
+              <p className="text-gray-600 mb-4">
+                Inicia sesión para ver nuestro catálogo de productos deportivos
+              </p>
+              <a
+                href="/login"
+                className="inline-block bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors duration-300"
+              >
+                Iniciar Sesión
+              </a>
+            </div>
+          )}
 
           {/* Products Grid - Shows when sport is selected */}
-          {selectedSport && (
+          {selectedSport && user && (
             <div className="w-full">
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-xl md:text-2xl font-black text-black font-montserrat">
                   <span className="text-[#e21c21]">PRODUCTOS DE</span>{' '}
-                  <span className="text-black">{selectedSport}</span>
+                  <span className="text-black">
+                    {sports.find(s => s.slug === selectedSport)?.name.toUpperCase() || selectedSport.toUpperCase()}
+                  </span>
                 </h2>
                 <button
                   onClick={() => setSelectedSport(null)}
@@ -103,11 +184,49 @@ export default function Home() {
                 </button>
               </div>
 
-              <div className="text-center py-8">
-                <p className="text-gray-500">
-                  Productos se cargarán cuando la base de datos esté conectada
-                </p>
-              </div>
+              {products.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {products.map((product) => (
+                    <div key={product.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
+                      {/* Product Image */}
+                      <div className="aspect-square relative bg-gray-100">
+                        {product.thumbnail_url && !imageErrors.has(String(product.id)) ? (
+                          <Image
+                            src={product.thumbnail_url}
+                            alt={product.thumbnail_alt || product.name}
+                            fill
+                            className="object-cover"
+                            onError={() => handleImageError(product.id)}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <span className="text-6xl">📦</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Product Info */}
+                      <div className="p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">{product.name}</h3>
+                        <div className="flex items-center justify-between">
+                          <span className="text-2xl font-bold text-red-600">
+                            ${((product.price_cents || 0) / 100).toFixed(2)}
+                          </span>
+                          <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-300 text-sm">
+                            Ver Detalles
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">
+                    No hay productos disponibles para este deporte en este momento.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>

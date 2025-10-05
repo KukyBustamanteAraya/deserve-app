@@ -16,6 +16,7 @@ export default function LoginPage() {
   // If already authenticated, bounce to dashboard
   useEffect(() => {
     if (!loading && user && !redirecting) {
+      console.log('[LoginPage] User detected, redirecting to dashboard...');
       setRedirecting(true);
       router.replace('/dashboard');
     }
@@ -56,8 +57,9 @@ export default function LoginPage() {
         </div>
       )}
       <LoginForm onSuccess={() => {
-        setRedirecting(true);
-        router.replace('/dashboard');
+        // Don't redirect immediately - let the useEffect handle it
+        // once the AuthProvider confirms the user state is updated
+        console.log('[LoginPage] Login successful, waiting for auth state...');
       }} />
     </main>
   );

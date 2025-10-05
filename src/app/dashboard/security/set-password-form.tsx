@@ -1,0 +1,135 @@
+"use client";
+import * as React from "react";
+import { supabaseBrowser } from "@/lib/supabase/client";
+
+type Props = { hasPassword: boolean };
+
+export default function SetPasswordForm({ hasPassword }: Props) {
+  const [pwd, setPwd] = React.useState("");
+  const [confirm, setConfirm] = React.useState("");
+  const [nonce, setNonce] = React.useState("");
+  const [step, setStep] = React.useState<"edit" | "need-otp" | "done">("edit");
+  const [loading, setLoading] = React.useState(false);
+  const [msg, setMsg] = React.useState<string | null>(null);
+  const [err, setErr] = React.useState<string | null>(null);
+
+  function validate() {
+    if (pwd !== confirm) return "Passwords do not match.";
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(pwd))
+      return "Use at least 8 chars with upper, lower, and a number.";
+    return null;
+  }
+
+  async function sendReauth() {
+    setErr(null); setMsg(null); setLoading(true);
+    try {
+      const res = await fetch("/api/account/password/reauth", {
+        method: "POST",
+      });
+
+      let data;
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await res.json();
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to send code.");
+      }
+
+      setMsg("We emailed you a 6-digit code. Enter it below to finish.");
+    } catch (e: any) {
+      setErr(e.message || "Error sending code.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null); setMsg(null);
+    const v = validate();
+    if (v) return setErr(v);
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/account/password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ newPassword: pwd, nonce: step === "need-otp" ? nonce : undefined }),
+      });
+
+      let data;
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          data = await res.json();
+        } catch (jsonError) {
+          if (!res.ok) {
+            throw new Error("Server error - please try again");
+          }
+        }
+      }
+
+      if (res.status === 412) {
+        setStep("need-otp");
+        await sendReauth();
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to update password.");
+      }
+
+      setStep("done");
+      setMsg(hasPassword ? "Password updated." : "Password created. You can now sign in with email + password.");
+      setPwd(""); setConfirm(""); setNonce("");
+    } catch (e: any) {
+      setErr(e.message || "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border p-4">
+      <h2 className="text-lg font-medium">{hasPassword ? "Change Password" : "Create Password"}</h2>
+
+      <div className="space-y-1">
+        <label className="block text-sm font-medium">New password</label>
+        <input type="password" value={pwd} onChange={e => setPwd(e.target.value)}
+               className="w-full rounded-lg border p-2" autoComplete="new-password" required />
+        <p className="text-xs text-muted-foreground">
+          At least 8 chars with upper, lower, and a number.
+        </p>
+      </div>
+
+      <div className="space-y-1">
+        <label className="block text-sm font-medium">Confirm new password</label>
+        <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
+               className="w-full rounded-lg border p-2" autoComplete="new-password" required />
+      </div>
+
+      {step === "need-otp" && (
+        <div className="space-y-1">
+          <label className="block text-sm font-medium">6-digit code</label>
+          <input inputMode="numeric" pattern="[0-9]*" maxLength={6}
+                 value={nonce} onChange={e => setNonce(e.target.value)}
+                 className="w-full rounded-lg border p-2" placeholder="Enter code" required />
+          <button type="button" className="text-sm underline" onClick={sendReauth} disabled={loading}>
+            Resend code
+          </button>
+        </div>
+      )}
+
+      <button type="submit" className="rounded-xl border px-4 py-2 disabled:opacity-50" disabled={loading}>
+        {loading ? "Saving..." : step === "need-otp" ? "Finish update" : (hasPassword ? "Update password" : "Create password")}
+      </button>
+
+      {msg && <p className="text-sm text-green-600">{msg}</p>}
+      {err && <p className="text-sm text-red-600">{err}</p>}
+    </form>
+  );
+}
