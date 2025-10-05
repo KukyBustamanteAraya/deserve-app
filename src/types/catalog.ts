@@ -90,12 +90,6 @@ export interface CatalogPreviewResponse {
 // Utility types
 export type SportSlug = 'soccer' | 'basketball' | 'volleyball' | 'rugby' | 'golf';
 
-export interface ApiResponse<T> {
-  data: T;
-  error?: string;
-  message?: string;
-}
-
 export interface ApiError {
   error: string;
   message?: string;

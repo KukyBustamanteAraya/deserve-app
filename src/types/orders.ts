@@ -93,13 +93,6 @@ export interface OrderDetailResponse {
   order: OrderWithItems;
 }
 
-// API Error response
-export interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-  message?: string;
-}
-
 // Validation schemas
 export const addToCartSchema = z.object({
   productId: z.string().uuid('Invalid product ID'),

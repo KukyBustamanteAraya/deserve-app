@@ -104,9 +104,3 @@ export interface CreateInviteResponse {
 
 // Utility types
 export type UserRole = 'customer' | 'admin';
-
-export interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-  message?: string;
-}
