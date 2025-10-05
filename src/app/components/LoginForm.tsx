@@ -17,6 +17,7 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [waitingForAuth, setWaitingForAuth] = useState(false);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const successRef = useRef<HTMLParagraphElement>(null);
 
@@ -67,14 +68,19 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
 
     try {
       if (mode === 'password') {
-        const { error } = await supabaseBrowser.auth.signInWithPassword({
+        console.log('[LoginForm] Attempting password sign-in...');
+        const { data, error } = await supabaseBrowser.auth.signInWithPassword({
           email: normalizedEmail,
           password
         });
         if (error) throw error;
-        setSuccessMsg('Logged in successfully.');
+        console.log('[LoginForm] Sign-in successful, session:', data.session ? 'present' : 'missing');
+        console.log('[LoginForm] User:', data.user ? data.user.email : 'missing');
         localStorage.setItem('auth:lastEmail', normalizedEmail);
-        onSuccess?.();
+
+        // Use server redirect to ensure cookies are set before rendering dashboard
+        window.location.assign('/auth/redirect?next=/dashboard');
+        return;
       } else {
         const { error } = await supabaseBrowser.auth.signInWithOtp({
           email: normalizedEmail,

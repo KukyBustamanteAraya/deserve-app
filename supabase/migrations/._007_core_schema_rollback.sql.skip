@@ -1,0 +1,105 @@
+-- Rollback Migration: 007_core_schema_rollback.sql
+-- Description: Rollback core schema - removes all tables, views, functions, and policies
+
+-- ============================================================================
+-- REVOKE GRANTS
+-- ============================================================================
+
+REVOKE EXECUTE ON FUNCTION public.get_or_create_active_cart() FROM authenticated;
+REVOKE SELECT ON public.carts_with_items FROM authenticated;
+REVOKE SELECT ON public.teams_with_details FROM authenticated;
+REVOKE SELECT, INSERT, UPDATE, DELETE ON public.cart_items FROM authenticated;
+REVOKE SELECT, INSERT, UPDATE ON public.carts FROM authenticated;
+REVOKE SELECT, INSERT, UPDATE ON public.orders FROM authenticated;
+REVOKE SELECT, INSERT, DELETE ON public.team_members FROM authenticated;
+REVOKE SELECT, INSERT, UPDATE, DELETE ON public.teams FROM authenticated;
+REVOKE SELECT ON public.sports FROM authenticated;
+REVOKE SELECT, INSERT, UPDATE, DELETE ON public.profiles FROM authenticated;
+
+-- ============================================================================
+-- DROP RLS POLICIES
+-- ============================================================================
+
+-- Cart items policies
+DROP POLICY IF EXISTS "Users can delete own cart items" ON public.cart_items;
+DROP POLICY IF EXISTS "Users can update own cart items" ON public.cart_items;
+DROP POLICY IF EXISTS "Users can add items to own cart" ON public.cart_items;
+DROP POLICY IF EXISTS "Users can view own cart items" ON public.cart_items;
+
+-- Carts policies
+DROP POLICY IF EXISTS "Users can update own carts" ON public.carts;
+DROP POLICY IF EXISTS "Users can create own carts" ON public.carts;
+DROP POLICY IF EXISTS "Users can view own carts" ON public.carts;
+
+-- Orders policies
+DROP POLICY IF EXISTS "Users can update own orders" ON public.orders;
+DROP POLICY IF EXISTS "Users can create own orders" ON public.orders;
+DROP POLICY IF EXISTS "Users can view own orders" ON public.orders;
+
+-- Team members policies
+DROP POLICY IF EXISTS "Users can leave teams" ON public.team_members;
+DROP POLICY IF EXISTS "Team members can join teams" ON public.team_members;
+DROP POLICY IF EXISTS "Authenticated users can view team members" ON public.team_members;
+
+-- Teams policies
+DROP POLICY IF EXISTS "Team creators can delete their teams" ON public.teams;
+DROP POLICY IF EXISTS "Team creators can update their teams" ON public.teams;
+DROP POLICY IF EXISTS "Authenticated users can create teams" ON public.teams;
+DROP POLICY IF EXISTS "Authenticated users can view teams" ON public.teams;
+
+-- Sports policies
+DROP POLICY IF EXISTS "Authenticated users can view sports" ON public.sports;
+
+-- Profiles policies
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view all profiles" ON public.profiles;
+
+-- ============================================================================
+-- DISABLE RLS
+-- ============================================================================
+
+ALTER TABLE public.cart_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.carts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.team_members DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.teams DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sports DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
+-- DROP TRIGGERS
+-- ============================================================================
+
+DROP TRIGGER IF EXISTS cart_items_updated_at ON public.cart_items;
+DROP TRIGGER IF EXISTS carts_updated_at ON public.carts;
+DROP TRIGGER IF EXISTS orders_updated_at ON public.orders;
+DROP TRIGGER IF EXISTS teams_updated_at ON public.teams;
+DROP TRIGGER IF EXISTS sports_updated_at ON public.sports;
+DROP TRIGGER IF EXISTS profiles_updated_at ON public.profiles;
+
+-- ============================================================================
+-- DROP FUNCTIONS
+-- ============================================================================
+
+DROP FUNCTION IF EXISTS public.get_or_create_active_cart();
+DROP FUNCTION IF EXISTS public.handle_updated_at();
+
+-- ============================================================================
+-- DROP VIEWS
+-- ============================================================================
+
+DROP VIEW IF EXISTS public.carts_with_items;
+DROP VIEW IF EXISTS public.teams_with_details;
+
+-- ============================================================================
+-- DROP TABLES (in reverse order of dependencies)
+-- ============================================================================
+
+DROP TABLE IF EXISTS public.cart_items;
+DROP TABLE IF EXISTS public.carts;
+DROP TABLE IF EXISTS public.orders;
+DROP TABLE IF EXISTS public.team_members;
+DROP TABLE IF EXISTS public.teams;
+DROP TABLE IF EXISTS public.sports;
+DROP TABLE IF EXISTS public.profiles;

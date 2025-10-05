@@ -12,7 +12,7 @@ interface Bundle {
 }
 
 interface TeamPricingProps {
-  productId: number;
+  productId: number | string;
   bundles?: Bundle[];
 }
 

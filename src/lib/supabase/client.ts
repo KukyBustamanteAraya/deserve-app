@@ -1,22 +1,33 @@
 // src/lib/supabase/client.ts
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+'use client';
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { createBrowserClient } from '@supabase/ssr';
 
-// Dev-only guard to catch misconfig early
-if (process.env.NODE_ENV !== 'production') {
+let _client: ReturnType<typeof createBrowserClient> | null = null;
+
+export function getBrowserClient() {
+  if (_client) return _client;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
   if (!url || !anon) {
-    throw new Error(
-      'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. Check .env.local/.env.example.'
-    );
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY');
   }
+
+  _client = createBrowserClient(url, anon);
+  return _client;
 }
 
-// Export a single browser client instance
-export const supabaseBrowser = createSupabaseClient(url, anon);
+// Backward compatibility - deprecated, use getBrowserClient() instead
+export const supabaseBrowser = new Proxy({} as any, {
+  get: (_, prop) => {
+    const client = getBrowserClient();
+    return client[prop as keyof typeof client];
+  }
+});
 
-// Maintain compatibility with existing imports
+// Legacy export for compatibility
 export function createClient() {
-  return supabaseBrowser;
+  return getBrowserClient();
 }

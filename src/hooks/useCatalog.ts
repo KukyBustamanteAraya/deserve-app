@@ -1,7 +1,8 @@
 // src/hooks/useCatalog.ts
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/app/components/AuthProvider';
-import type { CatalogPreviewResponse, ApiResponse, SportSlug } from '@/types/catalog';
+import type { CatalogPreviewResponse, SportSlug } from '@/types/catalog';
+import type { ApiResponse } from '@/types/api';
 
 interface UseCatalogOptions {
   sport?: SportSlug | string | null;

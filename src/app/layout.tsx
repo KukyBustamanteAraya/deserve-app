@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import "./globals.css";
-import { AuthProvider } from '@/app/components/AuthProvider';
+import Providers from './providers';
 import Header from '@/app/components/Header';
+import SessionHydration from '@/app/components/SessionHydration';
 
 export const metadata: Metadata = {
   title: "Deserve App",
@@ -13,18 +16,34 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name: string) => cookieStore.get(name)?.value,
+        set: () => {},
+        remove: () => {},
+      },
+    }
+  );
+  const { data } = await supabase.auth.getUser();
+  const initialUser = data.user ?? null;
+
   return (
     <html lang="en">
       <body className="antialiased font-montserrat">
-        <AuthProvider>
+        <Providers initialUser={initialUser}>
+          <SessionHydration />
           <Header />
           {children}
-        </AuthProvider>
+        </Providers>
       </body>
     </html>
   );

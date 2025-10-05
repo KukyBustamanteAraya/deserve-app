@@ -39,9 +39,6 @@
     ".next",
     "dist",
     "**/*.off.ts",
-    "**/*.off.tsx",
-    "src/lib/auth.ts",
-    "src/lib/setupSupabase.ts",
-    "src/components/SupabaseSetup.tsx"
+    "**/*.off.tsx"
   ]
 }
