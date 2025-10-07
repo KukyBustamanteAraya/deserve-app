@@ -2,7 +2,7 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
-import { ProductDetailClient } from './ProductDetailClient';
+import { ProductDetailClientSimplified } from './ProductDetailClientSimplified';
 import type { ProductDetail } from '@/types/catalog';
 
 export const dynamic = 'force-dynamic'; // Force dynamic rendering to use cookies()
@@ -24,6 +24,7 @@ async function getProduct(slug: string): Promise<ProductDetail | null> {
         price_cents,
         base_price_cents,
         retail_price_cents,
+        product_type_slug,
         status,
         created_at,
         updated_at,
@@ -69,6 +70,7 @@ async function getProduct(slug: string): Promise<ProductDetail | null> {
       retail_price_cents: product.retail_price_cents ?? null,
       display_price_cents,
       active: product.status === 'active',
+      product_type_slug: product.product_type_slug ?? null,
       created_at: product.created_at,
       updated_at: product.updated_at,
       sport_slug: (product.sports as any)?.slug || '',
@@ -179,34 +181,10 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const relatedProducts = await getRelatedProducts(product.sport_id, product.id);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Breadcrumb */}
-        <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-8">
-          <Link
-            href="/catalog"
-            className="hover:text-red-600 transition-colors duration-200"
-          >
-            Catálogo
-          </Link>
-          <span>›</span>
-          <Link
-            href={`/catalog?sport=${product.sport_slug}`}
-            className="hover:text-red-600 transition-colors duration-200"
-          >
-            {product.sport_name}
-          </Link>
-          <span>›</span>
-          <span className="text-gray-900 font-medium">{product.name}</span>
-        </nav>
-
-        {/* Product Detail */}
-        <ProductDetailClient
-          product={product}
-          relatedProducts={relatedProducts}
-        />
-      </div>
-    </div>
+    <ProductDetailClientSimplified
+      product={product}
+      relatedProducts={relatedProducts}
+    />
   );
 }
 

@@ -142,39 +142,24 @@ export function CatalogClient({ sports, initialProducts, initialSport }: Catalog
 
   return (
     <div className="space-y-8">
-      {/* Sport Filter */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Filtrar por deporte
-        </h2>
-        <SportFilterWithIcons
-          sports={sports}
-          activeSlug={activeSport}
-          onChange={handleSportChange}
-          showIcons={true}
-        />
-      </div>
-
-      {/* Results Summary */}
+      {/* Sport Title - No filter dropdown */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-2xl font-bold text-gray-900">
             {activeSport
-              ? `Productos de ${sports.find(s => s.slug === activeSport)?.name || activeSport}`
+              ? `${sports.find(s => s.slug === activeSport)?.name || activeSport}`
               : 'Todos los productos'
             }
           </h2>
           {!loading && (
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-600 mt-2">
               {products?.total && products.total > 0
-                ? `${products.items.length} de ${products.total} productos`
+                ? `${products.items.length} de ${products.total} diseños disponibles`
                 : 'No hay productos disponibles'
               }
             </p>
           )}
         </div>
-
-        {/* View toggle could go here in the future */}
       </div>
 
       {/* Products Grid */}

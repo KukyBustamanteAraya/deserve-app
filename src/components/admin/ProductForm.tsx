@@ -14,11 +14,7 @@ interface ProductFormData {
   sport_id: string;
   category: string;
   name: string;
-  slug: string;
-  description: string;
-  price_cents: number;
   status: string;
-  tags: string[];
 }
 
 interface ImageData {
@@ -33,12 +29,16 @@ interface ProductFormProps {
   mode: 'create' | 'edit';
 }
 
+// Map user-friendly labels to database constraint-allowed values
+// The DB constraint only allows: 'camiseta', 'poleron', 'medias', 'chaqueta'
+// We'll set product_type_slug separately to the correct English values
 const CATEGORIES = [
-  { value: 'camiseta', label: 'Camiseta (Jersey)' },
-  { value: 'shorts', label: 'Shorts' },
-  { value: 'poleron', label: 'Poleron (Hoodie)' },
-  { value: 'medias', label: 'Medias (Socks)' },
-  { value: 'chaqueta', label: 'Chaqueta (Jacket)' },
+  { value: 'camiseta', label: 'Jersey (Camiseta)', typeSlug: 'jersey' },
+  { value: 'short', label: 'Shorts', typeSlug: 'shorts' },
+  { value: 'medias', label: 'Socks (Calcetines)', typeSlug: 'socks' },
+  { value: 'chaqueta', label: 'Jacket (Chaqueta)', typeSlug: 'jacket' },
+  { value: 'pantalon', label: 'Pants (Pantalón)', typeSlug: 'pants' },
+  { value: 'bolso', label: 'Duffle Bag (Bolso)', typeSlug: 'bag' },
 ];
 
 const STATUSES = [
@@ -54,20 +54,9 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
     sport_id: initialData?.sport_id || '',
     category: initialData?.category || '',
     name: initialData?.name || '',
-    slug: initialData?.slug || '',
-    description: initialData?.description || '',
-    price_cents: initialData?.price_cents || 0,
     status: initialData?.status || 'draft',
-    tags: initialData?.tags || [],
   });
-  const [priceDisplay, setPriceDisplay] = useState<string>(
-    initialData?.price_cents ? String(initialData.price_cents / 100) : ''
-  );
-  const [tagsInput, setTagsInput] = useState<string>(
-    initialData?.tags?.join(', ') || ''
-  );
   const [imageData, setImageData] = useState<ImageData | null>(null);
-  const [autoSlug, setAutoSlug] = useState(mode === 'create');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -79,37 +68,13 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
         const response = await fetch('/api/sports');
         if (!response.ok) throw new Error('Failed to fetch sports');
         const data = await response.json();
-        setSports(data.sports || []);
+        setSports(data.data?.items || []);
       } catch (err: any) {
         console.error('Error fetching sports:', err);
       }
     }
     fetchSports();
   }, []);
-
-  // Auto-generate slug from name
-  useEffect(() => {
-    if (autoSlug && formData.name) {
-      setFormData((prev) => ({ ...prev, slug: slugify(formData.name) }));
-    }
-  }, [formData.name, autoSlug]);
-
-  // Update price cents when display changes
-  useEffect(() => {
-    const parsed = parseFloat(priceDisplay);
-    if (!isNaN(parsed)) {
-      setFormData((prev) => ({ ...prev, price_cents: Math.round(parsed * 100) }));
-    }
-  }, [priceDisplay]);
-
-  // Update tags array when input changes
-  useEffect(() => {
-    const tags = tagsInput
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter((tag) => tag.length > 0);
-    setFormData((prev) => ({ ...prev, tags }));
-  }, [tagsInput]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,9 +83,12 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
 
     try {
       // Validation
-      if (!formData.sport_id || !formData.category || !formData.name || formData.price_cents <= 0) {
+      if (!formData.sport_id || !formData.category || !formData.name) {
         throw new Error('Please fill in all required fields');
       }
+
+      // Auto-generate slug from name
+      const slug = slugify(formData.name);
 
       // Active status validation for create mode
       if (formData.status === 'active' && mode === 'create') {
@@ -134,16 +102,18 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
         }
       }
 
+      // Get the typeSlug from the selected category
+      const selectedCategory = CATEGORIES.find(cat => cat.value === formData.category);
+      const typeSlug = selectedCategory?.typeSlug || formData.category;
+
       // Prepare payload
       const payload: any = {
         sport_id: formData.sport_id,
-        category: formData.category,
+        category: formData.category, // Old DB-allowed value (e.g., 'camiseta')
         name: formData.name,
-        slug: formData.slug,
-        description: formData.description || null,
-        price_cents: formData.price_cents,
+        slug,
         status: formData.status,
-        tags: formData.tags,
+        product_type_slug: typeSlug, // Correct English value (e.g., 'jersey')
       };
 
       // Include image data and temp folder ID for creation
@@ -275,87 +245,11 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             className="w-full border rounded px-3 py-2"
-            placeholder="e.g., Soccer Jersey Home"
+            placeholder="e.g., Momentum, Elevate, Impact"
             required
           />
-        </div>
-
-        {/* Slug */}
-        <div>
-          <label className="flex items-center gap-2 text-sm font-medium mb-1">
-            URL Slug <span className="text-red-500">*</span>
-            <label className="flex items-center gap-1 text-xs font-normal text-gray-600">
-              <input
-                type="checkbox"
-                checked={autoSlug}
-                onChange={(e) => setAutoSlug(e.target.checked)}
-              />
-              Auto-generate
-            </label>
-          </label>
-          <input
-            type="text"
-            value={formData.slug}
-            onChange={(e) => {
-              setAutoSlug(false);
-              setFormData({ ...formData, slug: e.target.value });
-            }}
-            className="w-full border rounded px-3 py-2"
-            placeholder="e.g., soccer-jersey-home"
-            required
-            disabled={autoSlug}
-          />
           <p className="text-xs text-gray-500 mt-1">
-            Preview: /products/{formData.slug || 'your-slug'}
-          </p>
-        </div>
-
-        {/* Description */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Description</label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full border rounded px-3 py-2 h-24"
-            placeholder="Brief description of the product..."
-          />
-        </div>
-
-        {/* Price */}
-        <div>
-          <label className="block text-sm font-medium mb-1">
-            Price (CLP) <span className="text-red-500">*</span>
-          </label>
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-medium">$</span>
-            <input
-              type="number"
-              value={priceDisplay}
-              onChange={(e) => setPriceDisplay(e.target.value)}
-              className="w-full border rounded px-3 py-2"
-              placeholder="45000"
-              min="0"
-              step="100"
-              required
-            />
-          </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Stored as: {formData.price_cents} cents
-          </p>
-        </div>
-
-        {/* Tags */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Tags</label>
-          <input
-            type="text"
-            value={tagsInput}
-            onChange={(e) => setTagsInput(e.target.value)}
-            className="w-full border rounded px-3 py-2"
-            placeholder="soccer, jersey, home (comma-separated)"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            {formData.tags.length > 0 ? `Tags: ${formData.tags.join(', ')}` : 'No tags'}
+            Pricing is determined by the component type (category) selected above
           </p>
         </div>
       </div>

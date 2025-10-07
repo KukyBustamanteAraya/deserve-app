@@ -9,10 +9,10 @@ export default async function TeamDetailPage({ params }: { params: { teamId: str
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login?next=/dashboard/team');
 
-  // Fetch team details
+  // Fetch team details to check ownership
   const { data: team, error } = await supabase
     .from('teams')
-    .select('id, name, created_at, created_by, sports(name, slug)')
+    .select('id, owner_id, created_by')
     .eq('id', params.teamId)
     .single();
 
@@ -20,8 +20,16 @@ export default async function TeamDetailPage({ params }: { params: { teamId: str
     notFound();
   }
 
-  // Check if user is the owner
-  const isOwner = team.created_by === user.id;
+  // Check if user is the owner - if so, redirect to unified team page
+  const isOwner = team.owner_id === user.id || team.created_by === user.id;
+
+  if (isOwner) {
+    // Redirect to the new unified team page
+    redirect('/mi-equipo');
+  }
+
+  // If not owner, show error or redirect to team list
+  redirect('/dashboard/team');
 
   // Fetch team members from team_members table with profile data
   const { data: memberData } = await supabase

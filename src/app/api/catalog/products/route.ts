@@ -54,38 +54,43 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Normalize and validate price_cents (accept string or number)
-    const cents = Number(body.price_cents ?? body.price ?? 0);
-    if (!Number.isFinite(cents) || cents < 0) {
-      return NextResponse.json(
-        { error: 'Invalid price: must be a non-negative number' },
-        { status: 400 }
-      );
-    }
-
-    // Extract fields, explicitly excluding 'price' to avoid sending null to DB
+    // Extract fields
     const {
-      price,           // eslint-disable-line @typescript-eslint/no-unused-vars
-      price_cents,     // eslint-disable-line @typescript-eslint/no-unused-vars
       sport_id,
       category,
       name,
       slug,
-      description,
       status: productStatus,
-      tags,
       imageData,
       hero_path,
-      tempImageFolder
+      tempImageFolder,
+      product_type_slug
     } = body;
 
     // Validate required fields
     if (!sport_id || !category || !name) {
       return NextResponse.json(
-        { error: 'Missing required fields: sport_id, category, name, price_cents' },
+        { error: 'Missing required fields: sport_id, category, name' },
         { status: 400 }
       );
     }
+
+    // Get price from component_pricing table based on category/product_type_slug
+    const typeSlug = product_type_slug || category;
+    const { data: componentPricing } = await supabase
+      .from('component_pricing')
+      .select('base_price_cents')
+      .eq('component_type_slug', typeSlug)
+      .single();
+
+    if (!componentPricing) {
+      return NextResponse.json(
+        { error: `No pricing found for product type: ${typeSlug}` },
+        { status: 400 }
+      );
+    }
+
+    const price_cents = componentPricing.base_price_cents;
 
     // Validate hero_path for active products
     if (productStatus === 'active' && !hero_path) {
@@ -109,21 +114,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build insert payload - only include price_cents (integer), NOT price
-    // The DB trigger will populate the price column from price_cents
-    // IMPORTANT: Include hero_path (temp) to satisfy products_active_needs_hero constraint
+    // Build insert payload
+    // Price is determined from component_pricing table
     const insertPayload: any = {
       sport_id,
       category,
       name,
       slug,
-      description: description || null,
-      price_cents: Math.round(cents), // Ensure integer
+      product_type_slug: typeSlug,
+      price_cents: price_cents,
+      retail_price_cents: price_cents,
+      base_price_cents: price_cents,
       status: productStatus || 'draft',
-      tags: tags || [],
       created_by: user.id,
-      hero_path: hero_path ?? null  // Include temp path for active products
-      // Do NOT include 'price' key - DB trigger handles it
+      hero_path: hero_path ?? null
     };
 
     // Insert product with temp hero_path (satisfies constraint for active status)

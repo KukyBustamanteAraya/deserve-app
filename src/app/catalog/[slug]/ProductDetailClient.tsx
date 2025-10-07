@@ -14,6 +14,29 @@ interface PricingResponse {
   discount_pct?: number;  // Optional bundle discount
 }
 
+interface ComponentPricing {
+  type_slug: string;
+  type_name: string;
+  qty: number;
+  original_unit_price: number;
+  unit_price: number;
+  subtotal: number;
+}
+
+interface BundlePricingResponse {
+  bundle_code: string;
+  bundle_name: string;
+  quantity: number;
+  components: ComponentPricing[];
+  original_total: number;
+  quantity_discount_pct: number;
+  quantity_discount_amount: number;
+  subtotal_after_quantity_discount: number;
+  bundle_discount_pct: number;
+  bundle_discount_amount: number;
+  total: number;
+}
+
 interface ProductDetailClientProps {
   product: ProductDetail;
   relatedProducts: ProductListItem[];
@@ -26,8 +49,32 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
   const [fabricModifier, setFabricModifier] = useState<number>(0);
   const [quantity, setQuantity] = useState<number>(1);
   const [pricing, setPricing] = useState<PricingResponse | null>(null);
+  const [bundlePricing, setBundlePricing] = useState<BundlePricingResponse | null>(null);
   const [loadingPrice, setLoadingPrice] = useState(false);
   const [bundles, setBundles] = useState<any[]>([]);
+  const [selectedBundleCode, setSelectedBundleCode] = useState<string | null>(null);
+  const [priceOpacity, setPriceOpacity] = useState(1);
+  const [addingToCart, setAddingToCart] = useState(false);
+
+  // Helper to determine pricing tier
+  const getPricingTier = (qty: number) => {
+    if (qty >= 100) return 100;
+    if (qty >= 50) return 50;
+    if (qty >= 25) return 25;
+    if (qty >= 10) return 10;
+    if (qty >= 5) return 5;
+    return 1;
+  };
+
+  // Helper to get discount info for quantity
+  const getDiscountInfo = (qty: number) => {
+    if (qty >= 100) return { discount: 57.5, min: 100, max: null };
+    if (qty >= 50) return { discount: 55, min: 50, max: 99 };
+    if (qty >= 25) return { discount: 52.5, min: 25, max: 49 };
+    if (qty >= 10) return { discount: 50, min: 10, max: 24 };
+    if (qty >= 5) return { discount: 25, min: 5, max: 9 };
+    return null;
+  };
 
   // Fetch bundles on mount
   useEffect(() => {
@@ -45,34 +92,154 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
     setImageErrors(prev => new Set([...prev, imageId]));
   };
 
-  // Fetch pricing when quantity changes
+  // Track the current pricing tier to avoid unnecessary API calls
+  const [currentTier, setCurrentTier] = useState<number>(1);
+  const [prevFabricModifier, setPrevFabricModifier] = useState<number>(0);
+  const [prevBundleCode, setPrevBundleCode] = useState<string | null>(null);
+
+  // Fetch pricing when crossing tier boundaries, fabric, or bundle changes
   useEffect(() => {
-    fetchPricing();
-  }, [quantity]);
+    const newTier = getPricingTier(quantity);
+
+    // Only fetch if tier changed, or if fabric/bundle changed
+    const tierChanged = newTier !== currentTier;
+    const fabricChanged = fabricModifier !== prevFabricModifier;
+    const bundleChanged = selectedBundleCode !== prevBundleCode;
+
+    if (tierChanged || fabricChanged || bundleChanged) {
+      setCurrentTier(newTier);
+      setPrevFabricModifier(fabricModifier);
+      setPrevBundleCode(selectedBundleCode);
+      fetchPricing();
+    }
+  }, [quantity, fabricModifier, selectedBundleCode]);
 
   const fetchPricing = async () => {
+    // Fade out
+    setPriceOpacity(0);
     setLoadingPrice(true);
+
     try {
-      const params = new URLSearchParams({
-        productId: product.id.toString(),
-        quantity: quantity.toString()
-      });
+      // If bundle is selected, fetch bundle pricing
+      if (selectedBundleCode) {
+        const params = new URLSearchParams({
+          bundleCode: selectedBundleCode,
+          quantity: quantity.toString(),
+          fabricModifier: fabricModifier.toString(),
+          sportSlug: product.sport_slug
+        });
 
-      const response = await fetch(`/api/pricing/calculate?${params}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch pricing');
+        console.log('Fetching bundle pricing with params:', {
+          bundleCode: selectedBundleCode,
+          quantity,
+          fabricModifier,
+          sportSlug: product.sport_slug
+        });
+
+        const response = await fetch(`/api/pricing/bundle?${params}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch bundle pricing');
+        }
+
+        const data = await response.json();
+        console.log('Bundle pricing response:', data);
+
+        // Wait for fade out to complete before updating
+        await new Promise(resolve => setTimeout(resolve, 250));
+        setBundlePricing(data);
+        setPricing(null);
+
+        // Fade in
+        setTimeout(() => setPriceOpacity(1), 50);
+      } else {
+        // Single product pricing
+        const params = new URLSearchParams({
+          productId: product.id.toString(),
+          quantity: quantity.toString()
+        });
+
+        const response = await fetch(`/api/pricing/calculate?${params}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch pricing');
+        }
+
+        const data = await response.json();
+
+        // Apply fabric modifier to unit price
+        const unitPriceWithFabric = data.unit_price + fabricModifier;
+        const totalWithFabric = unitPriceWithFabric * quantity;
+
+        console.log('Single product pricing:', {
+          baseUnitPrice: data.unit_price,
+          fabricModifier,
+          unitPriceWithFabric,
+          quantity,
+          totalWithFabric
+        });
+
+        // Wait for fade out to complete before updating
+        await new Promise(resolve => setTimeout(resolve, 250));
+        setPricing({
+          ...data,
+          unit_price: unitPriceWithFabric,
+          total: totalWithFabric
+        });
+        setBundlePricing(null);
+
+        // Fade in
+        setTimeout(() => setPriceOpacity(1), 50);
       }
-
-      const data = await response.json();
-      setPricing(data);
     } catch (error) {
       console.error('Pricing error:', error);
+      setPriceOpacity(1);
     } finally {
       setLoadingPrice(false);
     }
   };
 
+  const handleAddToCart = async () => {
+    if (!selectedFabricId) {
+      alert('Por favor selecciona una tela primero');
+      return;
+    }
+
+    setAddingToCart(true);
+
+    try {
+      const response = await fetch('/api/cart/items', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: Number(product.id),
+          quantity: quantity,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Redirect to login
+          window.location.href = `/login?redirect=/catalog/${product.slug}`;
+          return;
+        }
+        throw new Error(data.error || 'Error al agregar al carrito');
+      }
+
+      // Success - redirect to cart
+      window.location.href = '/cart';
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      alert(error instanceof Error ? error.message : 'Error al agregar al carrito');
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
   const handleFabricChange = (fabricId: string, priceModifier: number) => {
+    console.log('Fabric changed:', { fabricId, priceModifier });
     setSelectedFabricId(fabricId);
     setFabricModifier(priceModifier);
   };
@@ -149,46 +316,146 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
             </div>
 
             {/* Dynamic Price */}
-            <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="bg-gray-50 p-4 rounded-lg min-h-[140px] flex flex-col justify-center">
               {loadingPrice ? (
                 <div className="animate-pulse">
                   <div className="h-8 bg-gray-200 rounded w-32 mb-2"></div>
                   <div className="h-4 bg-gray-200 rounded w-24"></div>
                 </div>
-              ) : pricing ? (
-                <>
-                  {/* Unit Price - Prominent */}
+              ) : bundlePricing ? (
+                <div
+                  className="transition-opacity duration-500 ease-in-out"
+                  style={{ opacity: priceOpacity }}
+                >
+                  {/* Bundle Pricing - Itemized */}
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold text-gray-900 mb-3">
+                      {bundlePricing.bundle_name} ({quantity} {quantity === 1 ? 'set' : 'sets'})
+                    </div>
+
+                    {/* Component breakdown with discounted prices */}
+                    {bundlePricing.components.map((comp, idx) => (
+                      <div key={idx} className="space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-700">
+                            {comp.qty}x {comp.type_name}
+                          </span>
+                          <span className="font-medium text-gray-900">
+                            {centsToCLP(comp.unit_price)} c/u
+                          </span>
+                        </div>
+                        {/* Show strikethrough original price if there's a discount */}
+                        {bundlePricing.quantity_discount_pct > 0 && (
+                          <div className="flex justify-end text-xs text-gray-500">
+                            <span className="line-through">{centsToCLP(comp.original_unit_price)} c/u</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Subtotal at original prices */}
+                    <div className="flex justify-between text-sm pt-2 border-t border-gray-200 mt-2">
+                      <span className="text-gray-600">Subtotal</span>
+                      <span className="text-gray-900">{centsToCLP(bundlePricing.original_total)}</span>
+                    </div>
+
+                    {/* Quantity discount */}
+                    {bundlePricing.quantity_discount_pct > 0 && (
+                      <div className="flex justify-between text-sm mt-2">
+                        <span className="text-green-700 font-medium">
+                          Descuento por cantidad ({bundlePricing.quantity_discount_pct}%)
+                        </span>
+                        <span className="text-green-700 font-medium">
+                          -{centsToCLP(bundlePricing.quantity_discount_amount)}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Subtotal after quantity discount */}
+                    {bundlePricing.quantity_discount_pct > 0 && (
+                      <div className="flex justify-between text-sm mt-1">
+                        <span className="text-gray-600">Subtotal con descuento</span>
+                        <span className="text-gray-900">{centsToCLP(bundlePricing.subtotal_after_quantity_discount)}</span>
+                      </div>
+                    )}
+
+                    {/* Bundle discount */}
+                    {bundlePricing.bundle_discount_pct > 0 && (
+                      <div className="flex justify-between text-sm mt-2 pt-2 border-t border-gray-200">
+                        <span className="text-green-700 font-medium">
+                          Descuento paquete ({bundlePricing.bundle_discount_pct}%)
+                        </span>
+                        <span className="text-green-700 font-medium">
+                          -{centsToCLP(bundlePricing.bundle_discount_amount)}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Total savings summary */}
+                    {(bundlePricing.bundle_discount_pct > 0 || bundlePricing.quantity_discount_pct > 0) && (
+                      <div className="mt-2 p-2 bg-green-50 rounded-md">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-semibold text-green-800">
+                            Ahorras en total
+                          </span>
+                          <span className="text-lg font-bold text-green-700">
+                            {centsToCLP(bundlePricing.original_total - bundlePricing.total)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Total */}
+                    <div className="mt-3 pt-3 border-t-2 border-gray-300">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-semibold text-gray-900">
+                          Total
+                        </span>
+                        <span className="text-3xl font-bold text-red-600">
+                          {centsToCLP(bundlePricing.total)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="transition-opacity duration-500 ease-in-out"
+                  style={{ opacity: priceOpacity }}
+                >
+                  {/* Price Display - Always shows consistently */}
                   <div className="space-y-1">
                     <div className="text-sm text-gray-600">Precio por unidad</div>
                     <div className="text-4xl font-bold text-red-600">
-                      {formatCLPInteger(pricing.unit_price)}
+                      {pricing ? centsToCLP(pricing.unit_price) : centsToCLP(product.price_cents ?? 0)}
                     </div>
+
+                    {/* Quantity Discount Notice */}
+                    {(() => {
+                      const discountInfo = getDiscountInfo(quantity);
+                      if (discountInfo) {
+                        return (
+                          <p className="text-xs text-green-700 mt-1.5 font-medium">
+                            {discountInfo.discount}% descuento por ordenar {discountInfo.min}
+                            {discountInfo.max ? `-${discountInfo.max}` : '+'} unidades
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
 
-                  {/* Total - Secondary */}
+                  {/* Total */}
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">
                         Total ({quantity} {quantity === 1 ? 'unidad' : 'unidades'})
                       </span>
                       <span className="text-xl font-semibold text-gray-900">
-                        {formatCLPInteger(pricing.total)}
+                        {pricing ? centsToCLP(pricing.total) : centsToCLP((product.price_cents ?? 0) * quantity)}
                       </span>
                     </div>
                   </div>
-
-                  {/* Bundle Discount Badge */}
-                  {pricing.discount_pct && pricing.discount_pct > 0 && (
-                    <div className="mt-2">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        {pricing.discount_pct}% descuento por paquete
-                      </span>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-2xl font-bold text-red-600">
-                  {centsToCLP(product.display_price_cents ?? product.price_cents ?? product.retail_price_cents ?? product.base_price_cents ?? 0)}
                 </div>
               )}
             </div>
@@ -201,57 +468,37 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
               </div>
             )}
 
+            {/* Quantity Slider */}
+            <QuantitySlider
+              min={1}
+              max={50}
+              defaultValue={1}
+              onQuantityChange={setQuantity}
+            />
+
             {/* Fabric Selector */}
             <FabricSelector
               selectedFabricId={selectedFabricId}
               onFabricChange={handleFabricChange}
-            />
-
-            {/* Quantity Slider */}
-            <QuantitySlider
-              min={1}
-              max={100}
-              defaultValue={1}
-              onQuantityChange={setQuantity}
+              productTypeSlug={product.product_type_slug}
             />
 
             {/* Team Pricing Calculator */}
             <TeamPricing
               productId={Number(product.id)}
               bundles={bundles}
+              onBundleSelect={(bundleCode) => setSelectedBundleCode(bundleCode)}
+              selectedBundleCode={selectedBundleCode}
             />
-
-            {/* Features (placeholder for now) */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Características</h3>
-              <ul className="space-y-2 text-gray-700">
-                <li className="flex items-center">
-                  <span className="w-2 h-2 bg-red-500 rounded-full mr-3"></span>
-                  Tela de alta calidad y durabilidad
-                </li>
-                <li className="flex items-center">
-                  <span className="w-2 h-2 bg-red-500 rounded-full mr-3"></span>
-                  Diseño profesional y moderno
-                </li>
-                <li className="flex items-center">
-                  <span className="w-2 h-2 bg-red-500 rounded-full mr-3"></span>
-                  Disponible en múltiples tallas
-                </li>
-                <li className="flex items-center">
-                  <span className="w-2 h-2 bg-red-500 rounded-full mr-3"></span>
-                  Personalización disponible
-                </li>
-              </ul>
-            </div>
 
             {/* Action Buttons */}
             <div className="space-y-4">
               <button
-                onClick={() => alert('Agregar al carrito: funcionalidad en desarrollo')}
-                disabled={!selectedFabricId || loadingPrice}
+                onClick={handleAddToCart}
+                disabled={!selectedFabricId || loadingPrice || addingToCart}
                 className="w-full bg-red-600 text-white py-4 px-6 rounded-lg font-semibold hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
               >
-                {!selectedFabricId ? 'Selecciona una tela' : 'Añadir al carrito'}
+                {addingToCart ? 'Agregando...' : !selectedFabricId ? 'Selecciona una tela' : 'Añadir al carrito'}
               </button>
 
               <div className="flex gap-4">

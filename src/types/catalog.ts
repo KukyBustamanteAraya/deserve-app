@@ -17,6 +17,7 @@ export interface ProductBase {
   retail_price_cents?: number | null;
   display_price_cents?: number;
   active: boolean;
+  product_type_slug?: string | null;
   created_at: string;
   updated_at: string;
 }

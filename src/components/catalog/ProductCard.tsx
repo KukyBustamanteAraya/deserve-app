@@ -71,7 +71,16 @@ export function ProductCard({ product, className = '', priority = false }: Produ
   };
 
   return (
-    <div className={`group bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden transform hover:-translate-y-1 ${className}`}>
+    <div
+      className={`group relative bg-white border-2 border-gray-200 rounded-xl shadow-lg overflow-hidden ${className}`}
+      style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+    >
+      {/* Top border gradient that expands on hover */}
+      <div
+        className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#e21c21] to-black scale-x-0 group-hover:scale-x-100 origin-center z-10"
+        style={{ transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+      ></div>
+
       {/* Product Image - Click to view details */}
       <Link
         href={`/catalog/${product.slug}`}
@@ -82,7 +91,7 @@ export function ProductCard({ product, className = '', priority = false }: Produ
             src={product.thumbnail_url}
             alt={product.thumbnail_alt || product.name}
             fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            className="object-cover group-hover:scale-110 transition-transform duration-300"
             onError={() => setImageError(true)}
             priority={priority}
             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
@@ -103,8 +112,16 @@ export function ProductCard({ product, className = '', priority = false }: Produ
       <div className="p-6">
         <div>
           <Link href={`/catalog/${product.slug}`}>
-            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-red-600 transition-colors duration-200 line-clamp-2">
+            <h3
+              className="text-lg font-semibold text-gray-900 group-hover:text-[#e21c21] line-clamp-2 relative inline-block"
+              style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+            >
               {product.name}
+              {/* Underline that expands on hover */}
+              <span
+                className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[2px] w-0 group-hover:w-full bg-gradient-to-r from-[#e21c21] to-black rounded-full"
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+              ></span>
             </h3>
           </Link>
           <p className="text-sm text-gray-500 mt-1">

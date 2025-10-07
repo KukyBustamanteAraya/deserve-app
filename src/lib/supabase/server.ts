@@ -2,6 +2,7 @@
 // Uses @supabase/ssr official helpers - NO silent failures
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 export function createSupabaseServerClient() {
   const cookieStore = cookies();
@@ -29,6 +30,27 @@ export function createSupabaseServerClient() {
             // Expected during RSC render
           }
         },
+      },
+    }
+  );
+}
+
+/**
+ * Service Role client - bypasses RLS, use only for server-side admin operations
+ * NEVER expose this client to the frontend
+ */
+export function createSupabaseServiceClient() {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY environment variable is required');
+  }
+
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
       },
     }
   );

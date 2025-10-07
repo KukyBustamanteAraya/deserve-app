@@ -57,17 +57,17 @@ export default async function AnalyticsPage() {
     return (
       <div className="px-4 py-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
-          <p className="text-gray-600 mt-2">Overview of your store's performance</p>
+          <h1 className="text-2xl font-bold text-white">Analytics Dashboard</h1>
+          <p className="text-gray-400 mt-2">Overview of your store's performance</p>
         </div>
 
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+        <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-4">
           <div className="flex">
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">
+              <h3 className="text-sm font-medium text-red-300">
                 Error loading analytics data
               </h3>
-              <div className="mt-2 text-sm text-red-700">
+              <div className="mt-2 text-sm text-red-400">
                 <p>{error}</p>
               </div>
             </div>
@@ -81,12 +81,12 @@ export default async function AnalyticsPage() {
     return (
       <div className="px-4 py-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
-          <p className="text-gray-600 mt-2">Overview of your store's performance</p>
+          <h1 className="text-2xl font-bold text-white">Analytics Dashboard</h1>
+          <p className="text-gray-400 mt-2">Overview of your store's performance</p>
         </div>
 
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
         </div>
       </div>
     );
@@ -101,8 +101,8 @@ export default async function AnalyticsPage() {
     <div className="px-4 py-6 space-y-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
-        <p className="text-gray-600 mt-2">Overview of your store's performance</p>
+        <h1 className="text-3xl font-bold text-white">Analytics Dashboard</h1>
+        <p className="text-gray-400 mt-2">Overview of your store's performance</p>
       </div>
 
       {/* Order Status Cards */}
@@ -153,16 +153,16 @@ export default async function AnalyticsPage() {
       </div>
 
       {/* Data freshness info */}
-      <div className="mt-8 p-4 bg-gray-50 rounded-md">
+      <div className="mt-8 p-4 bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-lg">
         <div className="flex items-start">
           <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
           </div>
           <div className="ml-3">
-            <h3 className="text-sm font-medium text-gray-800">Data Information</h3>
-            <div className="mt-1 text-sm text-gray-600">
+            <h3 className="text-sm font-medium text-white">Data Information</h3>
+            <div className="mt-1 text-sm text-gray-400">
               <ul className="list-disc list-inside space-y-1">
                 <li>Analytics data is cached for 1 minute for performance</li>
                 <li>Revenue data uses America/Sao_Paulo timezone</li>
