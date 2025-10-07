@@ -6,13 +6,23 @@
 import OpenAI from 'openai';
 import sharp from 'sharp';
 
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error('OPENAI_API_KEY environment variable is required');
-}
+// Only throw error at runtime when actually using the API, not during build
+const getOpenAIClient = () => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY environment variable is required');
+  }
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+};
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openai: OpenAI | null = null;
+const getClient = () => {
+  if (!openai) {
+    openai = getOpenAIClient();
+  }
+  return openai;
+};
 
 export interface EditImageOptions {
   base: Buffer;
@@ -71,7 +81,7 @@ export async function editMultiVariant(options: EditImageOptions): Promise<Buffe
 
       // Use dall-e-2 for image editing (returns URLs, not base64)
       console.log('[OpenAI] Using dall-e-2 model (URL mode)');
-      const response = await openai.images.edit({
+      const response = await getClient().images.edit({
         model: 'dall-e-2',
         image: imageFile,
         mask: maskFile,
