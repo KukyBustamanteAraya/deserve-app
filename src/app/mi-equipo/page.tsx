@@ -82,8 +82,19 @@ export default function MyTeamPage() {
   const [showTeamSwitcher, setShowTeamSwitcher] = useState(false);
 
   // Determine dashboard type based on team composition
-  const [dashboardType, setDashboardType] = useState<'player' | 'manager'>('player');
-  const [manualOverride, setManualOverride] = useState(false); // Track if user manually changed view
+  // Check localStorage for saved preference
+  const [dashboardType, setDashboardType] = useState<'player' | 'manager'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('dashboardType') as 'player' | 'manager') || 'player';
+    }
+    return 'player';
+  });
+  const [manualOverride, setManualOverride] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('manualOverride') === 'true';
+    }
+    return false;
+  });
 
   useEffect(() => {
     loadAllTeams();
@@ -402,6 +413,8 @@ export default function MyTeamPage() {
             onClick={() => {
               setDashboardType('player');
               setManualOverride(true);
+              localStorage.setItem('dashboardType', 'player');
+              localStorage.setItem('manualOverride', 'true');
             }}
             className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${
               dashboardType === 'player'
@@ -415,6 +428,8 @@ export default function MyTeamPage() {
             onClick={() => {
               setDashboardType('manager');
               setManualOverride(true);
+              localStorage.setItem('dashboardType', 'manager');
+              localStorage.setItem('manualOverride', 'true');
             }}
             className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${
               dashboardType === 'manager'
