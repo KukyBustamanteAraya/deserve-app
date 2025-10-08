@@ -31,13 +31,12 @@ export function SplitPayButton({
       setError(null);
 
       // Call API to create payment preference
-      const response = await fetch('/api/mercadopago/create-split-payment', {
+      const response = await fetch('/api/mercadopago/create-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderId,
           userId,
-          amountCents,
         }),
       });
 
