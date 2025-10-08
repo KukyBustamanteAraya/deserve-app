@@ -169,6 +169,18 @@ export default function ResumenPage() {
           ignoreDuplicates: false
         });
 
+      // Ensure profile record exists (needed for requested_by foreign key)
+      await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          email: user.email || '',
+          full_name: user.user_metadata?.full_name || null,
+        }, {
+          onConflict: 'id',
+          ignoreDuplicates: false
+        });
+
       // Create an order for this design request (for payment tracking)
       const { data: order, error: orderError } = await supabase
         .from('orders')
