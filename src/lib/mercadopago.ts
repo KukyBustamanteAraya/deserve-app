@@ -72,8 +72,12 @@ export async function createPaymentPreference(
   payload: PreferencePayload
 ): Promise<{ id: string; init_point: string; sandbox_init_point: string }> {
   try {
+    console.log('[MercadoPago] Creating preference with payload:', JSON.stringify(payload, null, 2));
+
     const preference = new Preference(client);
     const response = await preference.create({ body: payload });
+
+    console.log('[MercadoPago] Preference response:', JSON.stringify(response, null, 2));
 
     return {
       id: response.id!,
@@ -82,6 +86,8 @@ export async function createPaymentPreference(
     };
   } catch (error: any) {
     console.error('[MercadoPago] Error creating preference:', error);
+    console.error('[MercadoPago] Error details:', JSON.stringify(error, null, 2));
+    console.error('[MercadoPago] Error response:', error.response?.data || error.response);
     throw new Error(
       error.message || 'Failed to create Mercado Pago preference'
     );

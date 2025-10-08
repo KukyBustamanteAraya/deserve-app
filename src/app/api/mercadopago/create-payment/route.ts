@@ -56,6 +56,15 @@ export async function POST(request: Request) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
     // Create simple payment preference
+    console.log('[Payment] Creating preference with data:', {
+      amount: order.total_amount_cents / 100,
+      currency: 'CLP',
+      email: authData.user.email,
+      siteUrl,
+      orderId: orderId.slice(0, 8),
+      accessToken: process.env.MP_ACCESS_TOKEN?.slice(0, 20) + '...',
+    });
+
     const preference = await createPaymentPreference({
       items: [
         {
@@ -81,6 +90,11 @@ export async function POST(request: Request) {
         order_id: orderId,
         user_id: userId,
       },
+    });
+
+    console.log('[Payment] Preference created successfully:', {
+      preferenceId: preference.id,
+      initPoint: preference.init_point,
     });
 
     return NextResponse.json({
