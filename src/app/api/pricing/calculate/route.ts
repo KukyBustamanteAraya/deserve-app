@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
-// Standard discount bands (fallback when no DB tier exists)
+// Standard discount bands based on Deserve pricing CSV
 const DISCOUNT_BANDS = [
-  { min: 1, max: 9, discount: 0 },
-  { min: 10, max: 24, discount: 5 },
-  { min: 25, max: 49, discount: 10 },
-  { min: 50, max: 99, discount: 15 },
-  { min: 100, max: null, discount: 20 },
+  { min: 1, max: 4, discount: 0 },     // No discount
+  { min: 5, max: 9, discount: 25 },    // 25% off (CSV: $70k → $52.5k)
+  { min: 10, max: 24, discount: 50 },  // 50% off (CSV: $70k → $35k)
+  { min: 25, max: 49, discount: 52.5 },// 52.5% off (CSV: $70k → $33.25k)
+  { min: 50, max: 99, discount: 55 },  // 55% off (CSV: $70k → $31.5k)
+  { min: 100, max: null, discount: 57.5 }, // 57.5% off (CSV: $70k → $29.75k)
 ];
 
 /**
@@ -99,8 +100,9 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Get unit price for a product using pricing_tiers_product (product-based tiers)
- * Falls back to discount bands if no tier found
+ * Get unit price for a product using component_pricing table
+ * Falls back to product table price if component pricing not found
+ * Applies quantity-based discount bands
  * Returns price in CLP (integer pesos)
  */
 async function getUnitPrice(
@@ -108,10 +110,10 @@ async function getUnitPrice(
   productId: number,
   quantity: number
 ): Promise<number | null> {
-  // Fetch product base price
+  // Fetch product to get product_type_slug
   const { data: product, error: productError } = await supabase
     .from('products')
-    .select('id, price_cents, base_price_cents, retail_price_cents')
+    .select('id, product_type_slug, price_cents, base_price_cents, retail_price_cents')
     .eq('id', productId)
     .single();
 
@@ -119,8 +121,25 @@ async function getUnitPrice(
     return null;
   }
 
-  // Calculate base price (CLP integer)
-  const basePrice = product.retail_price_cents ?? product.price_cents ?? product.base_price_cents ?? 0;
+  let basePrice = 0;
+
+  // Try to get base price from component_pricing table first
+  if (product.product_type_slug) {
+    const { data: componentPricing } = await supabase
+      .from('component_pricing')
+      .select('base_price_cents')
+      .eq('component_type_slug', product.product_type_slug)
+      .single();
+
+    if (componentPricing) {
+      basePrice = componentPricing.base_price_cents;
+    }
+  }
+
+  // Fallback to product table if component pricing not found
+  if (basePrice === 0) {
+    basePrice = product.retail_price_cents ?? product.price_cents ?? product.base_price_cents ?? 0;
+  }
 
   if (basePrice === 0) {
     return null;

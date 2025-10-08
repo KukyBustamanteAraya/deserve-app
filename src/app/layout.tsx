@@ -5,6 +5,7 @@ import "./globals.css";
 import Providers from './providers';
 import Header from '@/app/components/Header';
 import SessionHydration from '@/app/components/SessionHydration';
+import ProgressBar from '@/components/ProgressBar';
 
 export const metadata: Metadata = {
   title: "Deserve App",
@@ -43,6 +44,7 @@ export default async function RootLayout({
           <SessionHydration />
           <Header />
           {children}
+          <ProgressBar />
         </Providers>
       </body>
     </html>

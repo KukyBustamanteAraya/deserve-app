@@ -5,9 +5,199 @@
 @layer base {
   html {
     font-family: 'Montserrat', system-ui, sans-serif;
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    overscroll-behavior-y: none;
   }
 }
 
 .font-montserrat {
   font-family: 'Montserrat', system-ui, sans-serif;
+}
+
+/* Fade in animation for price transitions */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Modern Deserve Slider Styles */
+.deserve-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 10px;
+  background: linear-gradient(
+    to right,
+    #E21C21 0%,
+    #E21C21 var(--slider-percentage, 0%),
+    #e5e7eb var(--slider-percentage, 0%),
+    #e5e7eb 100%
+  );
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.deserve-slider:hover {
+  box-shadow: 0 0 8px rgba(226, 28, 33, 0.4);
+}
+
+/* Webkit (Chrome, Safari) */
+.deserve-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #E21C21 0%, #000000 100%);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.deserve-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 3px 12px rgba(226, 28, 33, 0.5);
+}
+
+.deserve-slider::-webkit-slider-thumb:active {
+  transform: scale(1.05);
+}
+
+/* Firefox */
+.deserve-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #E21C21 0%, #000000 100%);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.deserve-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 3px 12px rgba(226, 28, 33, 0.5);
+}
+
+.deserve-slider::-moz-range-thumb:active {
+  transform: scale(1.05);
+}
+
+.deserve-slider::-moz-range-track {
+  background: transparent;
+  border: none;
+}
+
+/* Confetti fall animation */
+@keyframes fall {
+  0% {
+    transform: translateY(-20vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(120vh) rotate(720deg);
+    opacity: 0.3;
+  }
+}
+
+.animate-fall {
+  animation: fall 3s linear forwards;
+}
+
+/* Bounce in animation for welcome message */
+@keyframes bounce-in {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+/* Shimmer animation for editable elements */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  3% {
+    opacity: 1;
+  }
+  28% {
+    transform: translateX(100%);
+    opacity: 1;
+  }
+  31% {
+    opacity: 0;
+  }
+  53% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  56% {
+    opacity: 1;
+  }
+  81% {
+    transform: translateX(-100%);
+    opacity: 1;
+  }
+  84% {
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+.animate-shimmer {
+  background: transparent;
+}
+
+.shimmer-wrapper {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 30%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 70%,
+    transparent 100%
+  );
+  width: 100%;
+  height: 100%;
+  animation: shimmer 9s ease-in-out infinite;
+  pointer-events: none;
 }
