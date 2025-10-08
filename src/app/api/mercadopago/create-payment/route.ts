@@ -26,16 +26,19 @@ export async function POST(request: Request) {
     }
 
     // Get order details
+    console.log('[Payment] Looking for order:', orderId);
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('id, total_amount_cents, team_id')
       .eq('id', orderId)
       .single();
 
+    console.log('[Payment] Order query result:', { order, orderError });
+
     if (orderError || !order) {
       console.error('[Payment] Order not found:', orderId, orderError);
       return NextResponse.json(
-        { error: 'Order not found' },
+        { error: 'Order not found', orderId, details: orderError },
         { status: 404 }
       );
     }
