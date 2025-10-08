@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { XCircleIcon } from '@heroicons/react/24/solid';
 
@@ -9,6 +10,16 @@ export default function PaymentFailurePage() {
 
   const paymentId = searchParams.get('payment_id');
   const status = searchParams.get('status');
+  const statusDetail = searchParams.get('status_detail');
+
+  // Log all URL parameters for debugging
+  useEffect(() => {
+    const allParams: Record<string, string> = {};
+    searchParams.forEach((value, key) => {
+      allParams[key] = value;
+    });
+    console.log('[Payment Failure] URL params:', allParams);
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -19,11 +30,18 @@ export default function PaymentFailurePage() {
           Tu pago no pudo ser procesado. Por favor, intenta nuevamente o contacta a tu banco si el problema persiste.
         </p>
 
-        {status && (
+        {(status || statusDetail || paymentId) && (
           <div className="bg-red-50 rounded-lg p-4 mb-6 text-left">
-            <p className="text-sm text-red-800">
-              <span className="font-semibold">Estado:</span> {status}
-            </p>
+            {status && (
+              <p className="text-sm text-red-800">
+                <span className="font-semibold">Estado:</span> {status}
+              </p>
+            )}
+            {statusDetail && (
+              <p className="text-sm text-red-800 mt-1">
+                <span className="font-semibold">Detalle:</span> {statusDetail}
+              </p>
+            )}
             {paymentId && (
               <p className="text-sm text-red-800 mt-1">
                 <span className="font-semibold">ID de pago:</span> {paymentId}
