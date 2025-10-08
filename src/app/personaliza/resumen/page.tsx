@@ -157,6 +157,18 @@ export default function ResumenPage() {
         if (memberError) throw memberError;
       }
 
+      // Ensure customer record exists (upsert to handle both cases)
+      await supabase
+        .from('customers')
+        .upsert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || null,
+        }, {
+          onConflict: 'id',
+          ignoreDuplicates: false
+        });
+
       // Create an order for this design request (for payment tracking)
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -172,7 +184,10 @@ export default function ResumenPage() {
         .select()
         .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error('[Resumen] Order creation error:', orderError);
+        throw orderError;
+      }
 
       // Create design request linked to team and order
       const { data: designRequest, error: designError } = await supabase
