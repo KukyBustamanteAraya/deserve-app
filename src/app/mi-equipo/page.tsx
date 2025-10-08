@@ -83,6 +83,7 @@ export default function MyTeamPage() {
 
   // Determine dashboard type based on team composition
   const [dashboardType, setDashboardType] = useState<'player' | 'manager'>('player');
+  const [manualOverride, setManualOverride] = useState(false); // Track if user manually changed view
 
   useEffect(() => {
     loadAllTeams();
@@ -202,18 +203,21 @@ export default function MyTeamPage() {
 
       setOrders(ordersData || []);
 
-      // Determine dashboard type based on:
-      // 1. Current user's role
-      // 2. Team size
-      // 3. Design request user_type
-      const isManager = currentUserRole === 'owner' || currentUserRole === 'manager';
-      const hasManagerDesigns = requestsData?.some((dr) => dr.user_type === 'manager');
-      const isLargeTeam = (membersData?.length || 0) > 15;
+      // Only auto-detect dashboard type if user hasn't manually overridden it
+      if (!manualOverride) {
+        // Determine dashboard type based on:
+        // 1. Current user's role
+        // 2. Team size
+        // 3. Design request user_type
+        const isManager = currentUserRole === 'owner' || currentUserRole === 'manager';
+        const hasManagerDesigns = requestsData?.some((dr) => dr.user_type === 'manager');
+        const isLargeTeam = (membersData?.length || 0) > 15;
 
-      if (isManager || hasManagerDesigns || isLargeTeam) {
-        setDashboardType('manager');
-      } else {
-        setDashboardType('player');
+        if (isManager || hasManagerDesigns || isLargeTeam) {
+          setDashboardType('manager');
+        } else {
+          setDashboardType('player');
+        }
       }
     } catch (error) {
       console.error('Error loading team data:', error);
@@ -395,7 +399,10 @@ export default function MyTeamPage() {
       <div className="max-w-7xl mx-auto px-4 pt-64 pb-4">
         <div className="flex justify-end gap-2">
           <button
-            onClick={() => setDashboardType('player')}
+            onClick={() => {
+              setDashboardType('player');
+              setManualOverride(true);
+            }}
             className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${
               dashboardType === 'player'
                 ? 'bg-blue-600 text-white'
@@ -405,7 +412,10 @@ export default function MyTeamPage() {
             Vista Jugador
           </button>
           <button
-            onClick={() => setDashboardType('manager')}
+            onClick={() => {
+              setDashboardType('manager');
+              setManualOverride(true);
+            }}
             className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${
               dashboardType === 'manager'
                 ? 'bg-blue-600 text-white'
