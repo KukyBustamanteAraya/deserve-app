@@ -64,18 +64,21 @@ export async function POST(request: NextRequest) {
     const xSignature = request.headers.get('x-signature');
     const xRequestId = request.headers.get('x-request-id');
 
-    // TODO: Enable signature verification once webhook is properly configured in Mercado Pago
-    // For now, we'll log but not enforce it to allow testing
-    const shouldVerify = process.env.MP_WEBHOOK_SECRET && process.env.MP_WEBHOOK_SECRET !== 'deserve-webhook-secret-2024';
+    // Verify webhook signature in production for security
+    if (process.env.NODE_ENV === 'production') {
+      if (!process.env.MP_WEBHOOK_SECRET) {
+        logger.error('[Webhook] MP_WEBHOOK_SECRET not configured');
+        return new Response('Unauthorized', { status: 401 });
+      }
 
-    if (shouldVerify && process.env.NODE_ENV === 'production') {
       if (!verifySignature(xSignature, xRequestId, data.id)) {
         logger.error('[Webhook] Signature verification failed for payment:', data.id);
         return new Response('Unauthorized', { status: 401 });
       }
+
       logger.info('[Webhook] Signature verified successfully');
     } else {
-      logger.warn('[Webhook] Signature verification DISABLED - configure MP_WEBHOOK_SECRET in Mercado Pago dashboard');
+      logger.info('[Webhook] Skipping signature verification in development');
     }
 
     const accessToken = process.env.MP_ACCESS_TOKEN!;
