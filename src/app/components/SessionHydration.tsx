@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import { logger } from '@/lib/logger';
 
 /**
  * Session Hydration Component
@@ -17,7 +18,7 @@ export default function SessionHydration() {
 
     // Hydrate session from cookies
     supabase.auth.getSession().catch((error) => {
-      console.error('[SessionHydration] Failed to hydrate session:', error);
+      logger.error('[SessionHydration] Failed to hydrate session:', error);
     });
   }, []);
 

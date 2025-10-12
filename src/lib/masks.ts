@@ -4,6 +4,7 @@
  */
 
 import sharp from 'sharp';
+import { logger } from '@/lib/logger';
 
 export interface LogoBox {
   x: number;
@@ -22,17 +23,17 @@ export async function loadSilhouetteMask(
   targetWidth: number,
   targetHeight: number
 ): Promise<Buffer> {
-  console.log(`[Masks] Loading silhouette mask, target size: ${targetWidth}x${targetHeight}`);
+  logger.debug(`[Masks] Loading silhouette mask, target size: ${targetWidth}x${targetHeight}`);
 
   const mask = sharp(maskBuffer);
   const metadata = await mask.metadata();
 
-  console.log(`[Masks] Original mask size: ${metadata.width}x${metadata.height}`);
+  logger.debug(`[Masks] Original mask size: ${metadata.width}x${metadata.height}`);
 
   // Resize if needed (using NEAREST to preserve sharp edges)
   let processedMask = mask;
   if (metadata.width !== targetWidth || metadata.height !== targetHeight) {
-    console.log('[Masks] Resizing mask to match base image...');
+    logger.debug('[Masks] Resizing mask to match base image...');
     processedMask = mask.resize(targetWidth, targetHeight, {
       fit: 'cover',
       kernel: 'nearest', // No antialiasing
@@ -40,7 +41,7 @@ export async function loadSilhouetteMask(
   }
 
   // INVERT the mask: black jersey becomes white (editable for DALL-E)
-  console.log('[Masks] Inverting mask (jersey will be white/editable)...');
+  logger.debug('[Masks] Inverting mask (jersey will be white/editable)...');
   return processedMask.negate().png().toBuffer();
 }
 
@@ -56,7 +57,7 @@ export async function applyLogoBoxes(
     return maskBuffer;
   }
 
-  console.log(`[Masks] Applying ${logoBoxes.length} logo protection box(es)...`);
+  logger.debug(`[Masks] Applying ${logoBoxes.length} logo protection box(es)...`);
 
   const mask = sharp(maskBuffer);
   const { width, height } = await mask.metadata();
@@ -71,7 +72,7 @@ export async function applyLogoBoxes(
 
   // Paint black rectangles over logo boxes
   for (const box of logoBoxes) {
-    console.log(
+    logger.debug(
       `[Masks] Protecting logo box: x=${box.x}, y=${box.y}, w=${box.w}, h=${box.h}`
     );
 
@@ -111,7 +112,7 @@ export async function createRectangleMask(
   height: number,
   padding: number = 50
 ): Promise<Buffer> {
-  console.log(`[Masks] Creating rectangle mask: ${width}x${height}, padding=${padding}`);
+  logger.debug(`[Masks] Creating rectangle mask: ${width}x${height}, padding=${padding}`);
 
   const data = Buffer.alloc(width * height * 3);
 
@@ -158,13 +159,13 @@ export async function validateMask(maskBuffer: Buffer): Promise<void> {
 
   const whitePercentage = (whitePixels / totalPixels) * 100;
 
-  console.log(`[Masks] Validation: ${whitePercentage.toFixed(1)}% white pixels`);
+  logger.debug(`[Masks] Validation: ${whitePercentage.toFixed(1)}% white pixels`);
 
   if (whitePixels === 0) {
     throw new Error('Mask is completely black - no editable area defined');
   }
 
   if (whitePixels === totalPixels) {
-    console.warn('[Masks] Warning: Mask is completely white - no locked areas');
+    logger.warn('[Masks] Warning: Mask is completely white - no locked areas');
   }
 }

@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useBuilderState } from '@/hooks/useBuilderState';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { CustomizeBanner } from '@/components/customize/CustomizeBanner';
+import { TeamSetupModal, type TeamSetupData } from '@/components/team/TeamSetupModal';
+import { TeamSelectionModal } from '@/components/team/TeamSelectionModal';
+import { logger } from '@/lib/logger';
 
 export default function ResumenPage() {
   const router = useRouter();
@@ -22,9 +25,13 @@ export default function ResumenPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showTeamSelection, setShowTeamSelection] = useState(false);
   const [email, setEmail] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [selectedTeam, setSelectedTeam] = useState<any>(null);
+  const [showTeamSetup, setShowTeamSetup] = useState(false);
+  const [createdTeamId, setCreatedTeamId] = useState<string | null>(null);
 
   const supabase = getBrowserClient();
 
@@ -71,8 +78,32 @@ export default function ResumenPage() {
       alert('¡Link mágico enviado! Revisa tu email para continuar.');
       setShowAuthModal(false);
     } catch (error: any) {
-      console.error('Error sending magic link:', error);
+      logger.error('Error sending magic link:', error);
       setAuthError(error.message || 'Error al enviar el link. Intenta de nuevo.');
+    }
+  };
+
+  const handleTeamSetupComplete = async (setupData: TeamSetupData) => {
+    if (!createdTeamId || !user || !selectedTeam) return;
+
+    try {
+      // Update team with type and sports
+      const { error: teamError } = await supabase
+        .from('teams')
+        .update({
+          team_type: setupData.teamType,
+          sports: setupData.sports,
+          setup_completed: true,
+        })
+        .eq('id', createdTeamId);
+
+      if (teamError) throw teamError;
+
+      // Now submit the design request with the newly setup team
+      await submitDesignRequest(selectedTeam);
+    } catch (error: any) {
+      logger.error('Error completing team setup:', error);
+      throw error;
     }
   };
 
@@ -83,79 +114,126 @@ export default function ResumenPage() {
       return;
     }
 
+    // Show team selection modal
+    setShowTeamSelection(true);
+  };
+
+  const handleTeamSelected = (team: any) => {
+    setSelectedTeam(team);
+    setShowTeamSelection(false);
+    // Proceed with design request submission
+    submitDesignRequest(team);
+  };
+
+  const handleCreateNewTeam = async () => {
+    // Close team selection modal
+    setShowTeamSelection(false);
+
+    // Create new team
+    try {
+      const teamSlug = `${teamName.toLowerCase().replace(/\s+/g, '-')}-${user.id.substring(0, 8)}`;
+
+      const { data: newTeam, error: teamError } = await supabase
+        .from('teams')
+        .insert({
+          slug: teamSlug,
+          name: teamName,
+          owner_id: user.id,
+          current_owner_id: user.id,
+          created_by: user.id,
+          sport: selectedDesign?.sport || 'general',
+          colors: {
+            primary: teamColors.primary,
+            secondary: teamColors.secondary,
+            accent: teamColors.accent,
+          },
+          logo_url: logoUrl,
+        })
+        .select()
+        .single();
+
+      if (teamError) throw teamError;
+
+      // Add creator as owner
+      const { error: memberError } = await supabase
+        .from('team_memberships')
+        .insert({
+          team_id: newTeam.id,
+          user_id: user.id,
+          role_type: 'owner',
+        });
+
+      if (memberError) throw memberError;
+
+      // Set created team for setup modal
+      setCreatedTeamId(newTeam.id);
+      setSelectedTeam(newTeam);
+      setShowTeamSetup(true);
+    } catch (error: any) {
+      logger.error('Error creating new team:', error);
+      alert(`Error al crear equipo: ${error.message}`);
+    }
+  };
+
+  const handleJoinTeam = async (teamSlug: string) => {
+    if (!user) throw new Error('Usuario no autenticado');
+
+    try {
+      // Find the team by slug
+      const { data: team, error: teamError } = await supabase
+        .from('teams')
+        .select('*')
+        .eq('slug', teamSlug)
+        .single();
+
+      if (teamError || !team) {
+        throw new Error('Equipo no encontrado. Verifica el código e intenta de nuevo.');
+      }
+
+      // Check if user is already a member
+      const { data: existingMember } = await supabase
+        .from('team_memberships')
+        .select('id')
+        .eq('team_id', team.id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (existingMember) {
+        // Already a member, just proceed
+        setSelectedTeam(team);
+        setShowTeamSelection(false);
+        await submitDesignRequest(team);
+        return;
+      }
+
+      // Add user as member
+      const { error: memberError } = await supabase
+        .from('team_memberships')
+        .insert({
+          team_id: team.id,
+          user_id: user.id,
+          role_type: 'member', // Default role when joining
+        });
+
+      if (memberError) throw memberError;
+
+      // Success! Proceed with design request
+      setSelectedTeam(team);
+      setShowTeamSelection(false);
+      await submitDesignRequest(team);
+    } catch (error: any) {
+      logger.error('Error joining team:', error);
+      throw new Error(error.message || 'Error al unirse al equipo');
+    }
+  };
+
+  const submitDesignRequest = async (team: any) => {
+    if (!user || !team) return;
+
     setIsSubmitting(true);
 
     try {
-      // Check if user already has a team
-      const { data: existingTeams, error: teamsError } = await supabase
-        .from('teams')
-        .select('*')
-        .eq('owner_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (teamsError) throw teamsError;
-
-      let team;
-      let teamSlug;
-      let isNewTeam = false;
-
-      if (existingTeams && existingTeams.length > 0) {
-        // Reuse existing team
-        team = existingTeams[0];
-        teamSlug = team.slug;
-
-        // Update team details with new customization
-        const { error: updateError } = await supabase
-          .from('teams')
-          .update({
-            name: teamName,
-            colors: {
-              primary: teamColors.primary,
-              secondary: teamColors.secondary,
-              accent: teamColors.accent,
-            },
-            logo_url: logoUrl,
-          })
-          .eq('id', team.id);
-
-        if (updateError) throw updateError;
-      } else {
-        // Create new team (first time)
-        teamSlug = `${teamName.toLowerCase().replace(/\s+/g, '-')}-${user.id.substring(0, 8)}`;
-        isNewTeam = true;
-
-        const { data: newTeam, error: teamError } = await supabase
-          .from('teams')
-          .insert({
-            slug: teamSlug,
-            name: teamName,
-            owner_id: user.id,
-            created_by: user.id,
-            colors: {
-              primary: teamColors.primary,
-              secondary: teamColors.secondary,
-              accent: teamColors.accent,
-            },
-            logo_url: logoUrl,
-          })
-          .select()
-          .single();
-
-        if (teamError) throw teamError;
-        team = newTeam;
-
-        // Add owner as team member
-        const { error: memberError } = await supabase
-          .from('team_memberships')
-          .insert({
-            team_id: team.id,
-            user_id: user.id,
-            role: userType === 'manager' ? 'owner' : 'player',
-          });
-
-        if (memberError) throw memberError;
-      }
+      const teamSlug = team.slug;
 
       // Ensure customer record exists (upsert to handle both cases)
       await supabase
@@ -197,11 +275,12 @@ export default function ResumenPage() {
         .single();
 
       if (orderError) {
-        console.error('[Resumen] Order creation error:', orderError);
+        logger.error('[Resumen] Order creation error:', orderError);
         throw orderError;
       }
 
       // Create design request linked to team and order
+      logger.debug('[Resumen] Creating design request with team_id:', team.id, 'team_slug:', teamSlug);
       const { data: designRequest, error: designError } = await supabase
         .from('design_requests')
         .insert({
@@ -228,12 +307,13 @@ export default function ResumenPage() {
         .single();
 
       if (designError) throw designError;
+      logger.debug('[Resumen] Design request created successfully:', designRequest.id, 'for team:', designRequest.team_id);
 
       // Auto-trigger mockup generation in background (fire-and-forget)
       // Don't await - let it process while user views team page
       if (selectedDesign?.images?.[0]) {
         const templateUrl = selectedDesign.images[0];
-        console.log('[Resumen] Triggering recolor with template:', templateUrl);
+        logger.debug('[Resumen] Triggering recolor with template:', templateUrl);
 
         fetch('/api/recolor-boundary', {
           method: 'POST',
@@ -249,21 +329,16 @@ export default function ResumenPage() {
             n: 1,
           }),
         }).catch((err) => {
-          console.error('Background recolor failed:', err);
+          logger.error('Background recolor failed:', err);
           // Don't block the user flow - admin can regenerate if needed
         });
-      }
-
-      // Mark that a new team was created for celebration animation (only if actually new)
-      if (isNewTeam) {
-        sessionStorage.setItem('newTeamCreated', 'true');
       }
 
       // Navigate to team page
       router.push(`/mi-equipo`);
     } catch (error: any) {
-      console.error('Error submitting design request:', error);
-      console.error('Full error details:', JSON.stringify(error, null, 2));
+      logger.error('Error submitting design request:', error);
+      logger.error('Full error details:', JSON.stringify(error, null, 2));
       alert(`Error al enviar la solicitud: ${error.message || 'Intenta de nuevo'}`);
     } finally {
       setIsSubmitting(false);
@@ -505,6 +580,24 @@ export default function ResumenPage() {
           </div>
         </div>
       )}
+
+      {/* Team Selection Modal */}
+      <TeamSelectionModal
+        isOpen={showTeamSelection}
+        onClose={() => setShowTeamSelection(false)}
+        onTeamSelected={handleTeamSelected}
+        onCreateNew={handleCreateNewTeam}
+        onJoinTeam={handleJoinTeam}
+        userId={user?.id || ''}
+        preSelectedSport={selectedDesign?.sport}
+      />
+
+      {/* Team Setup Modal */}
+      <TeamSetupModal
+        isOpen={showTeamSetup}
+        onComplete={handleTeamSetupComplete}
+        preSelectedSport={selectedDesign?.sport}
+      />
     </div>
   );
 }

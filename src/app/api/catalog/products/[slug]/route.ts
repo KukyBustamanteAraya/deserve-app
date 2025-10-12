@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import type { ProductDetail } from '@/types/catalog';
 import type { ApiResponse } from '@/types/api';
+import { logger } from '@/lib/logger';
 interface RouteParams {
   params: {
     slug: string;
@@ -32,20 +33,19 @@ export async function GET(
       );
     }
 
-    // Fetch product with sport and images
+    // Fetch product with sport_ids and images (products can span multiple sports)
     const { data: product, error } = await supabase
       .from('products')
       .select(`
         id,
-        sport_id,
+        sport_ids,
         slug,
         name,
         description,
         price_cents,
-        active,
+        status,
         created_at,
         updated_at,
-        sports!inner(slug, name),
         product_images(
           id,
           product_id,
@@ -56,7 +56,7 @@ export async function GET(
         )
       `)
       .eq('slug', slug)
-      .eq('active', true)
+      .eq('status', 'active')
       .single();
 
     if (error) {
@@ -71,7 +71,7 @@ export async function GET(
         );
       }
 
-      console.error('Error fetching product:', error);
+      logger.error('Error fetching product:', error);
       return NextResponse.json(
         {
           error: 'Failed to fetch product',
@@ -91,19 +91,34 @@ export async function GET(
       );
     }
 
-    // Transform to expected format
+    // Fetch all sports to map sport_ids to sport data
+    const { data: allSports } = await supabase
+      .from('sports')
+      .select('id, slug, name')
+      .order('name');
+
+    const sportsMap = new Map((allSports || []).map(s => [s.id, { slug: s.slug, name: s.name }]));
+
+    // Map sport_ids to sport data
+    const productSports = (product.sport_ids || [])
+      .map((sportId: number) => sportsMap.get(sportId))
+      .filter((sport): sport is { slug: string; name: string } => !!sport);
+
+    // Transform to expected format (updated for multi-sport support)
     const productDetail: ProductDetail = {
       id: product.id,
-      sport_id: product.sport_id,
+      sport_id: product.sport_ids?.[0] || null, // DEPRECATED: For backward compatibility
+      sport_ids: product.sport_ids || [],
       slug: product.slug,
       name: product.name,
       description: product.description,
       price_cents: product.price_cents,
-      active: product.active,
+      active: product.status === 'active',
       created_at: product.created_at,
       updated_at: product.updated_at,
-      sport_slug: (product.sports as any)?.slug || '',
-      sport_name: (product.sports as any)?.name || '',
+      sport_slug: productSports[0]?.slug || '', // DEPRECATED: First sport for backward compatibility
+      sport_name: productSports[0]?.name || '', // DEPRECATED: First sport for backward compatibility
+      sports: productSports, // NEW: Array of all sports this product is available for
       images: (product.product_images || [])
         .sort((a: any, b: any) => a.sort_order - b.sort_order)
         .map((img: any) => ({
@@ -140,7 +155,7 @@ export async function GET(
       );
     }
 
-    console.error('Unexpected error in product detail endpoint:', error);
+    logger.error('Unexpected error in product detail endpoint:', error);
     return NextResponse.json(
       {
         error: 'Internal server error',

@@ -4,6 +4,7 @@
  */
 
 import sharp from 'sharp';
+import { logger } from '@/lib/logger';
 
 /**
  * Assert that geometry is preserved between base and edited images
@@ -15,7 +16,7 @@ export async function assertGeometry(
   edited: Buffer,
   threshold: number = 0.005 // 0.5% by default
 ): Promise<void> {
-  console.log('[GeometryGuard] Checking geometry preservation...');
+  logger.debug('[GeometryGuard] Checking geometry preservation...');
 
   const [baseData, editedData] = await Promise.all([
     sharp(base).ensureAlpha().raw().toBuffer({ resolveWithObject: true }),
@@ -48,7 +49,7 @@ export async function assertGeometry(
 
   const diffPercentage = diffs / totalPixels;
 
-  console.log(
+  logger.debug(
     `[GeometryGuard] Alpha diff: ${diffs} pixels (${(diffPercentage * 100).toFixed(4)}%)`
   );
 
@@ -58,7 +59,7 @@ export async function assertGeometry(
     );
   }
 
-  console.log('[GeometryGuard] ✓ Geometry preserved - silhouette intact');
+  logger.debug('[GeometryGuard] ✓ Geometry preserved - silhouette intact');
 }
 
 /**

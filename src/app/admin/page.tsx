@@ -63,6 +63,27 @@ export default async function AdminPage() {
               </a>
             </div>
 
+            {/* Design Library */}
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg shadow-xl border border-pink-500/30 p-6 hover:border-pink-500/50 transition-all group">
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-5 h-5 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                </svg>
+                <h3 className="text-lg font-semibold text-white">
+                  Design Library
+                </h3>
+              </div>
+              <p className="text-gray-400 text-sm mb-4">
+                Manage design catalog, mockups, and template library
+              </p>
+              <a
+                href="/admin/designs"
+                className="w-full bg-pink-600 text-white py-2 px-4 rounded-md font-medium hover:bg-pink-700 text-center block transition-all shadow-lg group-hover:shadow-pink-500/50"
+              >
+                Manage Designs
+              </a>
+            </div>
+
             {/* Analytics */}
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg shadow-xl border border-green-500/30 p-6 hover:border-green-500/50 transition-all group">
               <div className="flex items-center gap-2 mb-3">

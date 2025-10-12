@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 /**
  * Design Requests Database Helper
  * Handle database operations for design_requests table
@@ -34,7 +35,7 @@ export interface SaveRenderResultParams {
 export async function saveRenderResult(params: SaveRenderResultParams): Promise<void> {
   const { designRequestId, renderSpec, outputUrl, supabase } = params;
 
-  console.log(`[DB] Saving render result for design request ${designRequestId}`);
+  logger.debug(`[DB] Saving render result for design request ${designRequestId}`);
 
   // Get current mockup_urls array
   const { data: currentRequest, error: fetchError } = await supabase
@@ -66,5 +67,5 @@ export async function saveRenderResult(params: SaveRenderResultParams): Promise<
     throw new Error(`Failed to update design request: ${updateError.message}`);
   }
 
-  console.log(`[DB] Successfully saved render result`);
+  logger.debug(`[DB] Successfully saved render result`);
 }

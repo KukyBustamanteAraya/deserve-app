@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (authError) {
-      console.error('Error sending invite:', authError);
+      logger.error('Error sending invite:', authError);
       return NextResponse.json(
         { error: authError.message },
         { status: 500 }
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
       message: 'Invite sent successfully'
     });
   } catch (error: any) {
-    console.error('Error in send-team-invite:', error);
+    logger.error('Error in send-team-invite:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }

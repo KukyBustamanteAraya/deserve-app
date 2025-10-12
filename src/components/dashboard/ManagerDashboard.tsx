@@ -1,8 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { OrderStatusTimeline } from '@/components/orders/OrderStatusTimeline';
+import { DesignApprovalCard } from '@/components/design/DesignApprovalCard';
+import { PaymentStatusTracker } from '@/components/payment/PaymentStatusTracker';
+import { ProgressOverviewCard } from '@/components/team-hub/ProgressOverviewCard';
+import { NextStepCard } from '@/components/team-hub/NextStepCard';
+import { ActivityPreviewCard } from '@/components/team-hub/ActivityPreviewCard';
+import { useTeamStats } from '@/hooks/team-hub/useTeamStats';
+import { useActivityLog } from '@/hooks/team-hub/useActivityLog';
+import { getBrowserClient } from '@/lib/supabase/client';
+import { logger } from '@/lib/logger';
+import type { Order } from '@/types/orders';
 
 interface Team {
   id: string;
@@ -23,20 +34,24 @@ interface DesignRequest {
   secondary_color: string;
   accent_color: string;
   order_id?: string;
-}
-
-interface Order {
-  id: string;
-  status: string;
-  payment_status: string;
-  total_amount_cents: number;
-  created_at: string;
+  approval_status?: string;
 }
 
 interface Member {
   user_id: string;
   role: string;
   profiles?: { email: string; full_name?: string };
+}
+
+interface PlayerInfo {
+  id: string;
+  user_id: string | null;
+  player_name: string;
+  jersey_number: string | null;
+  size: string;
+  position: string | null;
+  additional_notes: string | null;
+  created_at: string;
 }
 
 interface Props {
@@ -64,7 +79,37 @@ export function ManagerDashboard({
   onInvite,
 }: Props) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'designs' | 'orders' | 'roster'>('designs');
+  const supabase = getBrowserClient();
+  const [activeTab, setActiveTab] = useState<'overview' | 'designs' | 'orders' | 'roster'>('overview');
+  const [expandedDesign, setExpandedDesign] = useState<string | null>(null);
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [playerInfos, setPlayerInfos] = useState<PlayerInfo[]>([]);
+  const [loadingPlayerInfo, setLoadingPlayerInfo] = useState(false);
+
+  // Fetch team stats and activity for overview tab
+  const { stats, loading: statsLoading } = useTeamStats(team.id);
+  const { activities, loading: activitiesLoading } = useActivityLog(team.id, 5);
+
+  // Fetch player info submissions
+  useEffect(() => {
+    const fetchPlayerInfos = async () => {
+      setLoadingPlayerInfo(true);
+      const { data, error } = await supabase
+        .from('player_info_submissions')
+        .select('*')
+        .eq('team_id', team.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        logger.error('Error fetching player infos:', error);
+      } else {
+        setPlayerInfos(data || []);
+      }
+      setLoadingPlayerInfo(false);
+    };
+
+    fetchPlayerInfos();
+  }, [team.id]);
 
   const getOrderForDesignRequest = (designRequestId: string) => {
     const dr = designRequests.find((d) => d.id === designRequestId);
@@ -84,82 +129,93 @@ export function ManagerDashboard({
   const totalCompletedOrders = orders.filter((o) => o.payment_status === 'paid').length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Header with Stats */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">{team.name}</h1>
-            <p className="text-gray-600">Panel de Administración</p>
-          </div>
-          <button
-            onClick={() => router.push('/catalog')}
-            className="px-6 py-3 rounded-lg text-white font-semibold"
-            style={{ backgroundColor: team.colors.primary }}
-          >
-            + Nuevo Pedido
-          </button>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow-sm p-4 border-l-4" style={{ borderLeftColor: team.colors.primary }}>
-            <p className="text-sm text-gray-600 mb-1">Diseños Totales</p>
-            <p className="text-3xl font-bold">{designRequests.length}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-blue-500">
-            <p className="text-sm text-gray-600 mb-1">Miembros del Equipo</p>
-            <p className="text-3xl font-bold">{members.length}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-yellow-500">
-            <p className="text-sm text-gray-600 mb-1">Pagos Pendientes</p>
-            <p className="text-3xl font-bold">{totalPendingPayments}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-green-500">
-            <p className="text-sm text-gray-600 mb-1">Pedidos Completados</p>
-            <p className="text-3xl font-bold">{totalCompletedOrders}</p>
-          </div>
-        </div>
-      </div>
-
+    <div className="max-w-7xl mx-auto px-4 py-4">
       {/* Tabs */}
       <div className="bg-white rounded-lg shadow-sm">
         <div className="border-b">
-          <nav className="flex">
+          <nav className="flex justify-between items-center">
+            <div className="flex">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`px-6 py-4 font-medium border-b-2 transition-colors ${
+                  activeTab === 'overview'
+                    ? 'border-current text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                📊 Resumen
+              </button>
+              <button
+                onClick={() => setActiveTab('designs')}
+                className={`px-6 py-4 font-medium border-b-2 transition-colors ${
+                  activeTab === 'designs'
+                    ? 'border-current text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Diseños y Pedidos
+              </button>
+              <button
+                onClick={() => setActiveTab('orders')}
+                className={`px-6 py-4 font-medium border-b-2 transition-colors ${
+                  activeTab === 'orders'
+                    ? 'border-current text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Seguimiento de Órdenes
+              </button>
+              <button
+                onClick={() => setActiveTab('roster')}
+                className={`px-6 py-4 font-medium border-b-2 transition-colors ${
+                  activeTab === 'roster'
+                    ? 'border-current text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Gestión de Plantel
+              </button>
+            </div>
             <button
-              onClick={() => setActiveTab('designs')}
-              className={`px-6 py-4 font-medium border-b-2 transition-colors ${
-                activeTab === 'designs'
-                  ? 'border-current text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
+              onClick={() => router.push('/catalog')}
+              className="mr-4 px-4 py-2 rounded-lg text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: team.colors.primary }}
             >
-              Diseños y Pedidos
-            </button>
-            <button
-              onClick={() => setActiveTab('orders')}
-              className={`px-6 py-4 font-medium border-b-2 transition-colors ${
-                activeTab === 'orders'
-                  ? 'border-current text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Seguimiento de Órdenes
-            </button>
-            <button
-              onClick={() => setActiveTab('roster')}
-              className={`px-6 py-4 font-medium border-b-2 transition-colors ${
-                activeTab === 'roster'
-                  ? 'border-current text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Gestión de Plantel
+              + Nuevo Pedido
             </button>
           </nav>
         </div>
 
         <div className="p-6">
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              {statsLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Cargando estadísticas...</p>
+                </div>
+              ) : stats ? (
+                <>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <ProgressOverviewCard stats={stats} />
+                    <NextStepCard
+                      stats={stats}
+                      role="owner"
+                      teamSlug={team.slug}
+                      onActionClick={() => setActiveTab('designs')}
+                    />
+                  </div>
+                  <ActivityPreviewCard activities={activities} teamSlug={team.slug} />
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-600">No se pudieron cargar las estadísticas del equipo.</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Designs Tab */}
           {activeTab === 'designs' && (
             <div>
@@ -248,8 +304,11 @@ export function ManagerDashboard({
 
                               {/* Actions */}
                               <div className="flex gap-2 mt-3">
-                                <button className="flex-1 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 font-medium">
-                                  Ver Detalles
+                                <button
+                                  onClick={() => setExpandedDesign(expandedDesign === dr.id ? null : dr.id)}
+                                  className="flex-1 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 font-medium"
+                                >
+                                  {expandedDesign === dr.id ? 'Ocultar Detalles' : 'Ver Detalles'}
                                 </button>
                                 {order && order.payment_status !== 'paid' && (
                                   <button
@@ -260,6 +319,39 @@ export function ManagerDashboard({
                                   </button>
                                 )}
                               </div>
+
+                              {/* Expanded Details */}
+                              {expandedDesign === dr.id && (
+                                <div className="mt-4 pt-4 border-t space-y-4">
+                                  {/* Design Approval Card */}
+                                  {dr.status === 'ready' && dr.mockup_urls && dr.mockup_urls.length > 0 && (
+                                    <DesignApprovalCard
+                                      designRequestId={dr.id}
+                                      mockupUrls={dr.mockup_urls}
+                                      approvalStatus={dr.approval_status || 'pending_review'}
+                                    />
+                                  )}
+
+                                  {/* Payment Status Tracker */}
+                                  {order && order.payment_status !== 'paid' && (
+                                    <PaymentStatusTracker
+                                      orderId={order.id}
+                                      totalAmountCents={order.total_amount_cents}
+                                      teamId={team.id}
+                                    />
+                                  )}
+
+                                  {/* Order Status Timeline */}
+                                  {order && (
+                                    <OrderStatusTimeline
+                                      currentStatus={order.status}
+                                      trackingNumber={order.tracking_number}
+                                      carrier={order.carrier}
+                                      estimatedDeliveryDate={order.estimated_delivery_date}
+                                    />
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -283,37 +375,70 @@ export function ManagerDashboard({
               ) : (
                 <div className="space-y-3">
                   {orders.map((order) => (
-                    <div key={order.id} className="border rounded-lg p-4 flex justify-between items-center hover:shadow-md transition-shadow">
-                      <div>
-                        <p className="font-bold">Orden #{order.id.slice(0, 8)}</p>
-                        <p className="text-sm text-gray-600">{new Date(order.created_at).toLocaleDateString('es-CL')}</p>
-                        <p className="text-sm font-medium mt-1">
-                          {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(
-                            order.total_amount_cents / 100
+                    <div key={order.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-bold">Orden #{order.id.slice(0, 8)}</p>
+                          <p className="text-sm text-gray-600">{new Date(order.created_at).toLocaleDateString('es-CL')}</p>
+                          <p className="text-sm font-medium mt-1">
+                            {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(
+                              order.total_amount_cents / 100
+                            )}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span
+                            className={`px-3 py-1 rounded-full text-sm font-medium ${
+                              order.status === 'delivered'
+                                ? 'bg-green-100 text-green-800'
+                                : order.status === 'shipped'
+                                ? 'bg-blue-100 text-blue-800'
+                                : order.status === 'production'
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}
+                          >
+                            {order.status === 'delivered'
+                              ? 'Entregado'
+                              : order.status === 'shipped'
+                              ? 'Enviado'
+                              : order.status === 'production'
+                              ? 'En Producción'
+                              : 'Pendiente'}
+                          </span>
+                          <span
+                            className={`px-3 py-1 rounded-full text-sm font-medium ${
+                              order.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {order.payment_status === 'paid' ? 'Pagado' : 'No pagado'}
+                          </span>
+                          <button
+                            onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                            className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50 font-medium"
+                          >
+                            {expandedOrder === order.id ? 'Ocultar' : 'Ver Detalles'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Expanded Order Details */}
+                      {expandedOrder === order.id && (
+                        <div className="mt-4 pt-4 border-t space-y-4">
+                          {/* Payment Status Tracker */}
+                          {order.payment_status !== 'paid' && (
+                            <PaymentStatusTracker orderId={order.id} totalAmountCents={order.total_amount_cents} teamId={team.id} />
                           )}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            order.status === 'completed'
-                              ? 'bg-green-100 text-green-800'
-                              : order.status === 'processing'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}
-                        >
-                          {order.status === 'completed' ? 'Completado' : order.status === 'processing' ? 'En proceso' : 'Pendiente'}
-                        </span>
-                        <span
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            order.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {order.payment_status === 'paid' ? 'Pagado' : 'No pagado'}
-                        </span>
-                        <button className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50 font-medium">Ver Detalles</button>
-                      </div>
+
+                          {/* Order Status Timeline */}
+                          <OrderStatusTimeline
+                            currentStatus={order.status}
+                            trackingNumber={order.tracking_number}
+                            carrier={order.carrier}
+                            estimatedDeliveryDate={order.estimated_delivery_date}
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -325,7 +450,9 @@ export function ManagerDashboard({
           {activeTab === 'roster' && (
             <div>
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold">Plantel ({members.length} miembros)</h3>
+                <h3 className="text-lg font-bold">
+                  Plantel ({playerInfos.length} con info / {members.length} miembros)
+                </h3>
                 <button
                   onClick={() => {
                     const email = prompt('Email del nuevo miembro:');
@@ -338,40 +465,65 @@ export function ManagerDashboard({
                 </button>
               </div>
 
-              <div className="bg-white rounded-lg border overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Nombre</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Rol</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Talla</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Número</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {members.map((m) => (
-                      <tr key={m.user_id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3">
-                          <p className="font-medium">
-                            {m.profiles?.full_name || m.profiles?.email?.split('@')[0] || `Usuario ${m.user_id.substring(0, 8)}`}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{m.profiles?.email || '-'}</td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700 capitalize">{m.role}</span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">-</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">-</td>
-                        <td className="px-4 py-3">
-                          <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">Editar</button>
-                        </td>
+              {loadingPlayerInfo ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-gray-600">Cargando información...</p>
+                </div>
+              ) : playerInfos.length === 0 ? (
+                <div className="bg-white rounded-lg border p-8 text-center">
+                  <div className="text-5xl mb-4">📝</div>
+                  <h4 className="text-lg font-bold mb-2">No hay información de jugadores aún</h4>
+                  <p className="text-gray-600">Los jugadores aparecerán aquí cuando envíen su información</p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg border overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Nombre</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Número</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Talla</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Posición</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Notas</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Fecha</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y">
+                      {playerInfos.map((info) => (
+                        <tr key={info.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <p className="font-medium">{info.player_name}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-1 text-sm font-bold bg-gray-100 rounded">
+                              {info.jersey_number || '-'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-1 text-sm font-medium bg-blue-50 text-blue-700 rounded">
+                              {info.size}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{info.position || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {info.additional_notes ? (
+                              <span className="max-w-xs truncate block" title={info.additional_notes}>
+                                {info.additional_notes}
+                              </span>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {new Date(info.created_at).toLocaleDateString('es-CL')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               {/* Share Link */}
               <div className="mt-6 p-4 bg-gray-50 rounded-lg">

@@ -1,6 +1,8 @@
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import { redirect } from 'next/navigation';
 import ProfileForm from './ProfileForm';
+import DeleteAccountButton from './DeleteAccountButton';
+import { logger } from '@/lib/logger';
 
 export default async function AccountPage() {
   try {
@@ -15,7 +17,7 @@ export default async function AccountPage() {
       .single();
 
     if (error) {
-      console.error('Error fetching profile:', error);
+      logger.error('Error fetching profile:', error);
       redirect('/dashboard?error=profile_not_found');
     }
 
@@ -38,13 +40,15 @@ export default async function AccountPage() {
               user={user}
               profile={profile}
             />
+
+            <DeleteAccountButton user={user} />
           </div>
         </div>
       </main>
     );
 
   } catch (error) {
-    console.error('Account page error:', error);
+    logger.error('Account page error:', error);
     redirect('/login?redirect=/dashboard/account');
   }
 }

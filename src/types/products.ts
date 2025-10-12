@@ -6,19 +6,20 @@ export type ApparelCategory = 'camiseta' | 'shorts' | 'poleron' | 'medias' | 'ch
 
 export interface Product {
   id: string;
-  sport_id: string;
+  sport_id?: string;                      // DEPRECATED: Use sport_ids instead
+  sport_ids: number[];                    // Array of sport IDs (e.g., [1, 2, 3] for Soccer, Basketball, Volleyball)
   category: ApparelCategory;
   name: string;
   slug: string;
   description?: string;
-  price_cents: number;
+  price_cents: number;                    // Custom price set per product
   status: ProductStatus;
-  hero_path?: string;
+  hero_path?: string;                     // DEPRECATED: Products display design mockups
   tags: string[];
   created_by?: string;
   created_at: string;
   updated_at: string;
-  images?: ProductImage[];
+  images?: ProductImage[];                // DEPRECATED: Products display design mockups
 }
 
 export interface ProductImage {

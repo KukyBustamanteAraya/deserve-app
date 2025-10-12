@@ -1,7 +1,8 @@
 // Fabric recommendation logic: merge universal + sport overrides
 
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServer } from '@/lib/supabase/server-client';
 import type { FabricRecommendation } from '@/types/taxonomy';
+import { logger } from '@/lib/logger';
 
 /**
  * Get fabric recommendations for a product type, optionally with sport-specific overrides
@@ -13,7 +14,7 @@ export async function getFabricRecommendations(
   productTypeSlug: string,
   sportSlug?: string | null
 ): Promise<FabricRecommendation[]> {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServer();
 
   // 1. Get universal recommendations for this product type
   const { data: universalRecs, error: universalError } = await supabase
@@ -22,7 +23,7 @@ export async function getFabricRecommendations(
     .eq('product_type_slug', productTypeSlug);
 
   if (universalError) {
-    console.error('Error fetching universal fabric recommendations:', universalError);
+    logger.error('Error fetching universal fabric recommendations:', universalError);
     return [];
   }
 
@@ -63,7 +64,7 @@ export async function getFabricRecommendations(
  * @returns Canonical fabric name
  */
 export async function normalizeFabricName(fabricName: string): Promise<string> {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServer();
 
   const { data: alias } = await supabase
     .from('fabric_aliases')
@@ -78,7 +79,7 @@ export async function normalizeFabricName(fabricName: string): Promise<string> {
  * Get all available fabrics with details
  */
 export async function getAllFabrics() {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServer();
 
   const { data: fabrics, error } = await supabase
     .from('fabrics')
@@ -86,7 +87,7 @@ export async function getAllFabrics() {
     .order('name');
 
   if (error) {
-    console.error('Error fetching fabrics:', error);
+    logger.error('Error fetching fabrics:', error);
     return [];
   }
 

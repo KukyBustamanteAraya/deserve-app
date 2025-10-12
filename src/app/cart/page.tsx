@@ -1,6 +1,7 @@
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import { redirect } from 'next/navigation';
 import CartClient from './CartClient';
+import { logger } from '@/lib/logger';
 
 export default async function CartPage() {
   try {
@@ -12,7 +13,7 @@ export default async function CartPage() {
       .rpc('get_or_create_active_cart');
 
     if (cartError) {
-      console.error('Error getting cart:', cartError);
+      logger.error('Error getting cart:', cartError);
       redirect('/catalog?error=cart_not_found');
     }
 
@@ -24,7 +25,7 @@ export default async function CartPage() {
       .single();
 
     if (fetchError) {
-      console.error('Error fetching cart details:', fetchError);
+      logger.error('Error fetching cart details:', fetchError);
       redirect('/catalog?error=cart_fetch_failed');
     }
 
@@ -44,7 +45,7 @@ export default async function CartPage() {
     );
 
   } catch (error) {
-    console.error('Cart page error:', error);
+    logger.error('Cart page error:', error);
     redirect('/login?redirect=/cart');
   }
 }

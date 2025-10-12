@@ -5,6 +5,7 @@ import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client'
 import { updateCartItemSchema } from '@/types/orders';
 import type { UpdateCartItemRequest, CartResponse } from '@/types/orders';
 import type { ApiResponse } from '@/types/api';
+import { logger } from '@/lib/logger';
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -37,7 +38,7 @@ export async function PATCH(
         .eq('id', itemId);
 
       if (deleteError) {
-        console.error('Error deleting cart item:', deleteError);
+        logger.error('Error deleting cart item:', deleteError);
         return NextResponse.json(
           { error: 'Failed to remove item from cart', message: deleteError.message } as ApiResponse<null>,
           { status: 500 }
@@ -51,7 +52,7 @@ export async function PATCH(
         .eq('id', itemId);
 
       if (updateError) {
-        console.error('Error updating cart item:', updateError);
+        logger.error('Error updating cart item:', updateError);
         return NextResponse.json(
           { error: 'Failed to update cart item', message: updateError.message } as ApiResponse<null>,
           { status: 500 }
@@ -64,7 +65,7 @@ export async function PATCH(
       .rpc('get_or_create_active_cart');
 
     if (cartError) {
-      console.error('Error getting cart:', cartError);
+      logger.error('Error getting cart:', cartError);
       return NextResponse.json(
         { error: 'Failed to get cart', message: cartError.message } as ApiResponse<null>,
         { status: 500 }
@@ -79,7 +80,7 @@ export async function PATCH(
       .single();
 
     if (fetchError) {
-      console.error('Error fetching updated cart:', fetchError);
+      logger.error('Error fetching updated cart:', fetchError);
       return NextResponse.json(
         { error: 'Failed to fetch updated cart', message: fetchError.message } as ApiResponse<null>,
         { status: 500 }
@@ -99,7 +100,7 @@ export async function PATCH(
       );
     }
 
-    console.error('Unexpected error in cart item update:', error);
+    logger.error('Unexpected error in cart item update:', error);
     return NextResponse.json(
       { error: 'Internal server error' } as ApiResponse<null>,
       { status: 500 }
@@ -126,7 +127,7 @@ export async function DELETE(
       .eq('id', itemId);
 
     if (deleteError) {
-      console.error('Error deleting cart item:', deleteError);
+      logger.error('Error deleting cart item:', deleteError);
       return NextResponse.json(
         { error: 'Failed to remove item from cart', message: deleteError.message } as ApiResponse<null>,
         { status: 500 }
@@ -138,7 +139,7 @@ export async function DELETE(
       .rpc('get_or_create_active_cart');
 
     if (cartError) {
-      console.error('Error getting cart:', cartError);
+      logger.error('Error getting cart:', cartError);
       return NextResponse.json(
         { error: 'Failed to get cart', message: cartError.message } as ApiResponse<null>,
         { status: 500 }
@@ -153,7 +154,7 @@ export async function DELETE(
       .single();
 
     if (fetchError) {
-      console.error('Error fetching updated cart:', fetchError);
+      logger.error('Error fetching updated cart:', fetchError);
       return NextResponse.json(
         { error: 'Failed to fetch updated cart', message: fetchError.message } as ApiResponse<null>,
         { status: 500 }
@@ -173,7 +174,7 @@ export async function DELETE(
       );
     }
 
-    console.error('Unexpected error in cart item deletion:', error);
+    logger.error('Unexpected error in cart item deletion:', error);
     return NextResponse.json(
       { error: 'Internal server error' } as ApiResponse<null>,
       { status: 500 }

@@ -12,9 +12,8 @@ interface ProfileFormProps {
 export default function ProfileForm({ user, profile }: ProfileFormProps) {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    display_name: profile.display_name || '',
-    avatar_url: profile.avatar_url || '',
-    bio: profile.bio || ''
+    full_name: profile.full_name || '',
+    avatar_url: profile.avatar_url || ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,17 +87,17 @@ export default function ProfileForm({ user, profile }: ProfileFormProps) {
 
       {/* Editable fields */}
       <div>
-        <label htmlFor="display_name" className="block text-sm font-medium text-gray-700 mb-1">
-          Display Name
+        <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1">
+          Full Name
         </label>
         <input
           type="text"
-          id="display_name"
-          name="display_name"
-          value={formData.display_name}
+          id="full_name"
+          name="full_name"
+          value={formData.full_name}
           onChange={handleChange}
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          placeholder="Your display name"
+          placeholder="Your full name"
         />
       </div>
 
@@ -114,21 +113,6 @@ export default function ProfileForm({ user, profile }: ProfileFormProps) {
           onChange={handleChange}
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           placeholder="https://example.com/avatar.jpg"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-1">
-          Bio
-        </label>
-        <textarea
-          id="bio"
-          name="bio"
-          value={formData.bio}
-          onChange={handleChange}
-          rows={4}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          placeholder="Tell us about yourself..."
         />
       </div>
 

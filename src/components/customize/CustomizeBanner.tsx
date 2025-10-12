@@ -12,6 +12,7 @@ interface CustomizeBannerProps {
     accent: string;
   };
   customLogoUrl?: string;
+  onLogoChange?: (logoUrl: string) => void;
   readonly?: boolean;
 }
 
@@ -25,13 +26,34 @@ export function CustomizeBanner({
   onTeamNameChange,
   customColors,
   customLogoUrl,
+  onLogoChange,
   readonly = false
 }: CustomizeBannerProps) {
   const builderState = useBuilderState();
-  const teamColors = customColors || builderState.teamColors;
-  const logoUrl = customLogoUrl || builderState.logoUrl;
+
+  // If callbacks are provided, we're on a team page - use ONLY props, NOT global state
+  // This prevents logo/name/color contamination between teams and design requests
+  const isTeamPage = !!(onTeamNameChange || onLogoChange);
+
+  // Default colors for new teams (matches database defaults)
+  const DEFAULT_COLORS = { primary: '#1E40AF', secondary: '#FFFFFF', accent: '#60A5FA' };
+
+  // Team pages: Use ONLY team data, NEVER builderState
+  // Design request flow: Use builderState as fallback
+  const teamColors = isTeamPage
+    ? (customColors || DEFAULT_COLORS)
+    : (customColors || builderState.teamColors);
+
+  const logoUrl = isTeamPage
+    ? customLogoUrl  // undefined if team has no logo
+    : (customLogoUrl || builderState.logoUrl);
+
   const setLogoUrl = builderState.setLogoUrl;
-  const teamName = externalTeamName || builderState.teamName;
+
+  const teamName = isTeamPage
+    ? (externalTeamName || 'Mi Equipo')
+    : (externalTeamName || builderState.teamName);
+
   const setTeamName = builderState.setTeamName;
   const [originalLogo, setOriginalLogo] = useState<string | null>(null);
   const [tempLogo, setTempLogo] = useState<string | null>(null);
@@ -138,9 +160,19 @@ export function CustomizeBanner({
 
   const handleSaveLogo = async () => {
     const croppedImage = await createCroppedImage();
-    setLogoUrl(croppedImage || undefined);
+
+    // Only update global state if we're NOT on a team page
+    if (!isTeamPage) {
+      setLogoUrl(croppedImage || undefined);
+    }
+
     setSavedTransform({ zoom, position });
     setShowCropModal(false);
+
+    // Call the callback if provided (for team pages)
+    if (onLogoChange && croppedImage) {
+      onLogoChange(croppedImage);
+    }
   };
 
   const handleCancelCrop = () => {
@@ -156,8 +188,14 @@ export function CustomizeBanner({
   };
 
   const handleNameSave = () => {
-    setTeamName(editedName);
+    // Only update global state if we're NOT on a team page
+    if (!isTeamPage) {
+      setTeamName(editedName);
+    }
+
     setIsEditingName(false);
+
+    // Call the callback if provided (for team pages)
     if (onTeamNameChange) {
       onTeamNameChange(editedName);
     }
@@ -180,14 +218,14 @@ export function CustomizeBanner({
       <div className="fixed top-20 left-0 right-0 z-30 bg-gray-50 pt-4 pb-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div
-            className="rounded-lg shadow-lg py-8 px-8 relative"
+            className="rounded-lg shadow-lg py-4 px-8 relative flex items-center gap-4"
             style={gradientStyle}
           >
           {/* Logo Upload Circle */}
-          <div className="flex flex-col items-center mb-4">
+          <div className="flex-shrink-0">
             <div
               onClick={handleCircleClick}
-              className={`w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/40 flex flex-col items-center justify-center transition-all duration-200 overflow-hidden ${
+              className={`w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/40 flex flex-col items-center justify-center transition-all duration-200 overflow-hidden ${
                 readonly ? 'cursor-default' : 'cursor-pointer hover:bg-white/30'
               } ${shouldShowAnimation ? 'shimmer-wrapper' : ''}`}
             >
@@ -198,9 +236,9 @@ export function CustomizeBanner({
                   className="w-full h-full object-cover rounded-full"
                 />
               ) : (
-                <div className="flex flex-col items-center -mt-2">
-                  <div className="text-4xl text-white font-light">+</div>
-                  <div className="text-[10px] text-white font-medium -mt-2">Sube tu Logo</div>
+                <div className="flex flex-col items-center -mt-1">
+                  <div className="text-2xl text-white font-light">+</div>
+                  <div className="text-[8px] text-white font-medium -mt-1">Logo</div>
                 </div>
               )}
             </div>
@@ -214,7 +252,7 @@ export function CustomizeBanner({
           </div>
 
           {/* Editable Team Name */}
-          <div className="flex justify-center relative w-full px-2">
+          <div className="flex-1 flex items-center relative px-2">
             {isEditingName ? (
               <input
                 type="text"
@@ -223,12 +261,12 @@ export function CustomizeBanner({
                 onBlur={handleNameSave}
                 onKeyDown={handleNameKeyDown}
                 autoFocus
-                className="text-3xl font-bold text-white text-center bg-white/20 border-2 border-white/50 rounded-lg px-4 py-2 outline-none w-full max-w-lg"
+                className="text-2xl font-bold text-white bg-white/20 border-2 border-white/50 rounded-lg px-4 py-2 outline-none w-full"
               />
             ) : (
               <div className={`${shouldShowAnimation ? 'shimmer-wrapper' : ''} inline-block`}>
                 <h1
-                  className={`text-3xl font-bold text-white text-center ${readonly ? '' : 'cursor-pointer'}`}
+                  className={`text-2xl font-bold text-white ${readonly ? '' : 'cursor-pointer'}`}
                   onClick={handleNameClick}
                 >
                   {editedName}

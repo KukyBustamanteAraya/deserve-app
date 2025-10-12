@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
+import { apiSuccess } from '@/lib/api-response';
 
 export async function GET() {
-  return NextResponse.json({ ok: true, ts: Date.now() }, { status: 200 });
+  return apiSuccess({ ok: true, ts: Date.now() });
 }

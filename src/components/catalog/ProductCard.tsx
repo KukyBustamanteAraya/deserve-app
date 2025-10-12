@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { centsToCLP } from '@/lib/currency';
 import type { ProductListItem } from '@/types/catalog';
+import { logger } from '@/lib/logger';
 
 interface ProductCardProps {
   product: ProductListItem;
@@ -55,7 +56,7 @@ export function ProductCard({ product, className = '', priority = false }: Produ
         }
       }
     } catch (error) {
-      console.error('Error adding to cart:', error);
+      logger.error('Error adding to cart:', error);
       // Show error feedback
       const errorMessage = document.createElement('div');
       errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';

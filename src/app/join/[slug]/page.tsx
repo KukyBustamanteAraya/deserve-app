@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getBrowserClient } from '@/lib/supabase/client';
 import Image from 'next/image';
+import { logger } from '@/lib/logger';
 
 interface Team {
   id: string;
@@ -88,7 +89,7 @@ export default function JoinTeamPage({ params }: { params: { slug: string } }) {
         }
       }
     } catch (error) {
-      console.error('Error loading team:', error);
+      logger.error('Error loading team:', error);
       setError('Equipo no encontrado');
     } finally {
       setLoading(false);
@@ -111,7 +112,7 @@ export default function JoinTeamPage({ params }: { params: { slug: string } }) {
 
       alert('¡Link mágico enviado! Revisa tu email para continuar.');
     } catch (error: any) {
-      console.error('Error sending magic link:', error);
+      logger.error('Error sending magic link:', error);
       setError(error.message || 'Error al enviar el link. Intenta de nuevo.');
     }
   };
@@ -145,7 +146,7 @@ export default function JoinTeamPage({ params }: { params: { slug: string } }) {
       // Redirect to team page
       router.push(`/mi-equipo/${params.slug}`);
     } catch (error: any) {
-      console.error('Error joining team:', error);
+      logger.error('Error joining team:', error);
       setError('Error al unirte al equipo. Intenta de nuevo.');
     } finally {
       setJoining(false);

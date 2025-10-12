@@ -3,6 +3,7 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { logger } from '@/lib/logger';
 
 interface OrderStatus {
   id: string;
@@ -60,7 +61,7 @@ export default function PaymentPendingPage() {
           return;
         }
       } catch (err) {
-        console.error('Error checking order status:', err);
+        logger.error('Error checking order status:', err);
         setError('Failed to check order status');
         setLoading(false);
       }

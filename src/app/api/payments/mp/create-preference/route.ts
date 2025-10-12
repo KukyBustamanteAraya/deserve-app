@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const createPreferenceSchema = z.object({
   orderId: z.string().uuid()
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
 
     if (!mpResponse.ok) {
       const mpError = await mpResponse.text();
-      console.error('Mercado Pago error:', mpError);
+      logger.error('Mercado Pago error:', mpError);
       return NextResponse.json({ error: 'Payment provider error' }, { status: 500 });
     }
 
@@ -146,7 +147,7 @@ export async function POST(request: Request) {
     }
 
     if (paymentResult.error) {
-      console.error('Database error:', paymentResult.error);
+      logger.error('Database error:', paymentResult.error);
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
@@ -166,7 +167,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('Create preference error:', error);
+    logger.error('Create preference error:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid request data' }, { status: 400 });

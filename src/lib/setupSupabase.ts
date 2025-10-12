@@ -1,11 +1,12 @@
 import { supabaseClient } from './supabaseClient';
+import { logger } from '@/lib/logger';
 
 // Create products table
 export async function createProductsTable() {
   const { error } = await supabaseClient.rpc('create_products_table', {});
 
   if (error && !error.message.includes('already exists')) {
-    console.error('Error creating products table:', error);
+    logger.error('Error creating products table:', error);
     return false;
   }
 
@@ -21,7 +22,7 @@ export async function createProductImagesBucket() {
   });
 
   if (error && !error.message.includes('already exists')) {
-    console.error('Error creating bucket:', error);
+    logger.error('Error creating bucket:', error);
     return false;
   }
 
@@ -38,7 +39,7 @@ export async function uploadProductImage(file: File, fileName: string): Promise<
     });
 
   if (error) {
-    console.error('Error uploading image:', error);
+    logger.error('Error uploading image:', error);
     return null;
   }
 
@@ -74,7 +75,7 @@ export async function insertProduct(product: {
     .select();
 
   if (error) {
-    console.error('Error inserting product:', error);
+    logger.error('Error inserting product:', error);
     return null;
   }
 
@@ -91,7 +92,7 @@ export async function getProductsBySport(sport: string, limit: number = 20, offs
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching products:', error);
+    logger.error('Error fetching products:', error);
     return [];
   }
 
@@ -106,7 +107,7 @@ export async function getProductsCountBySport(sport: string): Promise<number> {
     .eq('sport', sport);
 
   if (error) {
-    console.error('Error counting products:', error);
+    logger.error('Error counting products:', error);
     return 0;
   }
 

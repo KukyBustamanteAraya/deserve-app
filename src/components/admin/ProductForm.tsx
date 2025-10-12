@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import ImageUploader from './ImageUploader';
 import { slugify } from '@/lib/utils/slugify';
+import { logger } from '@/lib/logger';
 
 interface Sport {
   id: string;
@@ -11,16 +11,11 @@ interface Sport {
 }
 
 interface ProductFormData {
-  sport_id: string;
+  sport_ids: string[];                    // Array of sport IDs
   category: string;
   name: string;
+  price_cents: number | string;           // Custom price for this product
   status: string;
-}
-
-interface ImageData {
-  tempFolderId: string;
-  images: Array<{ index: number; path: string; alt: string }>;
-  heroIndex: number | null;
 }
 
 interface ProductFormProps {
@@ -51,12 +46,12 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
   const router = useRouter();
   const [sports, setSports] = useState<Sport[]>([]);
   const [formData, setFormData] = useState<ProductFormData>({
-    sport_id: initialData?.sport_id || '',
+    sport_ids: initialData?.sport_ids || [],
     category: initialData?.category || '',
     name: initialData?.name || '',
+    price_cents: initialData?.price_cents || '',
     status: initialData?.status || 'draft',
   });
-  const [imageData, setImageData] = useState<ImageData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -70,7 +65,7 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
         const data = await response.json();
         setSports(data.data?.items || []);
       } catch (err: any) {
-        console.error('Error fetching sports:', err);
+        logger.error('Error fetching sports:', err);
       }
     }
     fetchSports();
@@ -83,49 +78,38 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
 
     try {
       // Validation
-      if (!formData.sport_id || !formData.category || !formData.name) {
+      if (formData.sport_ids.length === 0) {
+        throw new Error('Please select at least one sport');
+      }
+      if (!formData.category || !formData.name) {
         throw new Error('Please fill in all required fields');
+      }
+      if (!formData.price_cents || Number(formData.price_cents) <= 0) {
+        throw new Error('Please enter a valid price');
       }
 
       // Auto-generate slug from name
       const slug = slugify(formData.name);
 
-      // Active status validation for create mode
-      if (formData.status === 'active' && mode === 'create') {
-        if (!imageData || imageData.images.length === 0) {
-          throw new Error('Para publicar como Activo, sube una imagen y selecciona una portada (Hero).');
-        }
-
-        // Auto-select first image as hero if none selected
-        if (imageData.heroIndex === null || imageData.heroIndex === undefined) {
-          imageData.heroIndex = 0;
-        }
-      }
-
       // Get the typeSlug from the selected category
       const selectedCategory = CATEGORIES.find(cat => cat.value === formData.category);
       const typeSlug = selectedCategory?.typeSlug || formData.category;
 
+      // Convert price to number (Chilean Pesos - no decimal conversion needed)
+      const priceCents = typeof formData.price_cents === 'string'
+        ? Math.round(parseFloat(formData.price_cents))
+        : formData.price_cents;
+
       // Prepare payload
       const payload: any = {
-        sport_id: formData.sport_id,
-        category: formData.category, // Old DB-allowed value (e.g., 'camiseta')
+        sport_ids: formData.sport_ids.map(id => parseInt(id)),  // Convert string IDs to numbers
+        category: formData.category,
         name: formData.name,
         slug,
+        price_cents: priceCents,
         status: formData.status,
-        product_type_slug: typeSlug, // Correct English value (e.g., 'jersey')
+        product_type_slug: typeSlug,
       };
-
-      // Include image data and temp folder ID for creation
-      if (mode === 'create' && imageData) {
-        // Set hero_path from the selected hero image
-        const heroImage = imageData.images[imageData.heroIndex ?? 0];
-        if (heroImage) {
-          payload.hero_path = heroImage.path;
-        }
-        payload.imageData = imageData;
-        payload.tempImageFolder = imageData.tempFolderId;
-      }
 
       // API call
       const url = mode === 'create' ? '/api/catalog/products' : `/api/catalog/products/${productId}`;
@@ -151,27 +135,30 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
       }, 1500);
     } catch (err: any) {
       setError(err.message || 'An error occurred');
-      console.error('Submit error:', err);
+      logger.error('Submit error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const canPublish = mode === 'create'
-    ? imageData?.heroIndex !== null && imageData?.heroIndex !== undefined
-    : true; // In edit mode, assume hero exists or will be validated by API
-
   return (
     <form onSubmit={handleSubmit} className="max-w-4xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">
-          {mode === 'create' ? 'Create New Product' : 'Edit Product'}
-        </h1>
+        <div>
+          <h1 className="text-3xl font-bold text-white">
+            {mode === 'create' ? 'Create New Product' : 'Edit Product'}
+          </h1>
+          <p className="text-gray-400 mt-1">
+            {mode === 'create'
+              ? 'Add a new product to your catalog'
+              : 'Update product details'}
+          </p>
+        </div>
         <button
           type="button"
           onClick={() => router.back()}
-          className="text-gray-600 hover:text-gray-800"
+          className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
         >
           Cancel
         </button>
@@ -179,51 +166,63 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
 
       {/* Error message */}
       {error && (
-        <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded">
+        <div className="bg-red-900/20 border border-red-500/50 text-red-300 px-4 py-3 rounded-lg">
           {error}
         </div>
       )}
 
       {/* Success message */}
       {success && (
-        <div className="bg-green-50 border border-green-300 text-green-700 px-4 py-3 rounded">
+        <div className="bg-green-900/20 border border-green-500/50 text-green-300 px-4 py-3 rounded-lg">
           Product saved successfully! Redirecting...
         </div>
       )}
 
       {/* Basic Information */}
-      <div className="bg-white border rounded-lg p-6 space-y-4">
-        <h2 className="text-lg font-semibold mb-4">Basic Information</h2>
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-lg p-6 shadow-xl space-y-4">
+        <h2 className="text-xl font-semibold text-white mb-4">Basic Information</h2>
 
-        {/* Sport */}
+        {/* Sports (Multi-select with checkboxes) */}
         <div>
-          <label className="block text-sm font-medium mb-1">
-            Sport <span className="text-red-500">*</span>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Available for Sports <span className="text-blue-500">*</span>
           </label>
-          <select
-            value={formData.sport_id}
-            onChange={(e) => setFormData({ ...formData, sport_id: e.target.value })}
-            className="w-full border rounded px-3 py-2"
-            required
-          >
-            <option value="">Select a sport</option>
+          <p className="text-xs text-gray-500 mb-3">
+            Select all sports this product will be available for
+          </p>
+          <div className="grid grid-cols-2 gap-3">
             {sports.map((sport) => (
-              <option key={sport.id} value={sport.id}>
-                {sport.name}
-              </option>
+              <label
+                key={sport.id}
+                className="flex items-center space-x-2 p-3 bg-gray-900 border border-gray-700 rounded-md hover:border-blue-500 cursor-pointer transition-colors"
+              >
+                <input
+                  type="checkbox"
+                  checked={formData.sport_ids.includes(sport.id)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setFormData({ ...formData, sport_ids: [...formData.sport_ids, sport.id] });
+                    } else {
+                      setFormData({ ...formData, sport_ids: formData.sport_ids.filter(id => id !== sport.id) });
+                    }
+                  }}
+                  className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                />
+                <span className="text-white">{sport.name}</span>
+              </label>
             ))}
-          </select>
+          </div>
         </div>
 
         {/* Category */}
         <div>
-          <label className="block text-sm font-medium mb-1">
-            Category <span className="text-red-500">*</span>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Category <span className="text-blue-500">*</span>
           </label>
           <select
             value={formData.category}
             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            className="w-full border rounded px-3 py-2"
+            className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           >
             <option value="">Select a category</option>
@@ -237,58 +236,62 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
 
         {/* Name */}
         <div>
-          <label className="block text-sm font-medium mb-1">
-            Product Name <span className="text-red-500">*</span>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Product Name <span className="text-blue-500">*</span>
           </label>
           <input
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full border rounded px-3 py-2"
-            placeholder="e.g., Momentum, Elevate, Impact"
+            className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="e.g., Premium Jersey, Rugby Jersey, Team Hoodie"
             required
           />
           <p className="text-xs text-gray-500 mt-1">
-            Pricing is determined by the component type (category) selected above
+            Give this product a descriptive name (e.g., "Premium Jersey" for standard build, "Rugby Jersey" for reinforced)
+          </p>
+        </div>
+
+        {/* Price */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Price (CLP) <span className="text-blue-500">*</span>
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">$</span>
+            <input
+              type="number"
+              step="1"
+              min="0"
+              value={formData.price_cents}
+              onChange={(e) => setFormData({ ...formData, price_cents: e.target.value })}
+              className="w-full pl-8 pr-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="50000"
+              required
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Set the price for this specific product in Chilean Pesos (e.g., $50,000 CLP for Premium Jersey, $70,000 CLP for Rugby Jersey)
           </p>
         </div>
       </div>
 
-      {/* Images Section (only for create mode) */}
-      {mode === 'create' && (
-        <div className="bg-white border rounded-lg p-6 space-y-4">
-          <h2 className="text-lg font-semibold mb-4">Product Images</h2>
-          <ImageUploader onImagesChange={setImageData} />
-          {!canPublish && formData.status === 'active' && (
-            <p className="text-sm text-amber-600">
-              ⚠️ You must select a hero image to publish this product.
-            </p>
-          )}
-        </div>
-      )}
-
       {/* Status */}
-      <div className="bg-white border rounded-lg p-6 space-y-4">
-        <h2 className="text-lg font-semibold mb-4">Publication Status</h2>
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-lg p-6 shadow-xl space-y-4">
+        <h2 className="text-xl font-semibold text-white mb-4">Publication Status</h2>
         <div>
-          <label className="block text-sm font-medium mb-1">
-            Status <span className="text-red-500">*</span>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Status <span className="text-blue-500">*</span>
           </label>
           <select
             value={formData.status}
             onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            className="w-full border rounded px-3 py-2"
+            className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
-            disabled={formData.status === 'active' && !canPublish}
           >
             {STATUSES.map((status) => (
-              <option
-                key={status.value}
-                value={status.value}
-                disabled={status.value === 'active' && !canPublish}
-              >
+              <option key={status.value} value={status.value}>
                 {status.label}
-                {status.value === 'active' && !canPublish ? ' (requires hero image)' : ''}
               </option>
             ))}
           </select>
@@ -301,20 +304,47 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
       </div>
 
       {/* Submit */}
-      <div className="flex gap-4">
-        <button
-          type="submit"
-          disabled={loading || (formData.status === 'active' && !canPublish)}
-          className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? 'Saving...' : mode === 'create' ? 'Create Product' : 'Save Changes'}
-        </button>
+      <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-700">
         <button
           type="button"
           onClick={() => router.back()}
-          className="px-6 py-2 border rounded hover:bg-gray-50"
+          className="px-6 py-2 text-gray-400 hover:text-white transition-colors"
+          disabled={loading}
         >
           Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg hover:shadow-blue-500/50"
+        >
+          {loading ? (
+            <>
+              <svg
+                className="animate-spin h-5 w-5"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              Saving...
+            </>
+          ) : (
+            <>{mode === 'create' ? 'Create Product' : 'Save Changes'}</>
+          )}
         </button>
       </div>
     </form>

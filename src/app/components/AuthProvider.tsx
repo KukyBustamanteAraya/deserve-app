@@ -3,6 +3,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import { logger } from '@/lib/logger';
 
 type AuthValue = {
   user: any | null;
@@ -28,7 +29,7 @@ export function AuthProvider({
     const { data: subscription } = supabaseBrowser.auth.onAuthStateChange((_event: any, session: any) => {
       if (!mounted) return;
 
-      console.log('Auth: State change event:', _event, session?.user ? 'user present' : 'no user');
+      logger.debug('Auth: State change event:', _event, session?.user ? 'user present' : 'no user');
       setUser(session?.user ?? null);
     });
 

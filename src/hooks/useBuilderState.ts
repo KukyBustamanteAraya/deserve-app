@@ -71,7 +71,66 @@ const defaultApparel: Record<ApparelKey, boolean> = {
 };
 
 export const useBuilderState = create<BuilderState>()(
-  persist(
+  typeof window === 'undefined'
+    ? (set) => ({
+      // Initial state (no persist on server)
+      selectedSport: undefined,
+      selectedDesign: undefined,
+      teamColors: defaultColors,
+      selectedApparel: defaultApparel,
+      userType: undefined,
+      logoUrl: undefined,
+      teamName: 'Mi Equipo',
+      uniformDetails: {
+        sleeve: 'short',
+        neck: 'crew',
+        fit: 'athletic',
+      },
+      logoPlacements: {
+        front: false,
+        back: false,
+        sleeveLeft: false,
+        sleeveRight: false,
+      },
+      namesNumbers: false,
+
+      // Actions
+      setSport: (sport: string) => set({ selectedSport: sport }),
+      setDesign: (design: SelectedDesign | undefined) => set({ selectedDesign: design }),
+      setTeamColors: (colors: Partial<TeamColors>) =>
+        set((state) => ({ teamColors: { ...state.teamColors, ...colors } })),
+      toggleApparel: (key: ApparelKey, value?: boolean) =>
+        set((state) => ({
+          selectedApparel: {
+            ...state.selectedApparel,
+            [key]: value !== undefined ? value : !state.selectedApparel[key],
+          },
+        })),
+      setUserType: (type: 'player' | 'manager') => set({ userType: type }),
+      setLogoUrl: (url?: string) => set({ logoUrl: url }),
+      setTeamName: (name: string) => set({ teamName: name }),
+      setUniformDetails: (details: Partial<UniformDetails>) =>
+        set((state) => ({ uniformDetails: { ...state.uniformDetails, ...details } })),
+      toggleLogoPlacement: (key: keyof LogoPlacements) =>
+        set((state) => ({
+          logoPlacements: { ...state.logoPlacements, [key]: !state.logoPlacements[key] },
+        })),
+      setNamesNumbers: (value: boolean) => set({ namesNumbers: value }),
+      reset: () =>
+        set({
+          selectedSport: undefined,
+          selectedDesign: undefined,
+          teamColors: defaultColors,
+          selectedApparel: defaultApparel,
+          userType: undefined,
+          logoUrl: undefined,
+          teamName: 'Mi Equipo',
+          uniformDetails: { sleeve: 'short', neck: 'crew', fit: 'athletic' },
+          logoPlacements: { front: false, back: false, sleeveLeft: false, sleeveRight: false },
+          namesNumbers: false,
+        }),
+    })
+    : persist(
     (set) => ({
       // Initial state
       selectedSport: undefined,

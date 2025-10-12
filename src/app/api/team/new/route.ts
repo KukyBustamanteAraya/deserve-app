@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit } from '@/lib/security/rateLimit';
 import { assertSameSiteOrAllowed } from '@/lib/security/origin';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   const check = assertSameSiteOrAllowed(request);
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error("Error creating team:", error);
+    logger.error("Error creating team:", error);
     return NextResponse.json(
       { error: "Internal server error" }, 
       { status: 500 }

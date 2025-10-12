@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { CreditCardIcon } from '@heroicons/react/24/outline';
+import { logger } from '@/lib/logger';
 
 interface SplitPayButtonProps {
   orderId: string;
@@ -52,7 +53,7 @@ export function SplitPayButton({
       // Redirect to Mercado Pago checkout
       window.location.href = data.initPoint;
     } catch (err: any) {
-      console.error('Error initiating payment:', err);
+      logger.error('Error initiating payment:', err);
       setError(err.message || 'Error al iniciar el pago');
       setLoading(false);
     }

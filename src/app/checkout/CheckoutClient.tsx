@@ -4,21 +4,49 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import CartSummary from '@/components/orders/CartSummary';
+import { ShippingAddressForm } from '@/components/shipping/ShippingAddressForm';
 import { formatCurrency } from '@/types/orders';
 import type { CartWithItems } from '@/types/orders';
 
-interface CheckoutClientProps {
-  cart: CartWithItems;
+interface ShippingAddress {
+  id: string;
+  recipient_name: string;
+  recipient_phone: string;
+  street_address: string;
+  address_line_2?: string;
+  commune: string;
+  city: string;
+  region: string;
+  postal_code?: string;
+  is_default?: boolean;
+  delivery_instructions?: string;
 }
 
-export default function CheckoutClient({ cart }: CheckoutClientProps) {
+interface CheckoutClientProps {
+  cart: CartWithItems;
+  userId: string;
+  shippingAddresses: ShippingAddress[];
+}
+
+export default function CheckoutClient({ cart, userId, shippingAddresses }: CheckoutClientProps) {
   const [notes, setNotes] = useState('');
   const [processing, setProcessing] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
+    shippingAddresses.find(a => a.is_default)?.id || shippingAddresses[0]?.id || null
+  );
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [addresses, setAddresses] = useState<ShippingAddress[]>(shippingAddresses);
   const router = useRouter();
 
   const handlePlaceOrder = async () => {
+    // Validate shipping address
+    if (!selectedAddressId) {
+      setError('Por favor selecciona una dirección de envío');
+      return;
+    }
+
     setProcessing(true);
     setError(null);
 
@@ -30,6 +58,7 @@ export default function CheckoutClient({ cart }: CheckoutClientProps) {
         },
         body: JSON.stringify({
           cartId: cart.id,
+          shippingAddressId: selectedAddressId,
           notes: notes.trim() || undefined
         })
       });
@@ -49,6 +78,12 @@ export default function CheckoutClient({ cart }: CheckoutClientProps) {
   };
 
   const handlePayWithMercadoPago = async () => {
+    // Validate shipping address
+    if (!selectedAddressId) {
+      setError('Por favor selecciona una dirección de envío');
+      return;
+    }
+
     setPaymentProcessing(true);
     setError(null);
 
@@ -61,6 +96,7 @@ export default function CheckoutClient({ cart }: CheckoutClientProps) {
         },
         body: JSON.stringify({
           cartId: cart.id,
+          shippingAddressId: selectedAddressId,
           notes: notes.trim() || undefined
         })
       });
@@ -100,10 +136,100 @@ export default function CheckoutClient({ cart }: CheckoutClientProps) {
     }
   };
 
+  const selectedAddress = addresses.find(a => a.id === selectedAddressId);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Order Summary */}
       <div>
+        {/* Shipping Address Section */}
+        <div className="bg-white rounded-lg shadow-sm border overflow-hidden mb-6">
+          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Dirección de envío
+            </h2>
+            {addresses.length > 0 && !showAddressForm && (
+              <button
+                onClick={() => setShowAddressForm(true)}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                + Nueva dirección
+              </button>
+            )}
+          </div>
+
+          <div className="p-6">
+            {showAddressForm ? (
+              <ShippingAddressForm
+                userId={userId}
+                onSaved={(newAddress) => {
+                  setAddresses([newAddress, ...addresses]);
+                  setSelectedAddressId(newAddress.id!);
+                  setShowAddressForm(false);
+                }}
+                onCancel={() => setShowAddressForm(false)}
+              />
+            ) : addresses.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500 mb-4">
+                  No tienes direcciones guardadas
+                </p>
+                <button
+                  onClick={() => setShowAddressForm(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  Agregar dirección
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {addresses.map((address) => (
+                  <label
+                    key={address.id}
+                    className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                      selectedAddressId === address.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="shipping_address"
+                      value={address.id}
+                      checked={selectedAddressId === address.id}
+                      onChange={() => setSelectedAddressId(address.id)}
+                      className="mt-1 w-4 h-4 text-blue-600"
+                    />
+                    <div className="ml-3 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900">
+                          {address.recipient_name}
+                        </p>
+                        {address.is_default && (
+                          <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full font-medium">
+                            Predeterminada
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {address.street_address}
+                        {address.address_line_2 && `, ${address.address_line_2}`}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {address.commune}, {address.city}
+                      </p>
+                      <p className="text-sm text-gray-600">{address.region}</p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Tel: {address.recipient_phone}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden mb-6">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">

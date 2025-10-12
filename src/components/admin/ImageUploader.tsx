@@ -22,6 +22,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '@/lib/logger';
 
 const MAX_IMAGES = 6;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -154,10 +155,10 @@ export default function ImageUploader({
   useEffect(() => {
     (async () => {
       const res = await supabase.auth.getUser();
-      console.log('Auth check:', res);
-      console.log('Browser user ID:', res.data.user?.id);
-      console.log('Expected ID: d4688023-0cd9-4875-94ed-33e98b010a15');
-      console.log('Match:', res.data.user?.id === 'd4688023-0cd9-4875-94ed-33e98b010a15');
+      logger.debug('Auth check:', res);
+      logger.debug('Browser user ID:', res.data.user?.id);
+      logger.debug('Expected ID: d4688023-0cd9-4875-94ed-33e98b010a15');
+      logger.debug('Match:', res.data.user?.id === 'd4688023-0cd9-4875-94ed-33e98b010a15');
     })();
   }, [supabase]);
 
@@ -235,7 +236,7 @@ export default function ImageUploader({
       notifyParent(updatedImages, heroIndex);
     } catch (err: any) {
       setError(err.message || 'Failed to upload images');
-      console.error('Upload error:', err);
+      logger.error('Upload error:', err);
     } finally {
       setUploading(false);
     }

@@ -6,11 +6,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { downloadImage, uploadPng } from '@/lib/storage';
 import { editMultiVariant } from '@/lib/openaiImages';
 import { saveRenderResult, type RenderSpec } from '@/lib/designRequests';
 import sharp from 'sharp';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes for multi-variant generation
@@ -29,10 +30,10 @@ interface RecolorBoundaryRequest {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  console.log('[Simple-Recolor] Request received');
+  logger.debug('[Simple-Recolor] Request received');
 
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = createSupabaseServer();
     const body: RecolorBoundaryRequest = await request.json();
     const { designRequestId, baseUrl, colors, n = 1 } = body;
 
@@ -44,10 +45,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[Simple-Recolor] Design request: ${designRequestId}`);
-    console.log(`[Simple-Recolor] Base: ${baseUrl}`);
-    console.log(`[Simple-Recolor] Colors: ${JSON.stringify(colors)}`);
-    console.log(`[Simple-Recolor] Generating ${n} variant(s)`);
+    logger.debug(`[Simple-Recolor] Design request: ${designRequestId}`);
+    logger.debug(`[Simple-Recolor] Base: ${baseUrl}`);
+    logger.debug(`[Simple-Recolor] Colors: ${JSON.stringify(colors)}`);
+    logger.debug(`[Simple-Recolor] Generating ${n} variant(s)`);
 
     // Update status (skip if test ID)
     if (!designRequestId.toString().startsWith('test-')) {
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 1: Download base image
-    console.log('[Simple-Recolor] Downloading base image...');
+    logger.debug('[Simple-Recolor] Downloading base image...');
     const baseBuffer = await downloadImage(baseUrl);
 
     // Get base dimensions
@@ -69,11 +70,11 @@ export async function POST(request: NextRequest) {
       throw new Error('Invalid base image dimensions');
     }
 
-    console.log(`[Simple-Recolor] Base dimensions: ${baseWidth}x${baseHeight}`);
+    logger.debug(`[Simple-Recolor] Base dimensions: ${baseWidth}x${baseHeight}`);
 
     // Step 2: Build simple, direct prompt
     const prompt = buildSimpleRecolorPrompt(colors);
-    console.log(`[Simple-Recolor] Prompt: ${prompt}`);
+    logger.debug(`[Simple-Recolor] Prompt: ${prompt}`);
 
     // Step 3: Determine optimal size for DALL-E 2
     const size = baseWidth >= 2048 ? '2048x2048' : baseWidth >= 1536 ? '1536x1536' : '1024x1024';
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
     const fullMask = await createFullImageMask(baseWidth, baseHeight);
 
     // Step 5: Call DALL-E 2 with simple prompt
-    console.log(`[Simple-Recolor] Calling DALL-E 2 (${size}, n=${n})...`);
+    logger.debug(`[Simple-Recolor] Calling DALL-E 2 (${size}, n=${n})...`);
     const variants = await editMultiVariant({
       base: baseBuffer,
       mask: fullMask,
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
       retries: 3,
     });
 
-    console.log(`[Simple-Recolor] Received ${variants.length} variant(s)`);
+    logger.debug(`[Simple-Recolor] Received ${variants.length} variant(s)`);
 
     // Step 6: Use first successful variant (simplified - no complex evaluation)
     let finalBuffer = variants[0];
@@ -100,19 +101,19 @@ export async function POST(request: NextRequest) {
     // Step 7: Resize back to original dimensions if needed
     const variantMetadata = await sharp(finalBuffer).metadata();
     if (variantMetadata.width !== baseWidth || variantMetadata.height !== baseHeight) {
-      console.log(`[Simple-Recolor] Resizing from ${variantMetadata.width}x${variantMetadata.height} to ${baseWidth}x${baseHeight}...`);
+      logger.debug(`[Simple-Recolor] Resizing from ${variantMetadata.width}x${variantMetadata.height} to ${baseWidth}x${baseHeight}...`);
 
       finalBuffer = await sharp(finalBuffer)
         .resize(baseWidth, baseHeight, { kernel: 'lanczos3' })
         .png()
         .toBuffer();
 
-      console.log('[Simple-Recolor] Resizing complete');
+      logger.debug('[Simple-Recolor] Resizing complete');
     }
 
     // Step 8: Upload result
     const fileName = `${designRequestId}-recolor-${Date.now()}.png`;
-    console.log('[Simple-Recolor] Uploading result...');
+    logger.debug('[Simple-Recolor] Uploading result...');
     const publicUrl = await uploadPng('renders', fileName, finalBuffer, supabase);
 
     // Step 9: Build render spec
@@ -142,8 +143,8 @@ export async function POST(request: NextRequest) {
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[Simple-Recolor] ✓ Success! Duration: ${duration}ms`);
-    console.log(`[Simple-Recolor] Output: ${publicUrl}`);
+    logger.debug(`[Simple-Recolor] ✓ Success! Duration: ${duration}ms`);
+    logger.debug(`[Simple-Recolor] Output: ${publicUrl}`);
 
     return NextResponse.json({
       ok: true,
@@ -152,9 +153,9 @@ export async function POST(request: NextRequest) {
       duration,
     });
   } catch (error: any) {
-    console.error('[Simple-Recolor] ===== ERROR =====');
-    console.error('[Simple-Recolor] Message:', error?.message);
-    console.error('[Simple-Recolor] Stack:', error?.stack);
+    logger.error('[Simple-Recolor] ===== ERROR =====');
+    logger.error('[Simple-Recolor] Message:', error?.message);
+    logger.error('[Simple-Recolor] Stack:', error?.stack);
 
     return NextResponse.json(
       {

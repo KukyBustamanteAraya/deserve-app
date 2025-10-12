@@ -27,16 +27,6 @@ const nextConfig = {
       },
     ],
   },
-
-  // Webpack optimizations for faster dev builds
-  webpack: (config, { dev }) => {
-    if (dev) {
-      config.watchOptions = {
-        ignored: ["**/.git/**", "**/node_modules/**", "**/.next/**", "**/dist/**"],
-      };
-    }
-    return config;
-  },
 };
 
 module.exports = nextConfig;

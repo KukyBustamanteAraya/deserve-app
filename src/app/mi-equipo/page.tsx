@@ -1,306 +1,269 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { getBrowserClient } from '@/lib/supabase/client';
-import { CustomizeBanner } from '@/components/customize/CustomizeBanner';
-import { PlayerDashboard } from '@/components/dashboard/PlayerDashboard';
-import { ManagerDashboard } from '@/components/dashboard/ManagerDashboard';
 
-interface Team {
+type Team = {
   id: string;
-  slug: string;
   name: string;
-  colors: {
-    primary: string;
-    secondary: string;
-    accent: string;
-  };
-  logo_url?: string;
-  owner_id: string;
+  slug: string;
+  sport: string;
+  institution_name?: string;
   created_at: string;
-}
+};
 
-interface TeamMembership {
-  team_id: string;
-  user_id: string;
-  role: string;
-  team: Team;
-}
-
-interface TeamMember {
-  user_id: string;
-  role: string;
-  profiles?: {
-    email: string;
-    full_name?: string;
-  };
-}
-
-interface DesignRequest {
-  id: string;
-  status: string;
-  product_name: string;
-  product_slug: string;
-  sport_slug: string;
-  created_at: string;
-  output_url?: string;
-  mockup_urls?: string[];
-  primary_color: string;
-  secondary_color: string;
-  accent_color: string;
-  order_id?: string;
-  user_type?: string; // 'player' or 'manager'
-}
-
-interface Order {
-  id: string;
-  status: string;
-  payment_status: string;
-  total_amount_cents: number;
-  created_at: string;
-}
-
-export default function MyTeamPage() {
+export default function MinimalTeamsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const supabase = getBrowserClient();
-
-  // Get team ID from URL params (for team switching)
-  const teamIdFromUrl = searchParams.get('team');
-
-  const [user, setUser] = useState<any>(null);
-  const [allTeams, setAllTeams] = useState<TeamMembership[]>([]);
-  const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
-  const [currentUserRole, setCurrentUserRole] = useState<string>('player');
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [designRequests, setDesignRequests] = useState<DesignRequest[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
-  const [shareLink, setShareLink] = useState('');
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [showTeamSwitcher, setShowTeamSwitcher] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [modalStep, setModalStep] = useState<'type' | 'details'>('type');
 
-  // Determine dashboard type based on team composition
-  // Check localStorage for saved preference
-  const [dashboardType, setDashboardType] = useState<'player' | 'manager'>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('dashboardType') as 'player' | 'manager') || 'player';
-    }
-    return 'player';
-  });
-  const [manualOverride, setManualOverride] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('manualOverride') === 'true';
-    }
-    return false;
-  });
+  // Form state
+  const [teamType, setTeamType] = useState<'single' | 'organization' | null>(null);
+  const [teamName, setTeamName] = useState('');
+  const [sportId, setSportId] = useState<number | null>(null); // For single teams - USE ID not slug
+  const [selectedSportIds, setSelectedSportIds] = useState<number[]>([]); // For organizations - USE IDs
+  const [institutionName, setInstitutionName] = useState('');
+  const [sports, setSports] = useState<Array<{ id: number; slug: string; name: string }>>([]);
+  const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null); // Track which team is pending deletion
 
   useEffect(() => {
-    loadAllTeams();
-  }, []);
+    async function loadData() {
+      try {
+        const supabase = getBrowserClient();
 
-  useEffect(() => {
-    if (currentTeam && user) {
-      loadTeamData();
-    }
-  }, [currentTeam, user]);
+        // Get current user
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+        if (!user) throw new Error('No autenticado');
 
-  // Check for celebration
-  useEffect(() => {
-    const isNewTeam = sessionStorage.getItem('newTeamCreated');
-    if (isNewTeam === 'true') {
-      setTimeout(() => setShowCelebration(true), 500);
-      setTimeout(() => setShowCelebration(false), 3500);
-      sessionStorage.removeItem('newTeamCreated');
-    }
-  }, []);
+        // ALWAYS load sports first (needed for dropdown regardless of teams)
+        const { data: sportsData, error: sportsError } = await supabase
+          .from('sports')
+          .select('id, slug, name')
+          .order('name', { ascending: true });
 
-  // Poll for rendering designs
-  useEffect(() => {
-    const hasRendering = designRequests.some((dr) => dr.status === 'rendering');
-    if (hasRendering) {
-      const interval = setInterval(() => {
-        loadTeamData();
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [designRequests]);
-
-  const loadAllTeams = async () => {
-    try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-
-      if (!currentUser) {
-        router.push('/');
-        return;
-      }
-
-      setUser(currentUser);
-
-      // Get all teams user is a member of
-      const { data: memberships } = await supabase
-        .from('team_memberships')
-        .select('team_id, user_id, role, team:teams(*)')
-        .eq('user_id', currentUser.id)
-        .order('created_at', { ascending: false });
-
-      if (!memberships || memberships.length === 0) {
-        // No teams yet, redirect to catalog
-        setLoading(false);
-        router.push('/catalog');
-        return;
-      }
-
-      setAllTeams(memberships as any);
-
-      // Determine which team to show
-      let selectedTeam: Team | null = null;
-      let userRole = 'player';
-
-      if (teamIdFromUrl) {
-        // If team ID in URL, use that
-        const membership = memberships.find((m: any) => m.team.id === teamIdFromUrl);
-        if (membership) {
-          selectedTeam = (membership as any).team;
-          userRole = (membership as any).role;
-        }
-      }
-
-      if (!selectedTeam) {
-        // Default to first team (most recently created)
-        selectedTeam = (memberships[0] as any).team;
-        userRole = (memberships[0] as any).role;
-      }
-
-      setCurrentTeam(selectedTeam);
-      setCurrentUserRole(userRole);
-    } catch (error) {
-      console.error('Error loading teams:', error);
-      setLoading(false);
-    }
-  };
-
-  const loadTeamData = async () => {
-    if (!currentTeam || !user) return;
-
-    try {
-      // Share link
-      setShareLink(`${window.location.origin}/join/${currentTeam.slug}`);
-
-      // Get members with profile info
-      const { data: membersData } = await supabase
-        .from('team_memberships')
-        .select('user_id, role, profiles(email, full_name)')
-        .eq('team_id', currentTeam.id);
-
-      setMembers(membersData || []);
-
-      // Get all design requests for this team
-      const { data: requestsData } = await supabase
-        .from('design_requests')
-        .select('*')
-        .eq('team_id', currentTeam.id)
-        .order('created_at', { ascending: false});
-
-      setDesignRequests(requestsData || []);
-
-      // Get all orders for this team
-      const { data: ordersData } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('team_id', currentTeam.id)
-        .order('created_at', { ascending: false });
-
-      setOrders(ordersData || []);
-
-      // Only auto-detect dashboard type if user hasn't manually overridden it
-      if (!manualOverride) {
-        // Determine dashboard type based on:
-        // 1. Current user's role
-        // 2. Team size
-        // 3. Design request user_type
-        const isManager = currentUserRole === 'owner' || currentUserRole === 'manager';
-        const hasManagerDesigns = requestsData?.some((dr) => dr.user_type === 'manager');
-        const isLargeTeam = (membersData?.length || 0) > 15;
-
-        if (isManager || hasManagerDesigns || isLargeTeam) {
-          setDashboardType('manager');
+        if (sportsError) {
+          console.error('Error loading sports:', sportsError);
         } else {
-          setDashboardType('player');
+          console.log('[Sports] Loaded sports:', sportsData);
+          setSports(sportsData || []);
         }
+
+        // Get teams where user is a member
+        const { data: memberships, error: membershipsError } = await supabase
+          .from('team_memberships')
+          .select('team_id')
+          .eq('user_id', user.id);
+
+        if (membershipsError) throw membershipsError;
+
+        if (!memberships || memberships.length === 0) {
+          setTeams([]);
+          setLoading(false);
+          return;
+        }
+
+        const teamIds = memberships.map(m => m.team_id);
+
+        // Get team details with sport info (join with sports table)
+        const { data: teamsData, error: teamsError } = await supabase
+          .from('teams')
+          .select(`
+            *,
+            sports:sport_id (
+              id,
+              slug,
+              name
+            )
+          `)
+          .in('id', teamIds);
+
+        if (teamsError) throw teamsError;
+
+        // Extract sport names from joined data
+        const teamsWithSportNames = teamsData?.map(team => ({
+          ...team,
+          sport: (team as any).sports?.name || 'Sin deporte'
+        })) || [];
+
+        setTeams(teamsWithSportNames);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading team data:', error);
-    } finally {
-      setLoading(false);
+    }
+
+    loadData();
+  }, []);
+
+  const handleDeleteTeam = async (teamId: string, teamName: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation when clicking delete
+
+    // First click: Set team to "pending deletion" state
+    if (deletingTeamId !== teamId) {
+      setDeletingTeamId(teamId);
+      return;
+    }
+
+    // Second click: Actually delete the team
+    try {
+      const supabase = getBrowserClient();
+
+      // Delete the team (cascade should handle memberships and settings)
+      const { error } = await supabase
+        .from('teams')
+        .delete()
+        .eq('id', teamId);
+
+      if (error) throw error;
+
+      // Remove from local state - team disappears smoothly
+      setTeams(teams.filter(t => t.id !== teamId));
+      setDeletingTeamId(null);
+
+      // No alert - just visual feedback by removing the team card
+    } catch (error: any) {
+      console.error('Error deleting team:', error);
+      alert(`Error al eliminar equipo: ${error.message}`);
+      setDeletingTeamId(null);
     }
   };
 
-  const switchTeam = (teamId: string) => {
-    const membership = allTeams.find((t) => t.team.id === teamId);
-    if (membership) {
-      setCurrentTeam(membership.team);
-      setCurrentUserRole(membership.role);
-      setShowTeamSwitcher(false);
-      // Update URL without reload
-      window.history.pushState({}, '', `/mi-equipo?team=${teamId}`);
-    }
+  const handleCreateTeamClick = () => {
+    setShowCreateModal(true);
   };
 
-  const handleInvite = async (email: string) => {
-    if (!email || !currentTeam) return;
+  const handleCreateTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate based on team type
+    if (!teamName.trim()) {
+      alert('Por favor ingresa el nombre del equipo');
+      return;
+    }
+
+    if (teamType === 'single' && !sportId) {
+      alert('Por favor selecciona un deporte');
+      return;
+    }
+
+    if (teamType === 'organization' && selectedSportIds.length === 0) {
+      alert('Por favor selecciona al menos un deporte');
+      return;
+    }
+
+    setCreating(true);
 
     try {
-      const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      const supabase = getBrowserClient();
+      const { data: { user } } = await supabase.auth.getUser();
 
-      await supabase.from('team_invites').insert({
-        team_id: currentTeam.id,
-        email: email,
-        token,
-      });
+      if (!user) throw new Error('No autenticado');
 
-      const response = await fetch('/api/send-team-invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email,
-          teamSlug: currentTeam.slug,
-          teamName: currentTeam.name,
-          inviterName: user?.email || 'teammate',
-          token,
-        }),
-      });
+      // Create team slug with timestamp for uniqueness
+      const baseSlug = teamName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const uniqueSuffix = Date.now().toString(36).slice(-6); // 6-char timestamp
+      const teamSlug = `${baseSlug}-${uniqueSuffix}`;
 
-      if (response.ok) {
-        alert(`¡Invitación enviada a ${email}!`);
-      } else {
-        alert('Error al enviar invitación');
+      // Prepare sports data - USE sport_id instead of slug
+      const teamSportId = teamType === 'single' ? sportId : (selectedSportIds[0] || null);
+
+      // For organizations, store array of sport slugs for backward compatibility
+      const sportsArray = teamType === 'organization'
+        ? selectedSportIds.map(id => sports.find(s => s.id === id)?.slug).filter(Boolean)
+        : null;
+
+      // Map UI team types to database enum values
+      const dbTeamType = teamType === 'single' ? 'single_team' : 'institution';
+
+      // Create team - USE sport_id (foreign key)
+      const { data: newTeam, error: teamError } = await supabase
+        .from('teams')
+        .insert({
+          slug: teamSlug,
+          name: teamName,
+          owner_id: user.id,
+          current_owner_id: user.id,
+          created_by: user.id,
+          sport_id: teamSportId, // ✅ USE sport_id foreign key
+          sports: sportsArray, // Array of sport slugs for organizations (backward compatibility)
+          team_type: dbTeamType, // 'single_team' or 'institution'
+          institution_name: institutionName || null, // Institution affiliation
+        })
+        .select()
+        .single();
+
+      if (teamError) throw teamError;
+
+      console.log('[Team Creation] Team created successfully:', newTeam.id, 'Name:', newTeam.name);
+
+      // Add creator as owner member
+      console.log('[Team Creation] Creating owner membership for user:', user.id, 'team:', newTeam.id);
+
+      const { data: membershipData, error: memberError } = await supabase
+        .from('team_memberships')
+        .insert({
+          team_id: newTeam.id,
+          user_id: user.id,
+          role: 'owner',
+        })
+        .select()
+        .single();
+
+      if (memberError) {
+        console.error('[Team Creation] Membership creation failed:', memberError);
+        throw memberError;
       }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Error al enviar invitación');
+
+      console.log('[Team Creation] Membership created successfully:', membershipData);
+
+      // Refresh teams list
+      setTeams([newTeam, ...teams]);
+
+      // Reset form and close modal
+      setTeamName('');
+      setSportId(null);
+      setSelectedSportIds([]);
+      setInstitutionName('');
+      setTeamType(null);
+      setModalStep('type');
+      setShowCreateModal(false);
+
+      // Navigate to new team
+      router.push(`/mi-equipo/${newTeam.slug}`);
+    } catch (error: any) {
+      console.error('Error creating team:', error);
+      alert(`Error al crear equipo: ${error.message}`);
+    } finally {
+      setCreating(false);
     }
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Cargando...</div>
+        <div className="text-lg text-gray-600">Cargando equipos...</div>
       </div>
     );
   }
 
-  if (!currentTeam) {
+  if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Crea tu primer diseño</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Error</h1>
+          <p className="text-gray-600 mb-6">{error}</p>
           <button
-            onClick={() => router.push('/catalog')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            onClick={() => router.push('/')}
+            className="text-blue-600 hover:text-blue-700 font-medium"
           >
-            Ver Catálogo
+            ← Inicio
           </button>
         </div>
       </div>
@@ -308,161 +271,310 @@ export default function MyTeamPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Celebration */}
-      {showCelebration && (
-        <div className="fixed inset-0 z-50 pointer-events-none">
-          <div className="absolute inset-0 overflow-hidden">
-            {[...Array(50)].map((_, i) => (
-              <div
-                key={i}
-                className="absolute animate-fall"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `-${Math.random() * 20}%`,
-                  animationDelay: `${Math.random() * 3}s`,
-                  animationDuration: `${3 + Math.random() * 2}s`,
-                }}
-              >
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{
-                    backgroundColor: [currentTeam.colors.primary, currentTeam.colors.secondary, currentTeam.colors.accent][i % 3],
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-          <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <div className="bg-white rounded-2xl shadow-2xl px-12 py-8 border-4" style={{ borderColor: currentTeam.colors.primary }}>
-              <div className="text-6xl mb-4">🎉</div>
-              <h2 className="text-3xl font-bold mb-2" style={{ color: currentTeam.colors.primary }}>
-                ¡Bienvenido!
-              </h2>
-              <p className="text-gray-600">Tu diseño está siendo procesado</p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Mis Equipos</h1>
+          <p className="text-gray-600">Gestiona tus equipos y organizaciones</p>
         </div>
-      )}
 
-      {/* Team Switcher Dropdown */}
-      {showTeamSwitcher && allTeams.length > 1 && (
-        <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowTeamSwitcher(false)}>
-          <div
-            className="absolute top-20 left-1/2 transform -translate-x-1/2 w-80 bg-white rounded-lg shadow-xl p-4"
-            onClick={(e) => e.stopPropagation()}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {teams.map((team) => (
+            <div
+              key={team.id}
+              className="relative bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow flex flex-col min-h-[200px] group"
+              onClick={() => {
+                // Reset deletion state when clicking on a different team card
+                if (deletingTeamId && deletingTeamId !== team.id) {
+                  setDeletingTeamId(null);
+                }
+              }}
+            >
+              {/* Delete button */}
+              <button
+                onClick={(e) => handleDeleteTeam(team.id, team.name, e)}
+                className={`absolute top-3 right-3 rounded-lg transition-all ${
+                  deletingTeamId === team.id
+                    ? 'px-3 py-2 bg-red-600 text-white opacity-100 shadow-lg'
+                    : 'p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full opacity-0 group-hover:opacity-100'
+                }`}
+                title={deletingTeamId === team.id ? 'Click para confirmar' : 'Eliminar equipo'}
+              >
+                {deletingTeamId === team.id ? (
+                  <span className="text-sm font-semibold whitespace-nowrap">¿Eliminar?</span>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                )}
+              </button>
+
+              {/* Team card content - clickable */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeletingTeamId(null); // Cancel any pending deletion
+                  router.push(`/mi-equipo/${team.slug}`);
+                }}
+                className="text-left flex flex-col flex-1"
+              >
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  {team.name}
+                </h3>
+                <p className="text-sm text-gray-600 mb-1">
+                  <span className="font-medium">Deporte:</span> {team.sport}
+                </p>
+                {team.institution_name && (
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Institución:</span> {team.institution_name}
+                  </p>
+                )}
+                <div className="mt-auto pt-4 text-sm text-blue-600 font-medium">
+                  Ver equipo →
+                </div>
+              </button>
+            </div>
+          ))}
+
+          {/* Create Team Card */}
+          <button
+            onClick={handleCreateTeamClick}
+            className="bg-white rounded-lg shadow-sm p-6 border-2 border-dashed border-gray-300 hover:border-blue-400 hover:shadow-md transition-all flex flex-col items-center justify-center min-h-[200px]"
           >
-            <h3 className="text-lg font-bold mb-4">Cambiar de Equipo</h3>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {allTeams.map((membership) => (
+            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
+              <svg
+                className="w-8 h-8 text-blue-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+              Crea un equipo
+            </h3>
+            <p className="text-sm text-gray-500 text-center">
+              Agrega un nuevo equipo para gestionar tus diseños
+            </p>
+          </button>
+        </div>
+
+        <div className="mt-8 p-4 bg-blue-50 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <strong>Nota:</strong> Crea equipos individuales o instituciones con múltiples programas deportivos.
+          </p>
+        </div>
+      </div>
+
+      {/* Create Team Modal - Reusing from /dashboard/team/page.tsx */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {modalStep === 'type' ? '¿Qué tipo de equipo tienes?' : 'Crear Equipo'}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setModalStep('type');
+                  setTeamType(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {modalStep === 'type' ? (
+              // Step 1: Team Type Selection
+              <div className="space-y-4">
+                <p className="text-gray-600 mb-6">
+                  Selecciona el tipo de equipo que deseas crear
+                </p>
+
                 <button
-                  key={membership.team.id}
-                  onClick={() => switchTeam(membership.team.id)}
-                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                    currentTeam.id === membership.team.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
+                  onClick={() => {
+                    setTeamType('single');
+                    setModalStep('details');
+                  }}
+                  className="w-full p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left group"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="flex gap-1">
-                      <div className="w-3 h-8 rounded" style={{ backgroundColor: membership.team.colors.primary }} />
-                      <div className="w-3 h-8 rounded" style={{ backgroundColor: membership.team.colors.secondary }} />
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
+                      <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
                     </div>
                     <div>
-                      <p className="font-semibold">{membership.team.name}</p>
-                      <p className="text-xs text-gray-600 capitalize">{membership.role}</p>
+                      <h3 className="font-semibold text-gray-900 text-lg mb-1">Equipo Único</h3>
+                      <p className="text-sm text-gray-600">
+                        Un solo equipo deportivo (ej: Los Tigres, Equipo de Fútbol)
+                      </p>
                     </div>
                   </div>
                 </button>
-              ))}
-            </div>
+
+                <button
+                  onClick={() => {
+                    setTeamType('organization');
+                    setModalStep('details');
+                  }}
+                  className="w-full p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left group"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
+                      <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-lg mb-1">Organización</h3>
+                      <p className="text-sm text-gray-600">
+                        Una institución con múltiples equipos (ej: Club Deportivo, Universidad)
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            ) : (
+              // Step 2: Team Details Form
+              <form onSubmit={handleCreateTeam} className="space-y-4">
+              <div>
+                <label htmlFor="teamName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Nombre del equipo *
+                </label>
+                <input
+                  type="text"
+                  id="teamName"
+                  value={teamName}
+                  onChange={(e) => setTeamName(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Ej: Los Tigres"
+                  required
+                />
+              </div>
+
+              {/* Sport Selection - Different UI based on team type */}
+              {teamType === 'single' ? (
+                <div>
+                  <label htmlFor="sport" className="block text-sm font-medium text-gray-700 mb-2">
+                    Deporte *
+                  </label>
+                  <select
+                    id="sport"
+                    value={sportId || ''}
+                    onChange={(e) => setSportId(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Selecciona un deporte</option>
+                    {sports.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Programas Deportivos * (selecciona todos los que apliquen)
+                  </label>
+                  <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto p-3 border border-gray-200 rounded-lg">
+                    {sports.map((s) => (
+                      <label
+                        key={s.id}
+                        className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                          selectedSportIds.includes(s.id)
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedSportIds.includes(s.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedSportIds([...selectedSportIds, s.id]);
+                            } else {
+                              setSelectedSportIds(selectedSportIds.filter(id => id !== s.id));
+                            }
+                          }}
+                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">{s.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500">
+                    {selectedSportIds.length} deporte{selectedSportIds.length !== 1 ? 's' : ''} seleccionado{selectedSportIds.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="institution" className="block text-sm font-medium text-gray-700 mb-2">
+                  Institución (opcional)
+                </label>
+                <input
+                  type="text"
+                  id="institution"
+                  value={institutionName}
+                  onChange={(e) => setInstitutionName(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Ej: Universidad Nacional"
+                />
+              </div>
+
+                <div className="flex items-center justify-between gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalStep('type');
+                      setTeamType(null);
+                    }}
+                    className="px-6 py-2 text-gray-700 hover:text-gray-900 font-medium transition-colors"
+                  >
+                    ← Volver
+                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateModal(false);
+                        setModalStep('type');
+                        setTeamType(null);
+                      }}
+                      className="px-6 py-2 text-gray-700 hover:text-gray-900 font-medium transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={creating}
+                      className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
+                        creating
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      {creating ? 'Creando...' : 'Crear Equipo'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
           </div>
         </div>
-      )}
-
-      {/* Banner with Team Switcher */}
-      <div className="relative">
-        <CustomizeBanner
-          teamName={currentTeam.name}
-          customColors={currentTeam.colors}
-          customLogoUrl={currentTeam.logo_url}
-          readonly={true}
-        />
-
-        {/* Team Switcher Button - Only show if user has multiple teams */}
-        {allTeams.length > 1 && (
-          <div className="absolute top-4 right-4 z-10">
-            <button
-              onClick={() => setShowTeamSwitcher(!showTeamSwitcher)}
-              className="px-4 py-2 bg-white/90 backdrop-blur-sm hover:bg-white rounded-lg shadow-md flex items-center gap-2 text-sm font-medium"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12M8 12h12M8 17h12M3 7h.01M3 12h.01M3 17h.01" />
-              </svg>
-              {allTeams.length} Equipos
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Dashboard Type Toggle (for testing/preference) */}
-      <div className="max-w-7xl mx-auto px-4 pt-64 pb-4">
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={() => {
-              setDashboardType('player');
-              setManualOverride(true);
-              localStorage.setItem('dashboardType', 'player');
-              localStorage.setItem('manualOverride', 'true');
-            }}
-            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${
-              dashboardType === 'player'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            Vista Jugador
-          </button>
-          <button
-            onClick={() => {
-              setDashboardType('manager');
-              setManualOverride(true);
-              localStorage.setItem('dashboardType', 'manager');
-              localStorage.setItem('manualOverride', 'true');
-            }}
-            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${
-              dashboardType === 'manager'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            Vista Manager
-          </button>
-        </div>
-      </div>
-
-      {/* Render appropriate dashboard based on type */}
-      {dashboardType === 'player' ? (
-        <PlayerDashboard
-          team={currentTeam}
-          designRequests={designRequests}
-          orders={orders}
-          members={members}
-          currentUserId={user.id}
-          shareLink={shareLink}
-          onInvite={handleInvite}
-        />
-      ) : (
-        <ManagerDashboard
-          team={currentTeam}
-          designRequests={designRequests}
-          orders={orders}
-          members={members}
-          currentUserId={user.id}
-          shareLink={shareLink}
-          onInvite={handleInvite}
-        />
       )}
     </div>
   );

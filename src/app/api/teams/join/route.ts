@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import type { JoinTeamRequest, JoinTeamResponse } from '@/types/user';
 import type { ApiResponse } from '@/types/api';
+import { logger } from '@/lib/logger';
 export async function POST(request: NextRequest) {
   try {
     const supabase = createSupabaseServer();
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
       .rpc('team_join_by_code', { invite_code: code.trim().toUpperCase() });
 
     if (error) {
-      console.error('Error joining team:', error);
+      logger.error('Error joining team:', error);
       return NextResponse.json(
         { error: 'Failed to join team', message: error.message } as ApiResponse<null>,
         { status: 400 }
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (teamError) {
-      console.error('Error fetching team details:', teamError);
+      logger.error('Error fetching team details:', teamError);
       // Still return success since the join operation succeeded
       return NextResponse.json({
         data: {
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error('Unexpected error in team join:', error);
+    logger.error('Unexpected error in team join:', error);
     return NextResponse.json(
       { error: 'Internal server error' } as ApiResponse<null>,
       { status: 500 }

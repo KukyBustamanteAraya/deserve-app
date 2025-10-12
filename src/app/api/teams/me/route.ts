@@ -1,8 +1,9 @@
 // GET /api/teams/me - Get current user's team and profile
-import { NextResponse } from 'next/server';
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import type { TeamMeResponse } from '@/types/user';
-import type { ApiResponse } from '@/types/api';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError, apiUnauthorized } from '@/lib/api-response';
+
 export async function GET() {
   try {
     const supabase = createSupabaseServer();
@@ -18,22 +19,19 @@ export async function GET() {
       .single();
 
     if (profileError) {
-      console.error('Error fetching profile:', profileError);
-      return NextResponse.json(
-        { error: 'Failed to fetch profile' } as ApiResponse<null>,
-        { status: 500 }
-      );
+      logger.error('Error fetching profile:', profileError);
+      return apiError('Failed to fetch profile', 500);
     }
 
     // If user has no team, return profile only
     if (!profile.team_id) {
-      return NextResponse.json({
-        data: {
+      return apiSuccess(
+        {
           team: null,
           profile: profile
         } as TeamMeResponse,
-        message: 'User is not in a team'
-      } as ApiResponse<TeamMeResponse>);
+        'User is not in a team'
+      );
     }
 
     // Get team details with members
@@ -44,33 +42,24 @@ export async function GET() {
       .single();
 
     if (teamError) {
-      console.error('Error fetching team:', teamError);
-      return NextResponse.json(
-        { error: 'Failed to fetch team details' } as ApiResponse<null>,
-        { status: 500 }
-      );
+      logger.error('Error fetching team:', teamError);
+      return apiError('Failed to fetch team details', 500);
     }
 
-    return NextResponse.json({
-      data: {
+    return apiSuccess(
+      {
         team: teamData,
         profile: profile
       } as TeamMeResponse,
-      message: 'Team and profile retrieved successfully'
-    } as ApiResponse<TeamMeResponse>);
+      'Team and profile retrieved successfully'
+    );
 
   } catch (error) {
     if (error instanceof Error && error.message === 'Authentication required') {
-      return NextResponse.json(
-        { error: 'Authentication required' } as ApiResponse<null>,
-        { status: 401 }
-      );
+      return apiUnauthorized();
     }
 
-    console.error('Unexpected error in teams/me:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' } as ApiResponse<null>,
-      { status: 500 }
-    );
+    logger.error('Unexpected error in teams/me:', error);
+    return apiError('Internal server error');
   }
 }

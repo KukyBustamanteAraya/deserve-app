@@ -4,6 +4,7 @@ import Link from 'next/link';
 import OrderStatusBadge from '@/components/orders/OrderStatusBadge';
 import { formatCurrency } from '@/types/orders';
 import type { Order } from '@/types/orders';
+import { logger } from '@/lib/logger';
 
 interface OrdersPageProps {
   searchParams: { page?: string; limit?: string };
@@ -25,7 +26,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       .eq('user_id', user.id);
 
     if (countError) {
-      console.error('Error counting orders:', countError);
+      logger.error('Error counting orders:', countError);
       throw new Error('Failed to count orders');
     }
 
@@ -38,7 +39,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       .range(offset, offset + limit - 1);
 
     if (ordersError) {
-      console.error('Error fetching orders:', ordersError);
+      logger.error('Error fetching orders:', ordersError);
       throw new Error('Failed to fetch orders');
     }
 
@@ -171,7 +172,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     );
 
   } catch (error) {
-    console.error('Orders page error:', error);
+    logger.error('Orders page error:', error);
     redirect('/login?redirect=/orders');
   }
 }

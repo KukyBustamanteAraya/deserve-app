@@ -23,7 +23,7 @@ export default function DesignPage({ params }: { params: { teamId: string } }) {
         return;
       }
 
-      setRequests(data?.data?.items ?? []);
+      setRequests(data?.data ?? []);
     } catch (err) {
       setError('Failed to load design requests');
     }

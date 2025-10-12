@@ -1,8 +1,9 @@
 // POST /api/teams - Create a new team
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import type { CreateTeamRequest, CreateTeamResponse } from '@/types/user';
-import type { ApiResponse } from '@/types/api';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError, apiUnauthorized, apiValidationError } from '@/lib/api-response';
 export async function POST(request: NextRequest) {
   try {
     const supabase = createSupabaseServer();
@@ -16,17 +17,11 @@ export async function POST(request: NextRequest) {
 
     // Validate inputs
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Team name is required' } as ApiResponse<null>,
-        { status: 400 }
-      );
+      return apiValidationError('Team name is required');
     }
 
     if (!sport_slug || typeof sport_slug !== 'string') {
-      return NextResponse.json(
-        { error: 'Sport slug is required' } as ApiResponse<null>,
-        { status: 400 }
-      );
+      return apiValidationError('Sport slug is required');
     }
 
     // Check if user is already in a team
@@ -37,10 +32,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (userProfile?.team_id) {
-      return NextResponse.json(
-        { error: 'You are already in a team. Leave your current team first.' } as ApiResponse<null>,
-        { status: 400 }
-      );
+      return apiValidationError('You are already in a team. Leave your current team first.');
     }
 
     // Verify sport exists
@@ -51,10 +43,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (sportError || !sport) {
-      return NextResponse.json(
-        { error: 'Invalid sport selected' } as ApiResponse<null>,
-        { status: 400 }
-      );
+      return apiValidationError('Invalid sport selected');
     }
 
     // Generate team slug
@@ -76,11 +65,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (teamError) {
-      console.error('Error creating team:', teamError);
-      return NextResponse.json(
-        { error: 'Failed to create team', message: teamError.message } as ApiResponse<null>,
-        { status: 500 }
-      );
+      logger.error('Error creating team:', teamError);
+      return apiError('Failed to create team', 500);
     }
 
     // Generate invite code
@@ -104,7 +90,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (inviteError) {
-      console.error('Error creating invite:', inviteError);
+      logger.error('Error creating invite:', inviteError);
       // Team was created but invite failed - still return success
     }
 
@@ -115,7 +101,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id);
 
     if (profileError) {
-      console.error('Error updating user profile:', profileError);
+      logger.error('Error updating user profile:', profileError);
     }
 
     // Prepare response with team details
@@ -138,36 +124,27 @@ export async function POST(request: NextRequest) {
       updated_at: newTeam.updated_at
     };
 
-    return NextResponse.json({
-      data: {
-        team: teamWithDetails,
-        invite: newInvite || {
-          id: '',
-          team_id: newTeam.id,
-          code: inviteCode || '',
-          created_by: user.id,
-          max_uses: 100,
-          uses: 0,
-          expires_at: expiresAt.toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      } as CreateTeamResponse,
-      message: 'Team created successfully'
-    } as ApiResponse<CreateTeamResponse>);
+    return apiSuccess({
+      team: teamWithDetails,
+      invite: newInvite || {
+        id: '',
+        team_id: newTeam.id,
+        code: inviteCode || '',
+        created_by: user.id,
+        max_uses: 100,
+        uses: 0,
+        expires_at: expiresAt.toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+    } as CreateTeamResponse, 'Team created successfully');
 
   } catch (error) {
     if (error instanceof Error && error.message === 'Authentication required') {
-      return NextResponse.json(
-        { error: 'Authentication required' } as ApiResponse<null>,
-        { status: 401 }
-      );
+      return apiUnauthorized();
     }
 
-    console.error('Unexpected error in team creation:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' } as ApiResponse<null>,
-      { status: 500 }
-    );
+    logger.error('Unexpected error in team creation:', error);
+    return apiError('Internal server error');
   }
 }

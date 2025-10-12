@@ -4,6 +4,7 @@
  */
 
 import sharp from 'sharp';
+import { logger } from '@/lib/logger';
 
 /**
  * Assert that geometry is locked between base and result images
@@ -17,7 +18,7 @@ export async function assertGeometryLocked({
   base: Buffer;
   result: Buffer;
 }): Promise<void> {
-  console.log('[Guard] Checking geometry lock...');
+  logger.debug('[Guard] Checking geometry lock...');
 
   const [baseData, resultData] = await Promise.all([
     sharp(base).ensureAlpha().raw().toBuffer({ resolveWithObject: true }),
@@ -46,7 +47,7 @@ export async function assertGeometryLocked({
 
   const diffPercentage = diffs / totalPixels;
 
-  console.log(
+  logger.debug(
     `[Guard] Geometry check: ${diffs} different alpha pixels (${(diffPercentage * 100).toFixed(4)}%)`
   );
 
@@ -55,7 +56,7 @@ export async function assertGeometryLocked({
     throw new Error(`GEOMETRY_CHANGED: ${(diffPercentage * 100).toFixed(2)}% pixels differ`);
   }
 
-  console.log('[Guard] ✓ Geometry locked - silhouette preserved');
+  logger.debug('[Guard] ✓ Geometry locked - silhouette preserved');
 }
 
 /**
@@ -98,7 +99,7 @@ export async function assertColorTargets({
   masks: { [k: string]: Buffer | undefined };
   colors: { primary: string; secondary: string; tertiary?: string };
 }): Promise<void> {
-  console.log('[Guard] Checking color targets...');
+  logger.debug('[Guard] Checking color targets...');
 
   const resultData = await sharp(result).raw().toBuffer({ resolveWithObject: true });
   const { width, height, channels } = resultData.info;
@@ -113,7 +114,7 @@ export async function assertColorTargets({
   for (const { name, mask, target } of checks) {
     if (!mask || !target) continue;
 
-    console.log(`[Guard] Checking ${name} color against ${target}...`);
+    logger.debug(`[Guard] Checking ${name} color against ${target}...`);
 
     // Load mask data
     const maskData = await sharp(mask).raw().toBuffer({ resolveWithObject: true });
@@ -141,7 +142,7 @@ export async function assertColorTargets({
     }
 
     if (count === 0) {
-      console.warn(`[Guard] Warning: No pixels found in ${name} mask`);
+      logger.warn(`[Guard] Warning: No pixels found in ${name} mask`);
       continue;
     }
 
@@ -157,20 +158,20 @@ export async function assertColorTargets({
     // Threshold: ~50 in RGB space (roughly equivalent to ΔE ~12)
     const threshold = 50;
 
-    console.log(
+    logger.debug(
       `[Guard] ${name}: Mean RGB(${meanColor.r},${meanColor.g},${meanColor.b}) vs Target RGB(${targetRgb.r},${targetRgb.g},${targetRgb.b}) - Distance: ${distance.toFixed(2)}`
     );
 
     if (distance > threshold) {
-      console.warn(
+      logger.warn(
         `[Guard] Warning: ${name} color distance ${distance.toFixed(2)} exceeds threshold ${threshold}`
       );
       // Note: Not throwing error for now, just warning
       // throw new Error(`COLOR_TARGET_FAILED:${name} - distance ${distance.toFixed(2)} > ${threshold}`);
     } else {
-      console.log(`[Guard] ✓ ${name} color within acceptable range`);
+      logger.debug(`[Guard] ✓ ${name} color within acceptable range`);
     }
   }
 
-  console.log('[Guard] ✓ Color targets validated');
+  logger.debug('[Guard] ✓ Color targets validated');
 }

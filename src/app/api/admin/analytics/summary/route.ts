@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
+import { logger } from '@/lib/logger';
 
 export const revalidate = 60; // Cache for 1 minute
 
@@ -17,17 +18,17 @@ export async function GET() {
     ]);
 
     if (countsResult.error) {
-      console.error('Error fetching order counts:', countsResult.error);
+      logger.error('Error fetching order counts:', countsResult.error);
       throw new Error('Failed to fetch order counts');
     }
 
     if (revenueResult.error) {
-      console.error('Error fetching revenue data:', revenueResult.error);
+      logger.error('Error fetching revenue data:', revenueResult.error);
       throw new Error('Failed to fetch revenue data');
     }
 
     if (productsResult.error) {
-      console.error('Error fetching top products:', productsResult.error);
+      logger.error('Error fetching top products:', productsResult.error);
       throw new Error('Failed to fetch top products');
     }
 
@@ -53,7 +54,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Admin analytics summary error:', error);
+    logger.error('Admin analytics summary error:', error);
 
     if (error instanceof Error && error.message.includes('Forbidden')) {
       return NextResponse.json(

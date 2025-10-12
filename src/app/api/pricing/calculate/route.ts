@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServer } from '@/lib/supabase/server-client';
+import { logger } from '@/lib/logger';
 
 // Standard discount bands based on Deserve pricing CSV
 const DISCOUNT_BANDS = [
@@ -29,7 +30,7 @@ const DISCOUNT_BANDS = [
  * All prices in CLP (integer pesos, zero decimals)
  */
 export async function GET(request: NextRequest) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServer();
 
   try {
     const { searchParams } = new URL(request.url);
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
     );
 
   } catch (error: any) {
-    console.error('Pricing calculation error:', error);
+    logger.error('Pricing calculation error:', error);
     return NextResponse.json(
       { error: error.message || 'Pricing calculation failed' },
       { status: 500, headers: { 'Cache-Control': 'no-store' } }

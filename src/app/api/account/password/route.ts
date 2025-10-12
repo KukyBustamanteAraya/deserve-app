@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { logger } from '@/lib/logger';
 import {
   createSupabaseRouteClient,
   jsonWithCarriedCookies,
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
   try {
     payload = PasswordPayload.parse(await req.json());
   } catch (e) {
-    console.error("[password] Bad payload", e);
+    logger.error("[password] Bad payload", e);
     return jsonWithCarriedCookies(carrier, { error: "Invalid payload" }, { status: 400 });
   }
 
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
   // Get the current user
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr || !userData?.user) {
-    console.error("[password] getUser error:", userErr);
+    logger.error("[password] getUser error:", userErr);
     return jsonWithCarriedCookies(
       carrier,
       { error: "Unauthorized", code: "unauthorized" },
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (updateErr) {
-    console.error("[password] updateUser error:", {
+    logger.error("[password] updateUser error:", {
       code: (updateErr as any)?.code,
       message: updateErr.message,
       status: (updateErr as any)?.status,

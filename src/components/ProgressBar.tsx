@@ -48,12 +48,13 @@ export default function ProgressBar() {
   const [isHidden, setIsHidden] = useState(false);
 
   useEffect(() => {
-    // Hide on checkout, confirmation, admin, and dashboard pages
+    // Hide on checkout, confirmation, admin, dashboard, and team pages
     if (
       pathname.startsWith('/checkout') ||
       pathname.startsWith('/pedido/confirmado') ||
       pathname.startsWith('/admin') ||
-      pathname.startsWith('/dashboard')
+      pathname.startsWith('/dashboard') ||
+      pathname.startsWith('/mi-equipo')
     ) {
       setIsHidden(true);
       return;

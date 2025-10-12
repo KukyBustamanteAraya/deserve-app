@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import LoginForm from '@/app/components/LoginForm';
 import { useAuth } from '@/app/components/AuthProvider';
+import { logger } from '@/lib/logger';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function LoginPage() {
   // If already authenticated, bounce to dashboard
   useEffect(() => {
     if (!loading && user && !redirecting) {
-      console.log('[LoginPage] User detected, redirecting to dashboard...');
+      logger.debug('[LoginPage] User detected, redirecting to dashboard...');
       setRedirecting(true);
       router.replace('/dashboard');
     }
@@ -59,7 +60,7 @@ export default function LoginPage() {
       <LoginForm onSuccess={() => {
         // Don't redirect immediately - let the useEffect handle it
         // once the AuthProvider confirms the user state is updated
-        console.log('[LoginPage] Login successful, waiting for auth state...');
+        logger.debug('[LoginPage] Login successful, waiting for auth state...');
       }} />
     </main>
   );

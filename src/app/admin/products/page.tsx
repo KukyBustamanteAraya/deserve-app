@@ -1,5 +1,5 @@
 import { requireAdmin } from '@/lib/auth/admin-guard';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServer } from '@/lib/supabase/server-client';
 import ProductsGrid from './ProductsGrid';
 
 interface Product {
@@ -10,8 +10,9 @@ interface Product {
   price_cents: number;
   status: string;
   hero_path: string | null;
-  sport_id: string;
-  sports?: { name: string };
+  sport_id?: string;                      // DEPRECATED
+  sport_ids: number[];                    // Array of sport IDs
+  sport_names?: string[];                 // Array of sport names for display
 }
 
 interface ProductWithUrl extends Product {
@@ -21,9 +22,9 @@ interface ProductWithUrl extends Product {
 export default async function AdminProductsPage() {
   await requireAdmin();
 
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServer();
 
-  // Fetch all products with sport names
+  // Fetch all products with sport_ids
   const { data: products, error } = await supabase
     .from('products')
     .select(`
@@ -34,8 +35,7 @@ export default async function AdminProductsPage() {
       price_cents,
       status,
       hero_path,
-      sport_id,
-      sports (name)
+      sport_ids
     `)
     .order('created_at', { ascending: false });
 
@@ -49,11 +49,22 @@ export default async function AdminProductsPage() {
     );
   }
 
+  // Fetch all sports
+  const { data: sports } = await supabase
+    .from('sports')
+    .select('id, name')
+    .order('name');
+
+  const sportsMap = new Map((sports || []).map(s => [s.id, s.name]));
+
   const typedProducts = (products || []) as unknown as Product[];
 
-  // Convert hero_path to hero_url for each product
+  // Map sport_ids to sport_names and convert hero_path to hero_url
   const productsWithUrls: ProductWithUrl[] = typedProducts.map((product) => ({
     ...product,
+    sport_names: (product.sport_ids || [])
+      .map(id => sportsMap.get(id))
+      .filter((name): name is string => !!name),
     hero_url: product.hero_path
       ? supabase.storage.from('products').getPublicUrl(product.hero_path).data.publicUrl
       : null,

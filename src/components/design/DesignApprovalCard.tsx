@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { getBrowserClient } from '@/lib/supabase/client';
+import { logger } from '@/lib/logger';
 
 interface DesignApprovalCardProps {
   designRequestId: string;
@@ -50,7 +51,7 @@ export function DesignApprovalCard({
       onApprovalChange?.();
       alert('¡Diseño aprobado! Procederemos con la producción.');
     } catch (error: any) {
-      console.error('Error approving design:', error);
+      logger.error('Error approving design:', error);
       alert('Error al aprobar el diseño');
     } finally {
       setLoading(false);
@@ -82,7 +83,7 @@ export function DesignApprovalCard({
       onApprovalChange?.();
       alert('Solicitud de cambios enviada. Te notificaremos cuando esté lista la nueva versión.');
     } catch (error: any) {
-      console.error('Error requesting changes:', error);
+      logger.error('Error requesting changes:', error);
       alert('Error al solicitar cambios');
     } finally {
       setLoading(false);

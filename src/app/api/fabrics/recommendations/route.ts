@@ -1,6 +1,7 @@
 // Fabric recommendations API
 import { NextRequest, NextResponse } from 'next/server';
 import { getFabricRecommendations } from '@/lib/catalog/fabrics';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
       { status: 200, headers: { 'Cache-Control': 'public, max-age=3600' } }
     );
   } catch (error) {
-    console.error('Error fetching fabric recommendations:', error);
+    logger.error('Error fetching fabric recommendations:', error);
     return NextResponse.json(
       { error: 'Failed to fetch recommendations' },
       { status: 500 }

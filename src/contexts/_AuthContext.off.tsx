@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '../types';
 import { AuthService } from '../lib/auth';
 import { supabaseClient } from '../lib/supabaseClient';
+import { logger } from '@/lib/logger';
 
 interface AuthContextType {
   user: User | null;
@@ -44,7 +45,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const { user: currentUser } = await AuthService.getCurrentUser();
         setUser(currentUser);
       } catch (error) {
-        console.error('Error checking user:', error);
+        logger.error('Error checking user:', error);
       } finally {
         setLoading(false);
       }
@@ -56,10 +57,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const supabase = supabaseClient;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.id);
+        logger.debug('Auth state change:', event, session?.user?.id);
 
         if (event === "SIGNED_IN" && session?.user) {
-          console.log("Auth state change: SIGNED_IN", session.user.id);
+          logger.debug("Auth state change: SIGNED_IN", session.user.id);
 
           // Profile creation is handled by database trigger automatically
 
@@ -71,7 +72,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setLoading(false);
 
         } else if (event === 'SIGNED_OUT') {
-          console.log("Auth state change: SIGNED_OUT");
+          logger.debug("Auth state change: SIGNED_OUT");
           setUser(null);
           setPendingEmailConfirmation(false);
           setPendingConfirmationData(null);
@@ -92,7 +93,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // If email confirmation is needed, set pending state
       if (result.needsConfirmation) {
-        console.log('Setting pendingEmailConfirmation to true');
+        logger.debug('Setting pendingEmailConfirmation to true');
         setPendingEmailConfirmation(true);
         setPendingConfirmationData({
           email: email,

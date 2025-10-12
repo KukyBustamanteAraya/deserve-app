@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createPaymentPreference } from '@/lib/mercadopago';
+import { logger } from '@/lib/logger';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,17 +27,17 @@ export async function POST(request: Request) {
     }
 
     // Get order details
-    console.log('[Payment] Looking for order:', orderId);
+    logger.debug('[Payment] Looking for order:', orderId);
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('id, total_amount_cents, team_id')
       .eq('id', orderId)
       .single();
 
-    console.log('[Payment] Order query result:', { order, orderError });
+    logger.debug('[Payment] Order query result:', { order, orderError });
 
     if (orderError || !order) {
-      console.error('[Payment] Order not found:', orderId, orderError);
+      logger.error('[Payment] Order not found:', orderId, orderError);
       return NextResponse.json(
         { error: 'Order not found', orderId, details: orderError },
         { status: 404 }
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
     // Create simple payment preference
-    console.log('[Payment] Creating preference with data:', {
+    logger.debug('[Payment] Creating preference with data:', {
       amount: order.total_amount_cents / 100,
       currency: 'CLP',
       email: authData.user.email,
@@ -92,7 +93,7 @@ export async function POST(request: Request) {
       },
     });
 
-    console.log('[Payment] Preference created successfully:', {
+    logger.debug('[Payment] Preference created successfully:', {
       preferenceId: preference.id,
       initPoint: preference.init_point,
     });
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
       sandboxInitPoint: preference.sandbox_init_point,
     });
   } catch (error: any) {
-    console.error('[Payment] Error:', error);
+    logger.error('[Payment] Error:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }

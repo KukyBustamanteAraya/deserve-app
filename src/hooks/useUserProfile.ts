@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/app/components/AuthProvider';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import type { UserProfile } from '@/types/user';
+import { logger } from '@/lib/logger';
 
 export function useUserProfile() {
   const { user, loading: authLoading } = useAuth();
@@ -29,14 +30,14 @@ export function useUserProfile() {
         if (!mounted) return;
 
         if (fetchError) {
-          console.error('Error fetching profile:', fetchError);
+          logger.error('Error fetching profile:', fetchError);
           setError(fetchError.message);
         } else {
           setProfile(data as UserProfile);
         }
       } catch (err) {
         if (!mounted) return;
-        console.error('Unexpected error fetching profile:', err);
+        logger.error('Unexpected error fetching profile:', err);
         setError('Failed to load profile');
       } finally {
         if (mounted) {
@@ -58,8 +59,8 @@ export function useUserProfile() {
 }
 
 export function getDisplayName(profile: UserProfile | null, userEmail?: string | null): string {
-  if (profile?.display_name) {
-    return profile.display_name;
+  if (profile?.full_name) {
+    return profile.full_name;
   }
   if (userEmail) {
     return userEmail.split('@')[0];

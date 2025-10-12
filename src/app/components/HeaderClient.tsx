@@ -1,20 +1,116 @@
 'use client';
 
 import { useAuth } from './AuthProvider';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useUserProfile, getDisplayName } from '@/hooks/useUserProfile';
+import { HamburgerMenu } from '@/components/HamburgerMenu';
+import { getBrowserClient } from '@/lib/supabase/client';
+import { logger } from '@/lib/logger';
+
+interface Team {
+  id: string;
+  slug: string;
+  name: string;
+  colors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+  };
+  team_type?: 'single_team' | 'institution';
+}
 
 export default function Header() {
   const { user, loading } = useAuth();
   const { profile } = useUserProfile();
   const pathname = usePathname();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const router = useRouter();
+  const supabase = getBrowserClient();
+
+  // Team dropdown state
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [showTeamDropdown, setShowTeamDropdown] = useState(false);
+  const [loadingTeams, setLoadingTeams] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isLoginPage = pathname === '/login';
-  const isDashboardPage = pathname === '/dashboard';
+  const isTeamPage = pathname === '/mi-equipo';
   const isCatalogPage = pathname?.startsWith('/catalog');
+
+  // Fetch user's teams
+  useEffect(() => {
+    const fetchTeams = async () => {
+      if (!user) {
+        setTeams([]);
+        return;
+      }
+
+      setLoadingTeams(true);
+      try {
+        const { data: memberships } = await supabase
+          .from('team_memberships')
+          .select('team_id, team:teams(*)')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (memberships && memberships.length > 0) {
+          const userTeams = memberships.map((m: any) => m.team).filter(Boolean);
+          setTeams(userTeams);
+        } else {
+          setTeams([]);
+        }
+      } catch (error) {
+        logger.error('Error fetching teams:', error);
+        setTeams([]);
+      } finally {
+        setLoadingTeams(false);
+      }
+    };
+
+    fetchTeams();
+  }, [user, supabase]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowTeamDropdown(false);
+      }
+    };
+
+    if (showTeamDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showTeamDropdown]);
+
+  // Handle logout
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/');
+  };
+
+  // Handle My Team button click
+  const handleMyTeamClick = (e: React.MouseEvent) => {
+    if (teams.length === 0) {
+      // No teams - go to team creation page
+      router.push('/mi-equipo');
+    } else if (teams.length === 1) {
+      // Single team - navigate directly
+      router.push('/mi-equipo');
+    } else {
+      // Multiple teams - show dropdown
+      e.preventDefault();
+      setShowTeamDropdown(!showTeamDropdown);
+    }
+  };
+
+  // Navigate to specific team
+  const handleTeamSelect = (teamId: string) => {
+    setShowTeamDropdown(false);
+    router.push(`/mi-equipo?team=${teamId}`);
+  };
 
   // Memoize the button content to reduce flickering
   const buttonContent = useMemo(() => {
@@ -27,24 +123,69 @@ export default function Header() {
 
     // Authenticated states
     if (user) {
-      const displayName = getDisplayName(profile, user.email);
-
-      if (isDashboardPage) {
-        return (
-          <span className="text-sm text-gray-600 px-6 py-3 whitespace-nowrap">
-            Welcome, {displayName}
-          </span>
-        );
-      } else {
-        return (
-          <Link
-            href="/dashboard"
-            className="bg-[#e21c21] text-white px-6 py-3 rounded-full font-semibold hover:bg-black transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#e21c21] focus:ring-offset-2 inline-block whitespace-nowrap"
+      return (
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={handleMyTeamClick}
+            className="bg-[#e21c21] text-white px-6 py-3 rounded-full font-semibold hover:bg-black transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#e21c21] focus:ring-offset-2 inline-flex items-center gap-2 whitespace-nowrap"
           >
-            Dashboard
-          </Link>
-        );
-      }
+            Mi Equipo
+            {teams.length > 1 && (
+              <svg
+                className={`w-4 h-4 transition-transform duration-200 ${showTeamDropdown ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+          </button>
+
+          {/* Dropdown menu */}
+          {showTeamDropdown && teams.length > 1 && (
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50 max-h-96 overflow-y-auto">
+              <div className="px-4 py-2 border-b border-gray-200">
+                <p className="text-sm font-semibold text-gray-700">Selecciona tu equipo</p>
+              </div>
+              {teams.map((team) => (
+                <button
+                  key={team.id}
+                  onClick={() => handleTeamSelect(team.id)}
+                  className="w-full px-4 py-3 hover:bg-gray-50 transition-colors text-left flex items-center gap-3 group"
+                >
+                  <div className="flex gap-1">
+                    <div
+                      className="w-3 h-8 rounded"
+                      style={{ backgroundColor: team.colors.primary }}
+                    />
+                    <div
+                      className="w-3 h-8 rounded"
+                      style={{ backgroundColor: team.colors.secondary }}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900 group-hover:text-[#e21c21] transition-colors">
+                      {team.name}
+                    </p>
+                    <p className="text-xs text-gray-500 capitalize">
+                      {team.team_type === 'institution' ? 'Institución' : 'Equipo Individual'}
+                    </p>
+                  </div>
+                  <svg
+                    className="w-5 h-5 text-gray-400 group-hover:text-[#e21c21] transition-colors"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      );
     }
 
     // Not authenticated - only show login button if not on login page
@@ -61,51 +202,15 @@ export default function Header() {
 
     // On login page, no button needed
     return <div className="w-32 h-12"></div>; // Maintain layout consistency
-  }, [user, loading, isDashboardPage, isLoginPage, profile]);
+  }, [user, loading, isLoginPage, teams, showTeamDropdown, handleMyTeamClick, handleTeamSelect]);
 
   return (
     <div className="w-full bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto py-4">
         <div className="flex justify-between items-center px-4">
-          {/* Left side - Navigation for authenticated users (hidden on mobile) */}
+          {/* Left side - Hamburger Menu */}
           <div className="flex-1 flex items-center">
-            {user && (
-              <nav className="hidden md:flex items-center space-x-6">
-                <Link
-                  href="/"
-                  className={`text-sm font-medium transition-colors duration-200 ${
-                    pathname === '/' ? 'text-[#e21c21]' : 'text-gray-700 hover:text-[#e21c21]'
-                  }`}
-                >
-                  Inicio
-                </Link>
-                <Link
-                  href="/catalog"
-                  className={`text-sm font-medium transition-colors duration-200 ${
-                    isCatalogPage ? 'text-[#e21c21]' : 'text-gray-700 hover:text-[#e21c21]'
-                  }`}
-                >
-                  Catálogo
-                </Link>
-              </nav>
-            )}
-
-            {/* Mobile menu button (only shown when user is authenticated) */}
-            {user && (
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 text-gray-700 hover:text-[#e21c21] focus:outline-none"
-                aria-label="Toggle menu"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {mobileMenuOpen ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  )}
-                </svg>
-              </button>
-            )}
+            {user && <HamburgerMenu onLogout={handleLogout} />}
           </div>
 
           {/* Center - Logo */}
@@ -115,7 +220,7 @@ export default function Header() {
             </Link>
           </div>
 
-          {/* Right side - User actions */}
+          {/* Right side - Mi Equipo / Login button */}
           <div className="flex-1 flex justify-end items-center min-h-[3rem]">
             <div className="hidden sm:block">
               {buttonContent}
@@ -127,16 +232,67 @@ export default function Header() {
                   <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
                 </div>
               ) : user ? (
-                !isDashboardPage ? (
-                  <Link
-                    href="/dashboard"
-                    className="bg-[#e21c21] text-white px-3 py-2 rounded-full text-xs font-semibold hover:bg-black transition-colors"
+                <div className="relative">
+                  <button
+                    onClick={handleMyTeamClick}
+                    className="bg-[#e21c21] text-white px-3 py-2 rounded-full text-xs font-semibold hover:bg-black transition-colors inline-flex items-center gap-1"
                   >
-                    DB
-                  </Link>
-                ) : (
-                  <span className="text-xs text-gray-600 px-2">Hi!</span>
-                )
+                    Equipo
+                    {teams.length > 1 && (
+                      <svg
+                        className={`w-3 h-3 transition-transform duration-200 ${showTeamDropdown ? 'rotate-180' : ''}`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    )}
+                  </button>
+
+                  {/* Mobile Dropdown */}
+                  {showTeamDropdown && teams.length > 1 && (
+                    <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50 max-h-80 overflow-y-auto">
+                      <div className="px-3 py-2 border-b border-gray-200">
+                        <p className="text-xs font-semibold text-gray-700">Selecciona tu equipo</p>
+                      </div>
+                      {teams.map((team) => (
+                        <button
+                          key={team.id}
+                          onClick={() => handleTeamSelect(team.id)}
+                          className="w-full px-3 py-2 hover:bg-gray-50 transition-colors text-left flex items-center gap-2 group"
+                        >
+                          <div className="flex gap-1">
+                            <div
+                              className="w-2 h-6 rounded"
+                              style={{ backgroundColor: team.colors.primary }}
+                            />
+                            <div
+                              className="w-2 h-6 rounded"
+                              style={{ backgroundColor: team.colors.secondary }}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 group-hover:text-[#e21c21] transition-colors truncate">
+                              {team.name}
+                            </p>
+                            <p className="text-xs text-gray-500 capitalize">
+                              {team.team_type === 'institution' ? 'Institución' : 'Equipo'}
+                            </p>
+                          </div>
+                          <svg
+                            className="w-4 h-4 text-gray-400 group-hover:text-[#e21c21] transition-colors flex-shrink-0"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ) : !isLoginPage ? (
                 <Link
                   href="/login"
@@ -148,32 +304,6 @@ export default function Header() {
             </div>
           </div>
         </div>
-
-        {/* Mobile menu dropdown */}
-        {user && mobileMenuOpen && (
-          <div className="md:hidden mt-4 pb-4 px-4 border-t border-gray-200 pt-4">
-            <nav className="flex flex-col space-y-3">
-              <Link
-                href="/"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`text-base font-medium transition-colors duration-200 ${
-                  pathname === '/' ? 'text-[#e21c21]' : 'text-gray-700 hover:text-[#e21c21]'
-                }`}
-              >
-                Inicio
-              </Link>
-              <Link
-                href="/catalog"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`text-base font-medium transition-colors duration-200 ${
-                  isCatalogPage ? 'text-[#e21c21]' : 'text-gray-700 hover:text-[#e21c21]'
-                }`}
-              >
-                Catálogo
-              </Link>
-            </nav>
-          </div>
-        )}
       </div>
     </div>
   );

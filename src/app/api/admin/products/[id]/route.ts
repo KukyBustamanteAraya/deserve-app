@@ -3,9 +3,11 @@ import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const UpdateProductSchema = z.object({
-  sportId: z.string().uuid().optional(),
+  sportId: z.string().uuid().optional(),         // DEPRECATED: Use sportIds instead
+  sportIds: z.array(z.number()).optional(),       // Array of sport IDs
   name: z.string().min(1).max(255).optional(),
   slug: z.string().min(1).max(255).optional(),
   priceCents: z.number().int().min(0).optional(),
@@ -73,7 +75,8 @@ export async function PATCH(
 
     // Build update object
     const updateData: any = {};
-    if (validatedData.sportId) updateData.sport_id = validatedData.sportId;
+    if (validatedData.sportId) updateData.sport_id = validatedData.sportId;  // DEPRECATED
+    if (validatedData.sportIds) updateData.sport_ids = validatedData.sportIds;  // Use this instead
     if (validatedData.name) updateData.name = validatedData.name;
     if (validatedData.slug) updateData.slug = validatedData.slug;
     if (validatedData.priceCents !== undefined) updateData.price_cents = validatedData.priceCents;
@@ -109,7 +112,7 @@ export async function PATCH(
       .single();
 
     if (error) {
-      console.error('Error updating product:', error);
+      logger.error('Error updating product:', error);
       return NextResponse.json(
         { error: 'Failed to update product' },
         { status: 500 }
@@ -128,7 +131,7 @@ export async function PATCH(
       );
     }
 
-    console.error('Admin products PATCH error:', error);
+    logger.error('Admin products PATCH error:', error);
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
@@ -164,7 +167,7 @@ export async function DELETE(
       .eq('id', params.id);
 
     if (error) {
-      console.error('Error deleting product:', error);
+      logger.error('Error deleting product:', error);
       return NextResponse.json(
         { error: 'Failed to delete product' },
         { status: 500 }
@@ -179,7 +182,7 @@ export async function DELETE(
       { status: 200 }
     );
   } catch (error) {
-    console.error('Admin products DELETE error:', error);
+    logger.error('Admin products DELETE error:', error);
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

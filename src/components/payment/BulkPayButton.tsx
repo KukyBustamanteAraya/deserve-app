@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ShoppingBagIcon } from '@heroicons/react/24/outline';
+import { logger } from '@/lib/logger';
 
 interface BulkPayButtonProps {
   orderIds: string[];
@@ -52,7 +53,7 @@ export function BulkPayButton({
       // Redirect to Mercado Pago checkout
       window.location.href = data.initPoint;
     } catch (err: any) {
-      console.error('Error initiating bulk payment:', err);
+      logger.error('Error initiating bulk payment:', err);
       setError(err.message || 'Error al iniciar el pago');
       setLoading(false);
     }

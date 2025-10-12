@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServer } from '@/lib/supabase/server-client';
+import { logger } from '@/lib/logger';
 
 interface ApparelSelection {
   apparel_type: string;
@@ -14,7 +15,7 @@ interface GearRequestPayload {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (createError) {
-      console.error('Error creating gear request:', createError);
+      logger.error('Error creating gear request:', createError);
       return NextResponse.json(
         { error: 'Failed to create gear request', details: createError.message },
         { status: 500 }
@@ -141,7 +142,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error: any) {
-    console.error('Unexpected error in gear-requests API:', error);
+    logger.error('Unexpected error in gear-requests API:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
 // GET endpoint to retrieve gear requests for a team
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -218,7 +219,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (fetchError) {
-      console.error('Error fetching gear requests:', fetchError);
+      logger.error('Error fetching gear requests:', fetchError);
       return NextResponse.json(
         { error: 'Failed to fetch gear requests', details: fetchError.message },
         { status: 500 }
@@ -231,7 +232,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Unexpected error in gear-requests GET:', error);
+    logger.error('Unexpected error in gear-requests GET:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }

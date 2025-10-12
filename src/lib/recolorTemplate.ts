@@ -5,6 +5,7 @@
  */
 
 import sharp from 'sharp';
+import { logger } from '@/lib/logger';
 
 export interface RecolorOptions {
   templateBuffer: Buffer;
@@ -92,7 +93,7 @@ async function createColorLayer(
 export async function recolorTemplate(options: RecolorOptions): Promise<Buffer> {
   const { templateBuffer, colors, masks } = options;
 
-  console.log('[TemplateMode] Starting recolor with masks:', Object.keys(masks));
+  logger.debug('[TemplateMode] Starting recolor with masks:', Object.keys(masks));
 
   // Load template and get dimensions
   const template = sharp(templateBuffer);
@@ -103,7 +104,7 @@ export async function recolorTemplate(options: RecolorOptions): Promise<Buffer> 
     throw new Error('Invalid template image dimensions');
   }
 
-  console.log(`[TemplateMode] Template size: ${width}x${height}`);
+  logger.debug(`[TemplateMode] Template size: ${width}x${height}`);
 
   // Start with original template
   let composite = template;
@@ -112,7 +113,7 @@ export async function recolorTemplate(options: RecolorOptions): Promise<Buffer> 
   const layers: sharp.OverlayOptions[] = [];
 
   // Layer 1: Body (primary color) - REQUIRED
-  console.log('[TemplateMode] Creating body layer:', colors.primary);
+  logger.debug('[TemplateMode] Creating body layer:', colors.primary);
   const bodyLayer = await createColorLayer(masks.body, colors.primary, width, height);
   layers.push({
     input: bodyLayer,
@@ -120,7 +121,7 @@ export async function recolorTemplate(options: RecolorOptions): Promise<Buffer> 
   });
 
   // Layer 2: Sleeves (secondary color) - REQUIRED
-  console.log('[TemplateMode] Creating sleeves layer:', colors.secondary);
+  logger.debug('[TemplateMode] Creating sleeves layer:', colors.secondary);
   const sleevesLayer = await createColorLayer(masks.sleeves, colors.secondary, width, height);
   layers.push({
     input: sleevesLayer,
@@ -129,7 +130,7 @@ export async function recolorTemplate(options: RecolorOptions): Promise<Buffer> 
 
   // Layer 3: Trims (tertiary color) - OPTIONAL
   if (masks.trims && colors.tertiary) {
-    console.log('[TemplateMode] Creating trims layer:', colors.tertiary);
+    logger.debug('[TemplateMode] Creating trims layer:', colors.tertiary);
     const trimsLayer = await createColorLayer(masks.trims, colors.tertiary, width, height);
     layers.push({
       input: trimsLayer,
@@ -138,9 +139,9 @@ export async function recolorTemplate(options: RecolorOptions): Promise<Buffer> 
   }
 
   // Composite all layers at once
-  console.log(`[TemplateMode] Compositing ${layers.length} layers...`);
+  logger.debug(`[TemplateMode] Compositing ${layers.length} layers...`);
   const result = await composite.composite(layers).png().toBuffer();
 
-  console.log('[TemplateMode] Recolor complete!');
+  logger.debug('[TemplateMode] Recolor complete!');
   return result;
 }

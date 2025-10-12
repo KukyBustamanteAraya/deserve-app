@@ -1,9 +1,10 @@
 // Bundles API - GET all bundles
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServer } from '@/lib/supabase/server-client';
+import { logger } from '@/lib/logger';
 
 export async function GET() {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServer();
 
   const { data: bundles, error } = await supabase
     .from('bundles')
@@ -11,7 +12,7 @@ export async function GET() {
     .order('code');
 
   if (error) {
-    console.error('Error fetching bundles:', error);
+    logger.error('Error fetching bundles:', error);
     return NextResponse.json(
       { error: 'Failed to fetch bundles' },
       { status: 500 }

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/app/components/AuthProvider';
 import type { CatalogPreviewResponse, SportSlug } from '@/types/catalog';
 import type { ApiResponse } from '@/types/api';
+import { logger } from '@/lib/logger';
 
 interface UseCatalogOptions {
   sport?: SportSlug | string | null;
@@ -50,7 +51,7 @@ export function useCatalog(options: UseCatalogOptions = {}): UseCatalogReturn {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
-      console.error('Error fetching catalog:', err);
+      logger.error('Error fetching catalog:', err);
     } finally {
       setLoading(false);
     }

@@ -26,13 +26,13 @@ export default function DashboardClient({ user, profile }: Props) {
   }
 
   // Get display name with fallback logic
-  const displayName = profile?.display_name || user.email?.split('@')[0] || 'User';
+  const displayName = profile?.full_name || user.email?.split('@')[0] || 'User';
 
   return (
     <div className="min-h-screen p-6 bg-gray-50">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Configuración</h1>
           <LogoutButton />
         </div>
 
@@ -41,8 +41,8 @@ export default function DashboardClient({ user, profile }: Props) {
             Welcome, {displayName}!
           </h2>
           <div className="space-y-2 text-gray-600">
-            {profile?.display_name && (
-              <p><strong>Display Name:</strong> {profile.display_name}</p>
+            {profile?.full_name && (
+              <p><strong>Name:</strong> {profile.full_name}</p>
             )}
             <p><strong>Email:</strong> {user.email}</p>
             <p><strong>User ID:</strong> {user.id}</p>
@@ -51,7 +51,7 @@ export default function DashboardClient({ user, profile }: Props) {
         </div>
 
         {/* Admin Portal Entry - Only visible to admins */}
-        {profile?.role === 'admin' && (
+        {profile?.is_admin === true && (
           <div className="bg-gradient-to-br from-red-50 to-gray-50 rounded-lg shadow-md border-2 border-red-200 p-8 mb-6">
             <div className="flex items-start justify-between mb-6">
               <div>
@@ -113,7 +113,7 @@ export default function DashboardClient({ user, profile }: Props) {
                 <h3 className="font-medium text-gray-900">Profile Settings</h3>
                 <p className="text-sm text-gray-600">Update your personal information</p>
               </a>
-              <a href="/dashboard/team" className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+              <a href="/mi-equipo" className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
                 <h3 className="font-medium text-gray-900">Team Management</h3>
                 <p className="text-sm text-gray-600">Create or join teams</p>
               </a>
@@ -132,6 +132,10 @@ export default function DashboardClient({ user, profile }: Props) {
               <a href="/orders" className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
                 <h3 className="font-medium text-gray-900">My Orders</h3>
                 <p className="text-sm text-gray-600">View order history</p>
+              </a>
+              <a href="/dashboard/addresses" className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                <h3 className="font-medium text-gray-900">Shipping Addresses</h3>
+                <p className="text-sm text-gray-600">Manage delivery addresses</p>
               </a>
             </div>
           </div>

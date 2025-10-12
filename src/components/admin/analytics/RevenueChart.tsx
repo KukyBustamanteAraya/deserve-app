@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { logger } from '@/lib/logger';
 
 interface RevenueData {
   day: string;
@@ -30,7 +31,7 @@ export default function RevenueChart({ data }: Props) {
           ResponsiveContainer: recharts.ResponsiveContainer,
         });
       } catch (error) {
-        console.log('Recharts not available yet, showing placeholder');
+        logger.debug('Recharts not available yet, showing placeholder');
       } finally {
         setLoading(false);
       }

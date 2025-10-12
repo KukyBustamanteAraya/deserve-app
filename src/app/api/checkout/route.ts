@@ -4,6 +4,7 @@ import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client'
 import { checkoutSchema } from '@/types/orders';
 import type { CheckoutRequest, CheckoutResponse } from '@/types/orders';
 import type { ApiResponse } from '@/types/api';
+import { logger } from '@/lib/logger';
 export async function POST(request: NextRequest) {
   try {
     const supabase = createSupabaseServer();
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
       });
 
     if (checkoutError) {
-      console.error('Error during checkout:', checkoutError);
+      logger.error('Error during checkout:', checkoutError);
 
       // Handle specific error cases
       if (checkoutError.code === '22023') {
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error('Unexpected error in checkout:', error);
+    logger.error('Unexpected error in checkout:', error);
     return NextResponse.json(
       { error: 'Internal server error' } as ApiResponse<null>,
       { status: 500 }

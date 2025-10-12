@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
+import { logger } from '@/lib/logger';
 
 export async function GET() {
   try {
@@ -27,7 +28,7 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching orders:', error);
+      logger.error('Error fetching orders:', error);
       return NextResponse.json(
         { error: 'Failed to fetch orders' },
         { status: 500 }
@@ -36,7 +37,7 @@ export async function GET() {
 
     return NextResponse.json({ orders });
   } catch (error) {
-    console.error('Admin orders GET error:', error);
+    logger.error('Admin orders GET error:', error);
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

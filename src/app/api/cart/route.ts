@@ -1,8 +1,9 @@
 // GET /api/cart - Get or create active cart with items
-import { NextResponse } from 'next/server';
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import type { CartResponse } from '@/types/orders';
-import type { ApiResponse } from '@/types/api';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError, apiUnauthorized } from '@/lib/api-response';
+
 export async function GET() {
   try {
     const supabase = createSupabaseServer();
@@ -15,11 +16,8 @@ export async function GET() {
       .rpc('get_or_create_active_cart');
 
     if (cartError) {
-      console.error('Error getting/creating cart:', cartError);
-      return NextResponse.json(
-        { error: 'Failed to get cart', message: cartError.message } as ApiResponse<null>,
-        { status: 500 }
-      );
+      logger.error('Error getting/creating cart:', cartError);
+      return apiError('Failed to get cart', 500);
     }
 
     // Get cart with items
@@ -30,30 +28,18 @@ export async function GET() {
       .single();
 
     if (fetchError) {
-      console.error('Error fetching cart details:', fetchError);
-      return NextResponse.json(
-        { error: 'Failed to fetch cart details', message: fetchError.message } as ApiResponse<null>,
-        { status: 500 }
-      );
+      logger.error('Error fetching cart details:', fetchError);
+      return apiError('Failed to fetch cart details', 500);
     }
 
-    return NextResponse.json({
-      data: { cart },
-      message: 'Cart retrieved successfully'
-    } as ApiResponse<CartResponse>);
+    return apiSuccess({ cart } as CartResponse, 'Cart retrieved successfully');
 
   } catch (error) {
     if (error instanceof Error && error.message === 'Authentication required') {
-      return NextResponse.json(
-        { error: 'Authentication required' } as ApiResponse<null>,
-        { status: 401 }
-      );
+      return apiUnauthorized();
     }
 
-    console.error('Unexpected error in cart retrieval:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' } as ApiResponse<null>,
-      { status: 500 }
-    );
+    logger.error('Unexpected error in cart retrieval:', error);
+    return apiError('Internal server error');
   }
 }

@@ -1,6 +1,7 @@
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import { redirect } from 'next/navigation';
 import CheckoutClient from './CheckoutClient';
+import { logger } from '@/lib/logger';
 
 export default async function CheckoutPage() {
   try {
@@ -8,11 +9,11 @@ export default async function CheckoutPage() {
     const user = await requireAuth(supabase);
 
     // Get active cart
-    const { data: cartId, error: cartError } = await supabase
+    const { data: cartId, error: cartError} = await supabase
       .rpc('get_or_create_active_cart');
 
     if (cartError) {
-      console.error('Error getting cart:', cartError);
+      logger.error('Error getting cart:', cartError);
       redirect('/cart?error=cart_not_found');
     }
 
@@ -24,7 +25,7 @@ export default async function CheckoutPage() {
       .single();
 
     if (fetchError) {
-      console.error('Error fetching cart details:', fetchError);
+      logger.error('Error fetching cart details:', fetchError);
       redirect('/cart?error=cart_fetch_failed');
     }
 
@@ -32,6 +33,14 @@ export default async function CheckoutPage() {
     if (!cart.items || cart.items.length === 0) {
       redirect('/cart?error=empty_cart');
     }
+
+    // Get user's shipping addresses
+    const { data: shippingAddresses } = await supabase
+      .from('shipping_addresses')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('is_default', { ascending: false })
+      .order('created_at', { ascending: false });
 
     return (
       <main className="min-h-screen bg-gray-50">
@@ -43,13 +52,17 @@ export default async function CheckoutPage() {
             </p>
           </div>
 
-          <CheckoutClient cart={cart} />
+          <CheckoutClient
+            cart={cart}
+            userId={user.id}
+            shippingAddresses={shippingAddresses || []}
+          />
         </div>
       </main>
     );
 
   } catch (error) {
-    console.error('Checkout page error:', error);
+    logger.error('Checkout page error:', error);
     redirect('/login?redirect=/checkout');
   }
 }

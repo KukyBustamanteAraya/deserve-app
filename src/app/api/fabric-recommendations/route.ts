@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     .eq('product_type_slug', productType);
 
   if (error) {
-    console.error('Error fetching fabric recommendations:', error);
+    logger.error('Error fetching fabric recommendations:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

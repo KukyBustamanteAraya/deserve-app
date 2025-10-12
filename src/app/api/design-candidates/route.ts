@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
+import { logger } from '@/lib/logger';
 
 /**
  * GET /api/design-candidates
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data, { status: 201 });
   } catch (error: any) {
-    console.error('Design candidate creation error:', error);
+    logger.error('Design candidate creation error:', error);
     return NextResponse.json(
       { error: 'Failed to create design candidate' },
       { status: 500 }

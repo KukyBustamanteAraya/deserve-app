@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
+import { logger } from '@/lib/logger';
 
 interface PaymentContribution {
   user_id: string;
@@ -71,7 +72,7 @@ export function PaymentStatusTracker({ orderId, totalAmountCents, teamId }: Paym
       const progressPercent = totalAmountCents > 0 ? (paidAmount / totalAmountCents) * 100 : 0;
       setProgress(progressPercent);
     } catch (error) {
-      console.error('Error loading contributions:', error);
+      logger.error('Error loading contributions:', error);
     } finally {
       setLoading(false);
     }

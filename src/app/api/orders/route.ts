@@ -1,9 +1,11 @@
 // GET /api/orders - List user orders with pagination
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import { ordersQuerySchema } from '@/types/orders';
 import type { OrdersListResponse } from '@/types/orders';
-import type { ApiResponse } from '@/types/api';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError, apiUnauthorized, apiValidationError } from '@/lib/api-response';
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = createSupabaseServer();
@@ -19,10 +21,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!queryValidation.success) {
-      return NextResponse.json(
-        { error: 'Invalid query parameters', message: queryValidation.error.issues[0].message } as ApiResponse<null>,
-        { status: 400 }
-      );
+      return apiValidationError(queryValidation.error.issues[0].message);
     }
 
     const { page, limit } = queryValidation.data;
@@ -35,11 +34,8 @@ export async function GET(request: NextRequest) {
       .eq('user_id', user.id);
 
     if (countError) {
-      console.error('Error counting orders:', countError);
-      return NextResponse.json(
-        { error: 'Failed to count orders', message: countError.message } as ApiResponse<null>,
-        { status: 500 }
-      );
+      logger.error('Error counting orders:', countError);
+      return apiError('Failed to count orders', 500);
     }
 
     // Get orders with pagination
@@ -51,35 +47,23 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1);
 
     if (ordersError) {
-      console.error('Error fetching orders:', ordersError);
-      return NextResponse.json(
-        { error: 'Failed to fetch orders', message: ordersError.message } as ApiResponse<null>,
-        { status: 500 }
-      );
+      logger.error('Error fetching orders:', ordersError);
+      return apiError('Failed to fetch orders', 500);
     }
 
-    return NextResponse.json({
-      data: {
-        orders: orders || [],
-        total: count || 0,
-        page,
-        limit
-      } as OrdersListResponse,
-      message: 'Orders retrieved successfully'
-    } as ApiResponse<OrdersListResponse>);
+    return apiSuccess({
+      orders: orders || [],
+      total: count || 0,
+      page,
+      limit
+    } as OrdersListResponse, 'Orders retrieved successfully');
 
   } catch (error) {
     if (error instanceof Error && error.message === 'Authentication required') {
-      return NextResponse.json(
-        { error: 'Authentication required' } as ApiResponse<null>,
-        { status: 401 }
-      );
+      return apiUnauthorized();
     }
 
-    console.error('Unexpected error in orders list:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' } as ApiResponse<null>,
-      { status: 500 }
-    );
+    logger.error('Unexpected error in orders list:', error);
+    return apiError('Internal server error');
   }
 }

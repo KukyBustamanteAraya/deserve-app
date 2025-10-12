@@ -8,11 +8,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { downloadImage, tryDownload, uploadPng } from '@/lib/storage';
 import { recolorTemplate } from '@/lib/recolorTemplate';
 import { assertGeometryLocked, assertColorTargets } from '@/lib/guards';
 import { saveRenderResult, type RenderSpec } from '@/lib/designRequests';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -32,10 +33,10 @@ interface RecolorRequest {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  console.log('[Recolor API] Request received (Lock-Geometry Mode)');
+  logger.debug('[Recolor API] Request received (Lock-Geometry Mode)');
 
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = createSupabaseServer();
 
     // Parse request body
     const body: RecolorRequest = await request.json();
@@ -57,10 +58,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[Recolor] Design request: ${designRequestId}`);
-    console.log(`[Recolor] Template: ${templateUrl}`);
-    console.log(`[Recolor] Colors: ${JSON.stringify(colors)}`);
-    console.log(`[Recolor] Design slug: ${designSlug}`);
+    logger.debug(`[Recolor] Design request: ${designRequestId}`);
+    logger.debug(`[Recolor] Template: ${templateUrl}`);
+    logger.debug(`[Recolor] Colors: ${JSON.stringify(colors)}`);
+    logger.debug(`[Recolor] Design slug: ${designSlug}`);
 
     // Fetch design request to verify it exists
     const { data: designRequest, error: fetchError } = await supabase
@@ -110,11 +111,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Download template image
-    console.log('[Recolor] Downloading template...');
+    logger.debug('[Recolor] Downloading template...');
     const templateBuffer = await downloadImage(templateUrl);
 
     // REQUIRE masks - no fallback to AI
-    console.log(`[Recolor] Loading masks for design: ${designSlug}`);
+    logger.debug(`[Recolor] Loading masks for design: ${designSlug}`);
     const maskUrls = {
       body: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/masks/${designSlug}/body.png`,
       sleeves: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/masks/${designSlug}/sleeves.png`,
@@ -129,7 +130,7 @@ export async function POST(request: NextRequest) {
 
     // Check if required masks exist
     if (!masks.body || !masks.sleeves) {
-      console.error('[Recolor] MASKS_MISSING: Required masks (body, sleeves) not found');
+      logger.error('[Recolor] MASKS_MISSING: Required masks (body, sleeves) not found');
       return NextResponse.json(
         {
           error: 'MASKS_MISSING',
@@ -143,13 +144,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('[Recolor] ✓ Required masks loaded (body, sleeves)');
+    logger.debug('[Recolor] ✓ Required masks loaded (body, sleeves)');
     if (masks.trims) {
-      console.log('[Recolor] ✓ Optional mask loaded (trims)');
+      logger.debug('[Recolor] ✓ Optional mask loaded (trims)');
     }
 
     // Perform pixel-perfect recoloring using template mode ONLY
-    console.log('[Recolor] Starting pixel-perfect recolor (Template Mode only)...');
+    logger.debug('[Recolor] Starting pixel-perfect recolor (Template Mode only)...');
     const recoloredBuffer = await recolorTemplate({
       templateBuffer,
       colors,
@@ -161,14 +162,14 @@ export async function POST(request: NextRequest) {
     });
 
     // VALIDATE: Geometry must be locked
-    console.log('[Recolor] Validating geometry lock...');
+    logger.debug('[Recolor] Validating geometry lock...');
     await assertGeometryLocked({
       base: templateBuffer,
       result: recoloredBuffer,
     });
 
     // VALIDATE: Colors must match targets
-    console.log('[Recolor] Validating color targets...');
+    logger.debug('[Recolor] Validating color targets...');
     await assertColorTargets({
       result: recoloredBuffer,
       masks: {
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest) {
 
     // Upload result to Supabase Storage
     const fileName = `${designRequestId}-${Date.now()}.png`;
-    console.log('[Recolor] Uploading validated result...');
+    logger.debug('[Recolor] Uploading validated result...');
     const publicUrl = await uploadPng('renders', fileName, recoloredBuffer, supabase);
 
     // Build render spec
@@ -217,8 +218,8 @@ export async function POST(request: NextRequest) {
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[Recolor] ✓ Success! Output: ${publicUrl}`);
-    console.log(`[Recolor] Total time: ${duration}ms`);
+    logger.debug(`[Recolor] ✓ Success! Output: ${publicUrl}`);
+    logger.debug(`[Recolor] Total time: ${duration}ms`);
 
     return NextResponse.json({
       ok: true,
@@ -228,9 +229,9 @@ export async function POST(request: NextRequest) {
       duration,
     });
   } catch (error: any) {
-    console.error('[Recolor API] ===== ERROR =====');
-    console.error('[Recolor API] Message:', error?.message);
-    console.error('[Recolor API] Stack:', error?.stack);
+    logger.error('[Recolor API] ===== ERROR =====');
+    logger.error('[Recolor API] Message:', error?.message);
+    logger.error('[Recolor API] Stack:', error?.stack);
 
     // Handle specific errors
     if (error?.message?.includes('GEOMETRY_CHANGED')) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServer } from '@/lib/supabase/server-client';
+import { logger } from '@/lib/logger';
 
 // Standard discount bands based on Deserve pricing CSV
 const DISCOUNT_BANDS = [
@@ -39,7 +40,7 @@ interface ComponentPricing {
  * Returns itemized pricing for each component in the bundle
  */
 export async function GET(request: NextRequest) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServer();
 
   try {
     const { searchParams } = new URL(request.url);
@@ -121,7 +122,7 @@ export async function GET(request: NextRequest) {
         .single();
 
       if (!componentPricing) {
-        console.warn(`No pricing found for component type: ${comp.type_slug}`);
+        logger.warn(`No pricing found for component type: ${comp.type_slug}`);
         continue;
       }
 
@@ -176,7 +177,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Bundle pricing calculation error:', error);
+    logger.error('Bundle pricing calculation error:', error);
     return NextResponse.json(
       { error: error.message || 'Pricing calculation failed' },
       { status: 500 }

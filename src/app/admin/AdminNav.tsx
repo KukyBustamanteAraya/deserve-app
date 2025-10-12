@@ -11,6 +11,7 @@ export default function AdminNav() {
   const navLinks = [
     { href: '/admin', label: 'Overview' },
     { href: '/admin/products', label: 'Products' },
+    { href: '/admin/designs', label: 'Designs' },
     { href: '/admin/design-requests', label: 'Design Requests' },
     { href: '/admin/analytics', label: 'Analytics' },
     { href: '/admin/orders', label: 'Orders' },

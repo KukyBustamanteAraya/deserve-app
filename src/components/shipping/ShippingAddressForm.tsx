@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
+import { logger } from '@/lib/logger';
 
 // Chilean regions
 const CHILEAN_REGIONS = [
@@ -110,7 +111,7 @@ export function ShippingAddressForm({
 
       onSaved?.(savedAddress);
     } catch (err: any) {
-      console.error('Error saving address:', err);
+      logger.error('Error saving address:', err);
       setError(err.message || 'Error al guardar la dirección');
     } finally {
       setLoading(false);

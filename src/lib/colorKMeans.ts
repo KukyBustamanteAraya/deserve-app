@@ -4,6 +4,7 @@
  */
 
 import sharp from 'sharp';
+import { logger } from '@/lib/logger';
 
 interface RGBColor {
   r: number;
@@ -151,7 +152,7 @@ export async function kmeansLab(
   k: number = 3,
   maxIterations: number = 20
 ): Promise<ColorCluster[]> {
-  console.log(`[K-means] Starting with k=${k}, maxIter=${maxIterations}`);
+  logger.debug(`[K-means] Starting with k=${k}, maxIter=${maxIterations}`);
 
   // Load image
   const { data: imageData, info: imageInfo } = await sharp(imageBuffer)
@@ -195,7 +196,7 @@ export async function kmeansLab(
     }
   }
 
-  console.log(`[K-means] Sampled ${pixels.length} pixels`);
+  logger.debug(`[K-means] Sampled ${pixels.length} pixels`);
 
   if (pixels.length === 0) {
     throw new Error('No pixels found inside mask');
@@ -208,7 +209,7 @@ export async function kmeansLab(
       ? pixels.filter((_, i) => i % Math.ceil(pixels.length / maxSamples) === 0)
       : pixels;
 
-  console.log(`[K-means] Using ${sampledPixels.length} samples for clustering`);
+  logger.debug(`[K-means] Using ${sampledPixels.length} samples for clustering`);
 
   // Initialize centroids randomly
   const centroids: LabColor[] = [];
@@ -243,7 +244,7 @@ export async function kmeansLab(
     assignments = newAssignments;
 
     if (converged) {
-      console.log(`[K-means] Converged at iteration ${iter + 1}`);
+      logger.debug(`[K-means] Converged at iteration ${iter + 1}`);
       break;
     }
 
@@ -304,7 +305,7 @@ export async function kmeansLab(
   // Sort by pixel count descending
   clusters.sort((a, b) => b.pixelCount - a.pixelCount);
 
-  console.log(
+  logger.debug(
     '[K-means] Clusters:',
     clusters.map((c) => `${c.hex} (${(c.proportion * 100).toFixed(1)}%)`)
   );
@@ -327,11 +328,11 @@ export async function detectDominantColors(
 
     // If we got 4 good clusters, merge the two smallest
     if (clusters.length === 4) {
-      console.log('[K-means] Merging smallest two clusters from k=4');
+      logger.debug('[K-means] Merging smallest two clusters from k=4');
       clusters = clusters.slice(0, 3);
     }
   } catch (error) {
-    console.warn('[K-means] k=4 failed, falling back to k=3');
+    logger.warn('[K-means] k=4 failed, falling back to k=3');
     clusters = await kmeansLab(imageBuffer, maskBuffer, 3);
   }
 

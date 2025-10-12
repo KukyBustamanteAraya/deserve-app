@@ -1,8 +1,8 @@
 // Check if authenticated user is team member or captain
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServer } from '@/lib/supabase/server-client';
 
 export async function isTeamMember(teamId: string, userId?: string): Promise<boolean> {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServer();
 
   // Get current user if not provided
   let currentUserId = userId;

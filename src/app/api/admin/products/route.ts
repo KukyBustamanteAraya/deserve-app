@@ -3,6 +3,7 @@ import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const CreateProductSchema = z.object({
   sportId: z.string().uuid(),
@@ -40,7 +41,7 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching products:', error);
+      logger.error('Error fetching products:', error);
       return NextResponse.json(
         { error: 'Failed to fetch products' },
         { status: 500 }
@@ -49,7 +50,7 @@ export async function GET() {
 
     return NextResponse.json({ products });
   } catch (error) {
-    console.error('Admin products GET error:', error);
+    logger.error('Admin products GET error:', error);
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Error creating product:', error);
+      logger.error('Error creating product:', error);
       return NextResponse.json(
         { error: 'Failed to create product' },
         { status: 500 }
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error('Admin products POST error:', error);
+    logger.error('Admin products POST error:', error);
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

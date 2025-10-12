@@ -37,7 +37,8 @@ export async function requireAdmin(): Promise<{ user: any; profile: UserProfile 
     throw new UserNotFoundError('User profile not found');
   }
 
-  if (profile.role !== 'admin') {
+  // Check is_admin field (boolean) instead of role
+  if (!profile.is_admin) {
     throw new AdminRequiredError('Admin privileges required');
   }
 
@@ -65,11 +66,11 @@ export async function isUserAdmin(userId: string): Promise<boolean> {
   try {
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('role')
+      .select('is_admin')
       .eq('id', userId)
       .single();
 
-    return !error && profile?.role === 'admin';
+    return !error && profile?.is_admin === true;
   } catch {
     return false;
   }

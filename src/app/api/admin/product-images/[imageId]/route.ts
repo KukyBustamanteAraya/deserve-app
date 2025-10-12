@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { revalidateTag, revalidatePath } from 'next/cache';
+import { logger } from '@/lib/logger';
 
 function parseStoragePathFromUrl(url: string): string | null {
   try {
@@ -9,7 +10,7 @@ function parseStoragePathFromUrl(url: string): string | null {
     const match = url.match(/\/object\/public\/product-images\/(.+)$/);
     return match ? match[1] : null;
   } catch (error) {
-    console.error('Error parsing storage path:', error);
+    logger.error('Error parsing storage path:', error);
     return null;
   }
 }
@@ -40,7 +41,7 @@ export async function DELETE(
     const storagePath = parseStoragePathFromUrl(imageRecord.url);
 
     if (!storagePath) {
-      console.error('Could not parse storage path from URL:', imageRecord.url);
+      logger.error('Could not parse storage path from URL:', imageRecord.url);
     }
 
     // Delete from database first (more critical than storage cleanup)
@@ -50,7 +51,7 @@ export async function DELETE(
       .eq('id', params.imageId);
 
     if (dbError) {
-      console.error('Database delete error:', dbError);
+      logger.error('Database delete error:', dbError);
       return NextResponse.json(
         { error: 'Failed to delete image record' },
         { status: 500 }
@@ -65,10 +66,10 @@ export async function DELETE(
           .remove([storagePath]);
 
         if (storageError) {
-          console.warn('Storage delete warning (non-critical):', storageError);
+          logger.warn('Storage delete warning (non-critical):', storageError);
         }
       } catch (error) {
-        console.warn('Storage delete failed (non-critical):', error);
+        logger.warn('Storage delete failed (non-critical):', error);
       }
     }
 
@@ -94,7 +95,7 @@ export async function DELETE(
     }, { status: 200 });
 
   } catch (error) {
-    console.error('Product image delete error:', error);
+    logger.error('Product image delete error:', error);
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

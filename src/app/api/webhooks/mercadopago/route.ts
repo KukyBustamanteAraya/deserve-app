@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
+import { logger } from '@/lib/logger';
 
 interface MercadoPagoWebhook {
   action?: string;
@@ -21,13 +22,13 @@ export async function POST(request: Request) {
     const token = url.searchParams.get('token');
 
     if (!token || token !== process.env.MP_WEBHOOK_TOKEN) {
-      console.log('Mercado Pago webhook: Invalid token');
+      logger.debug('Mercado Pago webhook: Invalid token');
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const webhook: MercadoPagoWebhook = await request.json();
 
-    console.log('Mercado Pago webhook received:', {
+    logger.debug('Mercado Pago webhook received:', {
       type: webhook.type,
       action: webhook.action,
       dataId: webhook.data?.id,
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
 
     // We're only interested in payment notifications
     if (webhook.type !== 'payment' || !webhook.data?.id) {
-      console.log('Mercado Pago webhook: Not a payment notification or missing data.id');
+      logger.debug('Mercado Pago webhook: Not a payment notification or missing data.id');
       return NextResponse.json({ status: 'ignored' });
     }
 
@@ -61,13 +62,13 @@ export async function POST(request: Request) {
     });
 
     if (!mpResponse.ok) {
-      console.error('Failed to fetch payment from Mercado Pago:', mpResponse.status);
+      logger.error('Failed to fetch payment from Mercado Pago:', mpResponse.status);
       return NextResponse.json({ error: 'Failed to fetch payment details' }, { status: 500 });
     }
 
     const paymentData = await mpResponse.json();
 
-    console.log('Mercado Pago payment data:', {
+    logger.debug('Mercado Pago payment data:', {
       id: paymentData.id,
       status: paymentData.status,
       externalReference: paymentData.external_reference,
@@ -100,7 +101,7 @@ export async function POST(request: Request) {
     }
 
     if (!payment) {
-      console.log('Mercado Pago webhook: Payment record not found');
+      logger.debug('Mercado Pago webhook: Payment record not found');
       return NextResponse.json({ error: 'Payment record not found' }, { status: 404 });
     }
 
@@ -142,7 +143,7 @@ export async function POST(request: Request) {
       .eq('id', payment.id);
 
     if (updateError) {
-      console.error('Failed to update payment:', updateError);
+      logger.error('Failed to update payment:', updateError);
       return NextResponse.json({ error: 'Failed to update payment' }, { status: 500 });
     }
 
@@ -163,13 +164,13 @@ export async function POST(request: Request) {
         .eq('id', payment.order_id);
 
       if (orderError) {
-        console.error('Failed to update order status:', orderError);
+        logger.error('Failed to update order status:', orderError);
       } else {
-        console.log(`Order ${payment.order_id} marked as paid`);
+        logger.debug(`Order ${payment.order_id} marked as paid`);
       }
     }
 
-    console.log(`Payment ${payment.id} updated to status: ${newStatus}`);
+    logger.debug(`Payment ${payment.id} updated to status: ${newStatus}`);
 
     return NextResponse.json({
       status: 'processed',
@@ -178,7 +179,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('Mercado Pago webhook error:', error);
+    logger.error('Mercado Pago webhook error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

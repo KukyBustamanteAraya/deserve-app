@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
+import { logger } from '@/lib/logger';
 
 /**
  * GET /api/design-votes
@@ -145,7 +146,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data, { status: 201 });
   } catch (error: any) {
-    console.error('Design vote error:', error);
+    logger.error('Design vote error:', error);
     return NextResponse.json(
       { error: 'Failed to cast vote' },
       { status: 500 }

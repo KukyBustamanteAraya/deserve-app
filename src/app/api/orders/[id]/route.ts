@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import type { OrderDetailResponse } from '@/types/orders';
 import type { ApiResponse } from '@/types/api';
+import { logger } from '@/lib/logger';
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -40,7 +41,7 @@ export async function GET(
         );
       }
 
-      console.error('Error fetching order details:', orderError);
+      logger.error('Error fetching order details:', orderError);
       return NextResponse.json(
         { error: 'Failed to fetch order details', message: orderError.message } as ApiResponse<null>,
         { status: 500 }
@@ -60,7 +61,7 @@ export async function GET(
       );
     }
 
-    console.error('Unexpected error in order details:', error);
+    logger.error('Unexpected error in order details:', error);
     return NextResponse.json(
       { error: 'Internal server error' } as ApiResponse<null>,
       { status: 500 }

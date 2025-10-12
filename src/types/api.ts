@@ -1,8 +1,10 @@
 // src/types/api.ts
 // Canonical API response helpers (single source of truth)
 export type ApiResponse<T> = {
-  data: T;
+  success: boolean;
+  data?: T;
   error?: string;
+  message?: string;
 };
 
 export type ApiList<T> = {

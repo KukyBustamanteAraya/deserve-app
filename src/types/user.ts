@@ -2,10 +2,10 @@
 export interface UserProfile {
   id: string;
   email: string | null;
-  display_name: string | null;
+  full_name: string | null;
   avatar_url: string | null;
-  bio: string | null;
   role: 'customer' | 'admin';
+  is_admin?: boolean;
   team_id: string | null;
   created_at: string;
   updated_at: string;
@@ -14,7 +14,7 @@ export interface UserProfile {
 export interface TeamMember {
   id: string;
   email: string | null;
-  display_name: string | null;
+  full_name: string | null;
   role: 'customer' | 'admin';
 }
 
@@ -50,9 +50,8 @@ export interface TeamWithInvites extends TeamDetails {
 
 // API Request/Response types
 export interface UpdateProfileRequest {
-  display_name?: string;
+  full_name?: string;
   avatar_url?: string;
-  bio?: string;
 }
 
 export interface CreateTeamRequest {

@@ -6,6 +6,7 @@
 
 import { editOnce } from './openaiImages';
 import sharp from 'sharp';
+import { logger } from '@/lib/logger';
 
 export interface RecolorAIOptions {
   templateBuffer: Buffer;
@@ -33,11 +34,11 @@ export interface RecolorAIOptions {
 export async function recolorAI(options: RecolorAIOptions): Promise<Buffer> {
   const { templateBuffer, colors, masks } = options;
 
-  console.log('[AIMode] Starting AI recolor...');
+  logger.debug('[AIMode] Starting AI recolor...');
 
   // Approach 1: Masks available - do one edit per layer, composite locally
   if (masks && (masks.body || masks.sleeves || masks.trims)) {
-    console.log('[AIMode] Using mask-based approach with local compositing');
+    logger.debug('[AIMode] Using mask-based approach with local compositing');
 
     const layers: sharp.OverlayOptions[] = [];
     const template = sharp(templateBuffer);
@@ -50,7 +51,7 @@ export async function recolorAI(options: RecolorAIOptions): Promise<Buffer> {
 
     // Edit body with primary color
     if (masks.body && colors.primary) {
-      console.log(`[AIMode] Recoloring body to ${colors.primary}`);
+      logger.debug(`[AIMode] Recoloring body to ${colors.primary}`);
       const prompt = `Recolor only the white pixels of the mask to ${colors.primary}. Preserve all fabric texture, wrinkles, seams, and shadows. Do not modify logos or text.`;
 
       const editedBody = await editOnce({
@@ -68,7 +69,7 @@ export async function recolorAI(options: RecolorAIOptions): Promise<Buffer> {
 
     // Edit sleeves with secondary color
     if (masks.sleeves && colors.secondary) {
-      console.log(`[AIMode] Recoloring sleeves to ${colors.secondary}`);
+      logger.debug(`[AIMode] Recoloring sleeves to ${colors.secondary}`);
       const prompt = `Recolor only the white pixels of the mask to ${colors.secondary}. Preserve all fabric texture, wrinkles, seams, and shadows. Do not modify logos or text.`;
 
       const editedSleeves = await editOnce({
@@ -86,7 +87,7 @@ export async function recolorAI(options: RecolorAIOptions): Promise<Buffer> {
 
     // Edit trims with tertiary color
     if (masks.trims && colors.tertiary) {
-      console.log(`[AIMode] Recoloring trims to ${colors.tertiary}`);
+      logger.debug(`[AIMode] Recoloring trims to ${colors.tertiary}`);
       const prompt = `Recolor only the white pixels of the mask to ${colors.tertiary}. Preserve all fabric texture, wrinkles, seams, and shadows. Do not modify logos or text.`;
 
       const editedTrims = await editOnce({
@@ -104,7 +105,7 @@ export async function recolorAI(options: RecolorAIOptions): Promise<Buffer> {
 
     // Composite all layers
     if (layers.length > 0) {
-      console.log(`[AIMode] Compositing ${layers.length} layers...`);
+      logger.debug(`[AIMode] Compositing ${layers.length} layers...`);
       return template.composite(layers).png().toBuffer();
     }
 
@@ -112,7 +113,7 @@ export async function recolorAI(options: RecolorAIOptions): Promise<Buffer> {
   }
 
   // Approach 2: No masks - single AI edit with comprehensive prompt
-  console.log('[AIMode] Using maskless approach (single comprehensive prompt)');
+  logger.debug('[AIMode] Using maskless approach (single comprehensive prompt)');
 
   const colorDescriptions = [];
   if (colors.primary) colorDescriptions.push(`main body to ${colors.primary}`);
@@ -121,7 +122,7 @@ export async function recolorAI(options: RecolorAIOptions): Promise<Buffer> {
 
   const prompt = `Recolor this sports jersey: change ${colorDescriptions.join(', ')}. Keep the exact same design composition, fabric texture, wrinkles, seams, highlights, and shadows. Do not alter logos, text, or background. Preserve all visual details except colors.`;
 
-  console.log(`[AIMode] Prompt: ${prompt}`);
+  logger.debug(`[AIMode] Prompt: ${prompt}`);
 
   const metadata = await sharp(templateBuffer).metadata();
   const { width, height } = metadata;
@@ -132,6 +133,6 @@ export async function recolorAI(options: RecolorAIOptions): Promise<Buffer> {
     size: width && width >= 1536 ? '1536x1536' : '1024x1024',
   });
 
-  console.log('[AIMode] Recolor complete!');
+  logger.debug('[AIMode] Recolor complete!');
   return result;
 }

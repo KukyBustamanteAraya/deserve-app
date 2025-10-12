@@ -3,6 +3,7 @@ import { User, AuthResult } from '../types';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { logger } from '@/lib/logger';
 
 export class AuthService {
   // Sign up with email and password
@@ -39,7 +40,7 @@ export class AuthService {
 
       return { data, error: null, needsConfirmation: false };
     } catch (error: any) {
-      console.error('Sign up error:', error);
+      logger.error('Sign up error:', error);
       return { data: null, error: { message: error.message || 'Sign up failed' } };
     }
   }
@@ -56,7 +57,7 @@ export class AuthService {
       if (error) throw error;
       return { data, error: null };
     } catch (error: any) {
-      console.error('Sign in error:', error);
+      logger.error('Sign in error:', error);
       return { data: null, error: { message: error.message || 'Sign in failed' } };
     }
   }
@@ -69,7 +70,7 @@ export class AuthService {
       if (error) throw error;
       return { error: null };
     } catch (error) {
-      console.error('Sign out error:', error);
+      logger.error('Sign out error:', error);
       return { error };
     }
   }
@@ -91,7 +92,7 @@ export class AuthService {
         if (error) {
           // If profile doesn't exist, the trigger should have created it
           // This indicates a data consistency issue
-          console.error('Profile not found for authenticated user:', error);
+          logger.error('Profile not found for authenticated user:', error);
           return { user: null, error };
         }
 
@@ -100,7 +101,7 @@ export class AuthService {
 
       return { user: null, error: null };
     } catch (error) {
-      console.error('Get current user error:', error);
+      logger.error('Get current user error:', error);
       return { user: null, error };
     }
   }
@@ -118,7 +119,7 @@ export class AuthService {
       if (error) throw error;
       return { data, error: null };
     } catch (error) {
-      console.error('Update user profile error:', error);
+      logger.error('Update user profile error:', error);
       return { data: null, error };
     }
   }
@@ -138,7 +139,7 @@ export class AuthService {
       if (error) throw error;
       return { data, error: null };
     } catch (error: any) {
-      console.error('Resend confirmation error:', error);
+      logger.error('Resend confirmation error:', error);
       return { data: null, error: { message: error.message || 'Failed to resend confirmation' } };
     }
   }
@@ -187,13 +188,13 @@ export async function requireUser(): Promise<User> {
       .single();
 
     if (profileError) {
-      console.error('Profile not found for authenticated user:', profileError);
+      logger.error('Profile not found for authenticated user:', profileError);
       redirect('/login');
     }
 
     return profile;
   } catch (error) {
-    console.error('Server auth error:', error);
+    logger.error('Server auth error:', error);
     redirect('/login');
   }
 }

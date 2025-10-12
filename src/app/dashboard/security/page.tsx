@@ -4,6 +4,7 @@ import { useAuth } from '@/app/components/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import SetPasswordForm from './set-password-form';
+import { logger } from '@/lib/logger';
 
 export default function SecurityPage() {
   const { user, loading } = useAuth();
@@ -13,7 +14,7 @@ export default function SecurityPage() {
   // Redirect if not authenticated
   useEffect(() => {
     if (!loading && !user && !redirecting) {
-      console.log('Security: Not authenticated, redirecting to login');
+      logger.debug('Security: Not authenticated, redirecting to login');
       setRedirecting(true);
       router.replace('/login');
     }

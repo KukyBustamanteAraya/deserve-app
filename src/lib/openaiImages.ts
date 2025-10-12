@@ -5,6 +5,7 @@
 
 import OpenAI from 'openai';
 import sharp from 'sharp';
+import { logger } from '@/lib/logger';
 
 // Only throw error at runtime when actually using the API, not during build
 const getOpenAIClient = () => {
@@ -61,15 +62,15 @@ export async function editOnce(options: EditImageOptions): Promise<Buffer> {
 export async function editMultiVariant(options: EditImageOptions): Promise<Buffer[]> {
   const { base, mask, prompt, size = '1024x1024', n = 2, retries = 3 } = options;
 
-  console.log(`[OpenAI] Generating ${n} variant(s) with gpt-image-1...`);
-  console.log(`[OpenAI] Prompt: ${prompt.substring(0, 150)}...`);
-  console.log(`[OpenAI] Size: ${size}`);
+  logger.debug(`[OpenAI] Generating ${n} variant(s) with gpt-image-1...`);
+  logger.debug(`[OpenAI] Prompt: ${prompt.substring(0, 150)}...`);
+  logger.debug(`[OpenAI] Size: ${size}`);
 
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      console.log(`[OpenAI] Attempt ${attempt + 1}/${retries}`);
+      logger.debug(`[OpenAI] Attempt ${attempt + 1}/${retries}`);
 
       // Convert images to RGBA format (required by OpenAI)
       const rgbaBase = await ensureRGBA(base);
@@ -80,7 +81,7 @@ export async function editMultiVariant(options: EditImageOptions): Promise<Buffe
       const maskFile = rgbaMask ? new File([rgbaMask], 'mask.png', { type: 'image/png' }) : undefined;
 
       // Use dall-e-2 for image editing (returns URLs, not base64)
-      console.log('[OpenAI] Using dall-e-2 model (URL mode)');
+      logger.debug('[OpenAI] Using dall-e-2 model (URL mode)');
       const response = await getClient().images.edit({
         model: 'dall-e-2',
         image: imageFile,
@@ -103,25 +104,25 @@ export async function editMultiVariant(options: EditImageOptions): Promise<Buffe
         if (item.b64_json) {
           // Base64 format
           const buffer = Buffer.from(item.b64_json, 'base64');
-          console.log(`[OpenAI] Variant ${i + 1}: ${buffer.length} bytes (b64)`);
+          logger.debug(`[OpenAI] Variant ${i + 1}: ${buffer.length} bytes (b64)`);
           variants.push(buffer);
         } else if (item.url) {
           // URL format - download
-          console.log(`[OpenAI] Variant ${i + 1}: Downloading from URL...`);
+          logger.debug(`[OpenAI] Variant ${i + 1}: Downloading from URL...`);
           const imageResponse = await fetch(item.url);
           if (!imageResponse.ok) {
             throw new Error(`Failed to download variant ${i}: ${imageResponse.statusText}`);
           }
           const arrayBuffer = await imageResponse.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
-          console.log(`[OpenAI] Variant ${i + 1}: ${buffer.length} bytes (url)`);
+          logger.debug(`[OpenAI] Variant ${i + 1}: ${buffer.length} bytes (url)`);
           variants.push(buffer);
         } else {
           throw new Error(`Variant ${i} has neither b64_json nor url`);
         }
       }
 
-      console.log(`[OpenAI] Success! Generated ${variants.length} variant(s)`);
+      logger.debug(`[OpenAI] Success! Generated ${variants.length} variant(s)`);
       return variants;
     } catch (error: any) {
       lastError = error;
@@ -132,7 +133,7 @@ export async function editMultiVariant(options: EditImageOptions): Promise<Buffe
       const waitTime = Math.pow(2, attempt) * 1000;
 
       if ((isRateLimitError || isServerError) && attempt < retries - 1) {
-        console.warn(`[OpenAI] Error ${error?.status}, retrying in ${waitTime}ms...`);
+        logger.warn(`[OpenAI] Error ${error?.status}, retrying in ${waitTime}ms...`);
         await new Promise((resolve) => setTimeout(resolve, waitTime));
         continue;
       }

@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServer } from '@/lib/supabase/server-client';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError } from '@/lib/api-response';
 
 /**
  * GET /api/fabrics
@@ -23,7 +24,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
  * }
  */
 export async function GET() {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServer();
 
   try {
     const { data: fabrics, error } = await supabase
@@ -32,22 +33,18 @@ export async function GET() {
       .order('sort_order', { ascending: true });
 
     if (error) {
-      console.error('Fabrics fetch error:', error);
-      return NextResponse.json(
-        { data: { items: [] }, error: 'Failed to fetch fabrics' },
-        { status: 500 }
-      );
+      logger.error('Fabrics fetch error:', error);
+      return apiError('Failed to fetch fabrics', 500);
     }
 
-    return NextResponse.json(
-      { data: { items: fabrics || [] } },
-      { status: 200, headers: { 'Cache-Control': 'public, max-age=3600' } }
-    );
+    const response = apiSuccess({ items: fabrics || [] });
+
+    // Add cache headers
+    response.headers.set('Cache-Control', 'public, max-age=3600');
+
+    return response;
   } catch (error: any) {
-    console.error('Unexpected error fetching fabrics:', error);
-    return NextResponse.json(
-      { data: { items: [] }, error: 'Internal server error' },
-      { status: 500 }
-    );
+    logger.error('Unexpected error fetching fabrics:', error);
+    return apiError('Internal server error');
   }
 }

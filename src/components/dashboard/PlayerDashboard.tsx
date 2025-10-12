@@ -1,8 +1,21 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { SplitPayButton } from '@/components/payment/SplitPayButton';
+import { OrderStatusTimeline } from '@/components/orders/OrderStatusTimeline';
+import { DesignApprovalCard } from '@/components/design/DesignApprovalCard';
+import { PaymentStatusTracker } from '@/components/payment/PaymentStatusTracker';
+import { ProgressOverviewCard } from '@/components/team-hub/ProgressOverviewCard';
+import { NextStepCard } from '@/components/team-hub/NextStepCard';
+import { ActivityPreviewCard } from '@/components/team-hub/ActivityPreviewCard';
+import { PlayerInfoForm, type PlayerInfoData } from '@/components/team-hub/PlayerInfoForm';
+import { useTeamStats } from '@/hooks/team-hub/useTeamStats';
+import { useActivityLog } from '@/hooks/team-hub/useActivityLog';
+import { getBrowserClient } from '@/lib/supabase/client';
+import type { SportSlug } from '@/types/catalog';
+import type { Order } from '@/types/orders';
 
 interface Team {
   id: string;
@@ -23,13 +36,7 @@ interface DesignRequest {
   secondary_color: string;
   accent_color: string;
   order_id?: string;
-}
-
-interface Order {
-  id: string;
-  status: string;
-  payment_status: string;
-  total_amount_cents: number;
+  approval_status?: string;
 }
 
 interface Member {
@@ -63,6 +70,12 @@ export function PlayerDashboard({
   onInvite,
 }: Props) {
   const router = useRouter();
+  const [showPlayerInfoForm, setShowPlayerInfoForm] = useState(false);
+  const supabase = getBrowserClient();
+
+  // Fetch team stats and activity
+  const { stats, loading: statsLoading } = useTeamStats(team.id);
+  const { activities, loading: activitiesLoading } = useActivityLog(team.id, 5);
 
   const getOrderForDesignRequest = (designRequestId: string) => {
     const dr = designRequests.find((d) => d.id === designRequestId);
@@ -72,9 +85,119 @@ export function PlayerDashboard({
 
   const latestDesign = designRequests[0];
   const latestOrder = latestDesign ? getOrderForDesignRequest(latestDesign.id) : null;
+  const [existingPlayerInfo, setExistingPlayerInfo] = useState<any>(null);
+  const [loadingPlayerInfo, setLoadingPlayerInfo] = useState(false);
+
+  // Fetch existing player info when component mounts
+  useEffect(() => {
+    const fetchExistingPlayerInfo = async () => {
+      setLoadingPlayerInfo(true);
+      const { data, error } = await supabase
+        .from('player_info_submissions')
+        .select('*')
+        .eq('team_id', team.id)
+        .eq('user_id', currentUserId)
+        .single();
+
+      if (!error && data) {
+        setExistingPlayerInfo(data);
+      }
+      setLoadingPlayerInfo(false);
+    };
+
+    fetchExistingPlayerInfo();
+  }, [team.id, currentUserId]);
+
+  const handlePlayerInfoSubmit = async (data: PlayerInfoData) => {
+    let error;
+
+    if (existingPlayerInfo) {
+      // Update existing submission
+      const result = await supabase
+        .from('player_info_submissions')
+        .update({
+          player_name: data.player_name,
+          jersey_number: data.jersey_number,
+          size: data.size,
+          position: data.position,
+          additional_notes: data.additional_notes,
+        })
+        .eq('id', existingPlayerInfo.id);
+
+      error = result.error;
+    } else {
+      // Insert new submission
+      const result = await supabase
+        .from('player_info_submissions')
+        .insert({
+          team_id: team.id,
+          user_id: currentUserId,
+          player_name: data.player_name,
+          jersey_number: data.jersey_number,
+          size: data.size,
+          position: data.position,
+          additional_notes: data.additional_notes,
+          submitted_by_manager: false,
+        });
+
+      error = result.error;
+    }
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Refresh existing info
+    const { data: updated } = await supabase
+      .from('player_info_submissions')
+      .select('*')
+      .eq('team_id', team.id)
+      .eq('user_id', currentUserId)
+      .single();
+
+    if (updated) {
+      setExistingPlayerInfo(updated);
+    }
+
+    setShowPlayerInfoForm(false);
+    alert(existingPlayerInfo ? '✓ Player information updated!' : '✓ Player information submitted successfully!');
+  };
+
+  // If form is open, show it instead of dashboard
+  if (showPlayerInfoForm) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <PlayerInfoForm
+          teamId={team.id}
+          userId={currentUserId}
+          sport={(latestDesign?.sport_slug || 'soccer') as SportSlug}
+          onSubmit={handlePlayerInfoSubmit}
+          onCancel={() => setShowPlayerInfoForm(false)}
+          existingData={existingPlayerInfo ? {
+            player_name: existingPlayerInfo.player_name,
+            jersey_number: existingPlayerInfo.jersey_number || '',
+            size: existingPlayerInfo.size,
+            position: existingPlayerInfo.position || '',
+            additional_notes: existingPlayerInfo.additional_notes || '',
+          } : undefined}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
+      {/* Team Hub Overview Cards */}
+      {stats && (
+        <div className="mb-8 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ProgressOverviewCard stats={stats} />
+            <NextStepCard stats={stats} role="member" teamSlug={team.slug} />
+          </div>
+          <ActivityPreviewCard activities={activities} teamSlug={team.slug} />
+        </div>
+      )}
+
       {/* Hero Section - Current Design */}
       {latestDesign ? (
         <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
@@ -107,25 +230,31 @@ export function PlayerDashboard({
             </div>
           </div>
 
-          {/* Mockup Preview */}
+          {/* Design Approval Card */}
           {latestDesign.status === 'ready' && latestDesign.mockup_urls && latestDesign.mockup_urls.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-              {latestDesign.mockup_urls.slice(0, 3).map((url, i) => (
-                <Image
-                  key={i}
-                  src={url}
-                  alt={`Mockup ${i + 1}`}
-                  width={300}
-                  height={300}
-                  className="rounded-lg border-2 w-full object-cover"
-                />
-              ))}
+            <div className="mb-6">
+              <DesignApprovalCard
+                designRequestId={latestDesign.id}
+                mockupUrls={latestDesign.mockup_urls}
+                approvalStatus={latestDesign.approval_status || 'pending_review'}
+              />
             </div>
           )}
 
-          {/* Payment Section - Prominent for Players */}
+          {/* Payment Status Tracker - Shows split payment progress */}
           {latestOrder && latestOrder.payment_status !== 'paid' && (
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border-2 border-blue-200">
+            <div className="mb-6">
+              <PaymentStatusTracker
+                orderId={latestOrder.id}
+                totalAmountCents={latestOrder.total_amount_cents}
+                teamId={team.id}
+              />
+            </div>
+          )}
+
+          {/* Payment Section - Individual pay button */}
+          {latestOrder && latestOrder.payment_status !== 'paid' && (
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border-2 border-blue-200 mb-6">
               <div className="flex items-center gap-2 mb-3">
                 <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
@@ -139,6 +268,18 @@ export function PlayerDashboard({
               </div>
               <p className="text-sm text-gray-600 mb-4">Paga tu parte individualmente con Mercado Pago</p>
               <SplitPayButton orderId={latestOrder.id} userId={currentUserId} amountCents={50000} />
+            </div>
+          )}
+
+          {/* Order Status Timeline */}
+          {latestOrder && (
+            <div className="mb-6">
+              <OrderStatusTimeline
+                currentStatus={latestOrder.status}
+                trackingNumber={latestOrder.tracking_number}
+                carrier={latestOrder.carrier}
+                estimatedDeliveryDate={latestOrder.estimated_delivery_date}
+              />
             </div>
           )}
 
@@ -243,6 +384,12 @@ export function PlayerDashboard({
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h3 className="font-bold mb-4">Acciones Rápidas</h3>
             <div className="space-y-2">
+              <button
+                onClick={() => setShowPlayerInfoForm(true)}
+                className="w-full px-4 py-3 border-2 border-blue-500 bg-blue-50 rounded-lg hover:bg-blue-100 text-left font-medium text-blue-900"
+              >
+                {existingPlayerInfo ? '✏️ Edit Player Info' : '📝 Submit Player Info'}
+              </button>
               <button
                 onClick={() => router.push('/catalog')}
                 className="w-full px-4 py-3 border-2 rounded-lg hover:bg-gray-50 text-left font-medium"

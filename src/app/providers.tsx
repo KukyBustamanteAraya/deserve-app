@@ -1,6 +1,7 @@
 'use client';
 
 import { AuthProvider } from '@/app/components/AuthProvider';
+import { SWRProvider } from '@/lib/swr/provider';
 
 export default function Providers({
   children,
@@ -9,5 +10,11 @@ export default function Providers({
   children: React.ReactNode;
   initialUser?: any | null;
 }) {
-  return <AuthProvider initialUser={initialUser}>{children}</AuthProvider>;
+  return (
+    <SWRProvider>
+      <AuthProvider initialUser={initialUser}>
+        {children}
+      </AuthProvider>
+    </SWRProvider>
+  );
 }

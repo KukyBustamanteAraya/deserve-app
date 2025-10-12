@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import "./globals.css";
+// Import globals.css directly - Next.js handles Tailwind via PostCSS
+import './globals.css';
 import Providers from './providers';
 import Header from '@/app/components/Header';
 import SessionHydration from '@/app/components/SessionHydration';
 import ProgressBar from '@/components/ProgressBar';
+// Import env to trigger validation on startup
+import { env } from '@/lib/env';
 
 export const metadata: Metadata = {
   title: "Deserve App",
@@ -24,8 +27,8 @@ export default async function RootLayout({
 }>) {
   const cookieStore = cookies();
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         get: (name: string) => cookieStore.get(name)?.value,

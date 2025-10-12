@@ -1,19 +1,31 @@
 'use client';
 
 import React, { useState, useTransition } from 'react';
+import { OrderStatusTimeline } from '@/components/orders/OrderStatusTimeline';
+import { getBrowserClient } from '@/lib/supabase/client';
+import { logger } from '@/lib/logger';
 
 interface Order {
   id: string;
   user_id: string;
-  status: 'pending' | 'paid' | 'cancelled';
+  team_id?: string;
+  status: string;
+  payment_status: string;
   currency: string;
   subtotal_cents: number;
+  total_amount_cents: number;
   total_cents: number;
   notes: string | null;
   created_at: string;
+  tracking_number?: string;
+  carrier?: string;
+  estimated_delivery_date?: string;
   profiles: {
     id: string;
     email: string;
+  };
+  teams?: {
+    name: string;
   };
 }
 
@@ -24,6 +36,8 @@ interface Props {
 export default function OrdersClient({ initialOrders }: Props) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [isPending, startTransition] = useTransition();
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const supabase = getBrowserClient();
 
   const formatPrice = (cents: number) => {
     return (cents / 100).toFixed(2);
@@ -44,6 +58,19 @@ export default function OrdersClient({ initialOrders }: Props) {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       case 'paid':
+      case 'design_approved':
+        return 'bg-green-100 text-green-800';
+      case 'design_review':
+        return 'bg-blue-100 text-blue-800';
+      case 'design_changes':
+        return 'bg-orange-100 text-orange-800';
+      case 'production':
+        return 'bg-purple-100 text-purple-800';
+      case 'quality_check':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'shipped':
+        return 'bg-blue-100 text-blue-800';
+      case 'delivered':
         return 'bg-green-100 text-green-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
@@ -52,39 +79,67 @@ export default function OrdersClient({ initialOrders }: Props) {
     }
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: 'paid' | 'cancelled') => {
-    if (!confirm(`Are you sure you want to mark this order as ${newStatus}?`)) {
-      return;
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: 'Pending',
+      paid: 'Paid',
+      design_review: 'Design Review',
+      design_approved: 'Design Approved',
+      design_changes: 'Design Changes',
+      production: 'In Production',
+      quality_check: 'Quality Check',
+      shipped: 'Shipped',
+      delivered: 'Delivered',
+      cancelled: 'Cancelled',
+    };
+    return labels[status] || status;
+  };
+
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      // Update local state
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+
+      alert(`Order updated to ${getStatusLabel(newStatus)}`);
+    } catch (error: any) {
+      logger.error('Error updating order status:', error);
+      alert('Failed to update order status');
     }
+  };
 
-    startTransition(async () => {
-      try {
-        const response = await fetch(`/api/admin/orders/${orderId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ status: newStatus }),
-        });
+  const updateShippingInfo = async (orderId: string, trackingNumber: string, carrier: string, estimatedDeliveryDate?: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          tracking_number: trackingNumber,
+          carrier: carrier,
+          estimated_delivery_date: estimatedDeliveryDate || null,
+          status: 'shipped',
+        })
+        .eq('id', orderId);
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to update order status');
-        }
+      if (error) throw error;
 
-        const { order } = await response.json();
+      // Update local state
+      setOrders(prev => prev.map(o =>
+        o.id === orderId
+          ? { ...o, status: 'shipped', tracking_number: trackingNumber, carrier: carrier, estimated_delivery_date: estimatedDeliveryDate }
+          : o
+      ));
 
-        // Update the local state
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: order.status } : o));
-
-        // Show success message
-        const statusText = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
-        alert(`Order marked as ${statusText} successfully!`);
-
-      } catch (err) {
-        alert(err instanceof Error ? err.message : 'Failed to update order status');
-      }
-    });
+      alert('Shipping information updated and order marked as shipped');
+    } catch (error: any) {
+      logger.error('Error updating shipping info:', error);
+      alert('Failed to update shipping information');
+    }
   };
 
   return (
@@ -120,51 +175,153 @@ export default function OrdersClient({ initialOrders }: Props) {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {orders.map((order) => (
-              <tr key={order.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {order.id.substring(0, 8)}...
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {order.profiles.email}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {formatDate(order.created_at)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  ${formatPrice(order.total_cents)} {order.currency}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
-                    {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                  {order.status === 'pending' && (
-                    <>
-                      <button
-                        onClick={() => updateOrderStatus(order.id, 'paid')}
-                        disabled={isPending}
-                        className="text-green-600 hover:text-green-900 disabled:opacity-50"
-                      >
-                        Mark as Paid
-                      </button>
-                      <button
-                        onClick={() => updateOrderStatus(order.id, 'cancelled')}
-                        disabled={isPending}
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50 ml-2"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  )}
-                  {order.status === 'paid' && (
-                    <span className="text-gray-500 text-xs">Paid</span>
-                  )}
-                  {order.status === 'cancelled' && (
-                    <span className="text-gray-500 text-xs">Cancelled</span>
-                  )}
-                </td>
-              </tr>
+              <React.Fragment key={order.id}>
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {order.id.substring(0, 8)}...
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {order.profiles.email}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {formatDate(order.created_at)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    ${formatPrice(order.total_cents)} {order.currency}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
+                      {getStatusLabel(order.status)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                    <button
+                      onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                      className="text-blue-600 hover:text-blue-900"
+                    >
+                      {expandedOrder === order.id ? 'Hide Details' : 'Manage Order'}
+                    </button>
+                  </td>
+                </tr>
+                {expandedOrder === order.id && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-6 bg-gray-50">
+                    <div className="space-y-6">
+                      {/* Order Timeline */}
+                      <div>
+                        <h3 className="text-lg font-semibold mb-4">Order Status Timeline</h3>
+                        <OrderStatusTimeline
+                          currentStatus={order.status}
+                          trackingNumber={order.tracking_number}
+                          carrier={order.carrier}
+                          estimatedDeliveryDate={order.estimated_delivery_date}
+                        />
+                      </div>
+
+                      {/* Status Update Controls */}
+                      <div className="border-t pt-4">
+                        <h3 className="text-lg font-semibold mb-4">Update Order Status</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {[
+                            { status: 'pending', label: 'Pending' },
+                            { status: 'paid', label: 'Paid' },
+                            { status: 'design_review', label: 'Design Review' },
+                            { status: 'design_approved', label: 'Design Approved' },
+                            { status: 'production', label: 'In Production' },
+                            { status: 'quality_check', label: 'Quality Check' },
+                            { status: 'shipped', label: 'Shipped' },
+                            { status: 'delivered', label: 'Delivered' },
+                          ].map(({ status, label }) => (
+                            <button
+                              key={status}
+                              onClick={() => updateOrderStatus(order.id, status)}
+                              disabled={order.status === status}
+                              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                                order.status === status
+                                  ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                                  : 'bg-blue-600 text-white hover:bg-blue-700'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Shipping Information Form */}
+                      {order.status === 'production' || order.status === 'quality_check' ? (
+                        <div className="border-t pt-4">
+                          <h3 className="text-lg font-semibold mb-4">Add Shipping Information</h3>
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              const formData = new FormData(e.currentTarget);
+                              updateShippingInfo(
+                                order.id,
+                                formData.get('trackingNumber') as string,
+                                formData.get('carrier') as string,
+                                formData.get('estimatedDeliveryDate') as string
+                              );
+                            }}
+                            className="grid grid-cols-1 md:grid-cols-4 gap-4"
+                          >
+                            <input
+                              type="text"
+                              name="trackingNumber"
+                              placeholder="Tracking Number"
+                              required
+                              className="px-3 py-2 border rounded-lg"
+                            />
+                            <select name="carrier" required className="px-3 py-2 border rounded-lg">
+                              <option value="">Select Carrier</option>
+                              <option value="Chilexpress">Chilexpress</option>
+                              <option value="Correos Chile">Correos Chile</option>
+                              <option value="Starken">Starken</option>
+                              <option value="Blue Express">Blue Express</option>
+                            </select>
+                            <input
+                              type="date"
+                              name="estimatedDeliveryDate"
+                              placeholder="Est. Delivery"
+                              className="px-3 py-2 border rounded-lg"
+                            />
+                            <button
+                              type="submit"
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+                            >
+                              Ship Order
+                            </button>
+                          </form>
+                        </div>
+                      ) : null}
+
+                      {/* Order Details */}
+                      <div className="border-t pt-4">
+                        <h3 className="text-lg font-semibold mb-2">Order Details</h3>
+                        <dl className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <dt className="font-medium text-gray-600">Order ID</dt>
+                            <dd className="text-gray-900 font-mono">{order.id}</dd>
+                          </div>
+                          <div>
+                            <dt className="font-medium text-gray-600">Team</dt>
+                            <dd className="text-gray-900">{order.teams?.name || 'N/A'}</dd>
+                          </div>
+                          <div>
+                            <dt className="font-medium text-gray-600">Payment Status</dt>
+                            <dd className="text-gray-900">{order.payment_status}</dd>
+                          </div>
+                          <div>
+                            <dt className="font-medium text-gray-600">Total Amount</dt>
+                            <dd className="text-gray-900 font-semibold">${formatPrice(order.total_amount_cents || order.total_cents)}</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>

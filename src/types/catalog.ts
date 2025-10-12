@@ -8,7 +8,8 @@ export interface Sport {
 
 export interface ProductBase {
   id: string;
-  sport_id: string;
+  sport_id?: string | null;                    // DEPRECATED: For backward compatibility
+  sport_ids: number[];                         // Array of sport IDs (products can span multiple sports)
   slug: string;
   name: string;
   description: string | null;
@@ -32,8 +33,9 @@ export interface ProductImage {
 }
 
 export interface ProductDetail extends ProductBase {
-  sport_slug: string;
-  sport_name: string;
+  sport_slug?: string;                         // DEPRECATED: First sport for backward compatibility
+  sport_name?: string;                         // DEPRECATED: First sport for backward compatibility
+  sports?: Array<{ slug: string; name: string }>; // NEW: All sports this product is available for
   images: ProductImage[];
 }
 

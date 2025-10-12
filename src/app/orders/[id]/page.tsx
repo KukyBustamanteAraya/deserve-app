@@ -4,6 +4,7 @@ import Link from 'next/link';
 import OrderStatusBadge from '@/components/orders/OrderStatusBadge';
 import { formatCurrency } from '@/types/orders';
 import type { OrderWithItems } from '@/types/orders';
+import { logger } from '@/lib/logger';
 
 interface OrderDetailPageProps {
   params: { id: string };
@@ -34,7 +35,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       if (orderError.code === 'PGRST116') {
         notFound();
       }
-      console.error('Error fetching order details:', orderError);
+      logger.error('Error fetching order details:', orderError);
       throw new Error('Failed to fetch order details');
     }
 
@@ -186,7 +187,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
     );
 
   } catch (error) {
-    console.error('Order detail page error:', error);
+    logger.error('Order detail page error:', error);
     redirect('/login?redirect=/orders');
   }
 }

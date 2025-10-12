@@ -1,6 +1,7 @@
 // Roster CSV preview API - parses CSV and returns preview
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServer } from '@/lib/supabase/server-client';
+import { logger } from '@/lib/logger';
 
 // Simple CSV parser (no external dependencies)
 function parseCSV(text: string): { headers: string[]; rows: string[][] } {
@@ -18,7 +19,7 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServer();
   
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('CSV parsing error:', error);
+    logger.error('CSV parsing error:', error);
     return NextResponse.json(
       { error: 'Failed to parse CSV file' },
       { status: 500 }

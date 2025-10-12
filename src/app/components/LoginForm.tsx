@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import { logger } from '@/lib/logger';
 
 type Mode = 'password' | 'magic';
 
@@ -20,6 +21,13 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
   const [waitingForAuth, setWaitingForAuth] = useState(false);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const successRef = useRef<HTMLParagraphElement>(null);
+
+  // Get redirect parameter from URL for invite flow
+  const redirectUrl = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('redirect');
+  }, []);
 
   // Load preferred mode and prefill email
   useEffect(() => {
@@ -68,23 +76,30 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
 
     try {
       if (mode === 'password') {
-        console.log('[LoginForm] Attempting password sign-in...');
+        logger.debug('[LoginForm] Attempting password sign-in...');
         const { data, error } = await supabaseBrowser.auth.signInWithPassword({
           email: normalizedEmail,
           password
         });
         if (error) throw error;
-        console.log('[LoginForm] Sign-in successful, session:', data.session ? 'present' : 'missing');
-        console.log('[LoginForm] User:', data.user ? data.user.email : 'missing');
+        logger.debug('[LoginForm] Sign-in successful, session:', data.session ? 'present' : 'missing');
+        logger.debug('[LoginForm] User:', data.user ? data.user.email : 'missing');
         localStorage.setItem('auth:lastEmail', normalizedEmail);
 
         // Use server redirect to ensure cookies are set before rendering dashboard
-        window.location.assign('/auth/redirect?next=/dashboard');
+        // Preserve redirect parameter for invite flow
+        const nextUrl = redirectUrl || '/dashboard';
+        window.location.assign(`/auth/redirect?next=${encodeURIComponent(nextUrl)}`);
         return;
       } else {
+        // Preserve redirect parameter for invite flow
+        const callbackUrl = redirectUrl
+          ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectUrl)}`
+          : `${window.location.origin}/auth/callback`;
+
         const { error } = await supabaseBrowser.auth.signInWithOtp({
           email: normalizedEmail,
-          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+          options: { emailRedirectTo: callbackUrl },
         });
         if (error) throw error;
         setSuccessMsg('Magic link sent! Check your email.');

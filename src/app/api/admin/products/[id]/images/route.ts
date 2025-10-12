@@ -3,6 +3,7 @@ import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { revalidateTag, revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -94,7 +95,7 @@ export async function POST(
       });
 
     if (uploadError) {
-      console.error('Storage upload error:', uploadError);
+      logger.error('Storage upload error:', uploadError);
       return NextResponse.json(
         { error: 'Failed to upload image' },
         { status: 500 }
@@ -126,7 +127,7 @@ export async function POST(
       .single();
 
     if (dbError) {
-      console.error('Database insert error:', dbError);
+      logger.error('Database insert error:', dbError);
 
       // Try to clean up uploaded file
       await supabase.storage
@@ -162,7 +163,7 @@ export async function POST(
     }, { status: 201 });
 
   } catch (error) {
-    console.error('Product image upload error:', error);
+    logger.error('Product image upload error:', error);
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

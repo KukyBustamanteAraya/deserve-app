@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { XCircleIcon } from '@heroicons/react/24/solid';
+import { logger } from '@/lib/logger';
 
 export default function PaymentFailurePage() {
   const searchParams = useSearchParams();
@@ -18,7 +19,7 @@ export default function PaymentFailurePage() {
     searchParams.forEach((value, key) => {
       allParams[key] = value;
     });
-    console.log('[Payment Failure] URL params:', allParams);
+    logger.debug('[Payment Failure] URL params:', allParams);
   }, [searchParams]);
 
   return (

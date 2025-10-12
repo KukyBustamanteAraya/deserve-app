@@ -8,6 +8,7 @@ import QuantityStepper from '@/components/orders/QuantityStepper';
 import CartSummary from '@/components/orders/CartSummary';
 import { formatCurrency } from '@/types/orders';
 import type { CartWithItems, CartItem } from '@/types/orders';
+import { logger } from '@/lib/logger';
 
 interface CartClientProps {
   initialCart: CartWithItems;
@@ -34,10 +35,10 @@ export default function CartClient({ initialCart }: CartClientProps) {
         const result = await response.json();
         setCart(result.data.cart);
       } else {
-        console.error('Error updating cart item');
+        logger.error('Error updating cart item');
       }
     } catch (error) {
-      console.error('Error updating cart item:', error);
+      logger.error('Error updating cart item:', error);
     } finally {
       setUpdatingItems(prev => {
         const newSet = new Set(prev);
@@ -59,10 +60,10 @@ export default function CartClient({ initialCart }: CartClientProps) {
         const result = await response.json();
         setCart(result.data.cart);
       } else {
-        console.error('Error removing cart item');
+        logger.error('Error removing cart item');
       }
     } catch (error) {
-      console.error('Error removing cart item:', error);
+      logger.error('Error removing cart item:', error);
     } finally {
       setUpdatingItems(prev => {
         const newSet = new Set(prev);

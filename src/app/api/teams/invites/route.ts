@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import type { CreateInviteRequest, CreateInviteResponse } from '@/types/user';
 import type { ApiResponse } from '@/types/api';
+import { logger } from '@/lib/logger';
 export async function POST(request: NextRequest) {
   try {
     const supabase = createSupabaseServer();
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (inviteError) {
-      console.error('Error creating invite:', inviteError);
+      logger.error('Error creating invite:', inviteError);
       return NextResponse.json(
         { error: 'Failed to create invite', message: inviteError.message } as ApiResponse<null>,
         { status: 500 }
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error('Unexpected error in invite creation:', error);
+    logger.error('Unexpected error in invite creation:', error);
     return NextResponse.json(
       { error: 'Internal server error' } as ApiResponse<null>,
       { status: 500 }

@@ -1,16 +1,18 @@
 // POST /api/profile - Update user profile
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import {
   createSupabaseRouteClient,
   jsonWithCarriedCookies,
 } from '@/lib/supabase/route';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError, apiUnauthorized, apiNotFound, apiValidationError } from '@/lib/api-response';
 
 export async function POST(req: NextRequest) {
   const { supabase, response: carrier } = createSupabaseRouteClient(req);
 
   // Parse request body
-  let body: { display_name?: string | null; avatar_url?: string | null; bio?: string | null };
+  let body: { full_name?: string | null; avatar_url?: string | null };
   try {
     body = await req.json();
   } catch {
@@ -21,22 +23,26 @@ export async function POST(req: NextRequest) {
   const normalize = (v?: string | null) =>
     (typeof v === 'string' ? v.trim() : v) || null;
 
-  const updateData = {
-    display_name: normalize(body.display_name),
-    avatar_url: normalize(body.avatar_url),
-    bio: normalize(body.bio),
-  };
+  const updateData: Record<string, any> = {};
+
+  // Only include fields that are provided
+  if (body.full_name !== undefined) {
+    updateData.full_name = normalize(body.full_name);
+  }
+  if (body.avatar_url !== undefined) {
+    updateData.avatar_url = normalize(body.avatar_url);
+  }
 
   // 1) Auth check
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr || !userData?.user) {
-    console.error('[profile] getUser error:', userErr);
+    logger.error('[profile] getUser error:', userErr);
     return jsonWithCarriedCookies(carrier, { error: 'Unauthorized' }, { status: 401 });
   }
 
   const userId = userData.user.id;
-  console.log('[profile] User authenticated:', userId);
-  console.log('[profile] Update data:', updateData);
+  logger.debug('[profile] User authenticated:', userId);
+  logger.debug('[profile] Update data:', updateData);
 
   // 2) Update (RLS will allow only own row)
   const { data, error } = await supabase
@@ -47,7 +53,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    console.error('[profile] Update error:', {
+    logger.error('[profile] Update error:', {
       code: (error as any).code,
       message: error.message,
       hint: (error as any).hint,
@@ -62,7 +68,7 @@ export async function POST(req: NextRequest) {
 
   if (!data) {
     // This usually means the profile row didn't exist (fixed by backfill SQL)
-    console.warn('[profile] No row updated for user:', userId);
+    logger.warn('[profile] No row updated for user:', userId);
     return jsonWithCarriedCookies(
       carrier,
       { error: 'Profile not found for current user.' },
@@ -70,7 +76,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  console.log('[profile] Update successful for user:', userId);
+  logger.debug('[profile] Update successful for user:', userId);
   return jsonWithCarriedCookies(carrier, { ok: true, profile: data }, { status: 200 });
 }
 
@@ -82,7 +88,7 @@ export async function GET() {
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiUnauthorized();
     }
 
     // Fetch profile
@@ -93,23 +99,14 @@ export async function GET() {
       .single();
 
     if (error) {
-      console.error('Error fetching profile:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch profile' },
-        { status: 500 }
-      );
+      logger.error('Error fetching profile:', error);
+      return apiError('Failed to fetch profile', 500);
     }
 
-    return NextResponse.json({
-      data: profile,
-      message: 'Profile retrieved successfully'
-    });
+    return apiSuccess(profile, 'Profile retrieved successfully');
 
   } catch (error) {
-    console.error('Unexpected error in profile fetch:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    logger.error('Unexpected error in profile fetch:', error);
+    return apiError('Internal server error');
   }
 }

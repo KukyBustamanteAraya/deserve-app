@@ -1,0 +1,27 @@
+{
+  "version": 3,
+  "middleware": {
+    "/": {
+      "files": [
+        "server/edge/chunks/ssr/_8b057c._.js",
+        "server/edge/chunks/ssr/middleware_ts_8a0420._.js",
+        "server/edge/chunks/ssr/edge-wrapper_38261d.js",
+        "server/edge/chunks/ssr/edge-wrapper_a707ec.js"
+      ],
+      "name": "middleware",
+      "page": "/",
+      "matchers": [],
+      "env": {
+        "__NEXT_BUILD_ID": "development",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "VZLMPvfSTKuKELPRovF18jR9z8ZORoeOliUqDa9g8a8=",
+        "__NEXT_PREVIEW_MODE_ID": "62e4168eac7502b14ab1d26d96279df4",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "158849687eca0b5f6a16f896c0955bfdb83f58d08712a9b393140d777f6b196c",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "0cfe58452fa87eabf234b8cd9600008aab52fa34a3b8e7892847f74ddd8af73b"
+      }
+    }
+  },
+  "sortedMiddleware": [
+    "/"
+  ],
+  "functions": {}
+}

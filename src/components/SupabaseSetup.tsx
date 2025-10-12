@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { supabaseClient } from '../lib/supabaseClient';
+import { logger } from '@/lib/logger';
 
 export default function SupabaseSetup() {
   const [status, setStatus] = useState('');
@@ -38,7 +39,7 @@ export default function SupabaseSetup() {
 
       if (error) {
         setStatus('Table creation failed - please create manually in Supabase dashboard');
-        console.error(error);
+        logger.error(error);
       } else {
         setStatus('✓ Products table created successfully');
       }
@@ -107,7 +108,7 @@ export default function SupabaseSetup() {
             });
 
           if (uploadError) {
-            console.error(`Upload error for ${filename}:`, uploadError);
+            logger.error(`Upload error for ${filename}:`, uploadError);
             continue;
           }
 
@@ -138,7 +139,7 @@ export default function SupabaseSetup() {
           // Small delay to avoid rate limiting
           await new Promise(resolve => setTimeout(resolve, 100));
         } catch (err) {
-          console.error(`Error processing ${filename}:`, err);
+          logger.error(`Error processing ${filename}:`, err);
         }
       }
 
@@ -160,7 +161,7 @@ export default function SupabaseSetup() {
             });
 
           if (uploadError) {
-            console.error(`Upload error for ${filename}:`, uploadError);
+            logger.error(`Upload error for ${filename}:`, uploadError);
             continue;
           }
 
@@ -188,7 +189,7 @@ export default function SupabaseSetup() {
 
           await new Promise(resolve => setTimeout(resolve, 100));
         } catch (err) {
-          console.error(`Error processing ${filename}:`, err);
+          logger.error(`Error processing ${filename}:`, err);
         }
       }
 

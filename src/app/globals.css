@@ -201,3 +201,9 @@
   animation: shimmer 9s ease-in-out infinite;
   pointer-events: none;
 }
+
+@layer utilities {
+  .tw-probe-border {
+    border: 3px solid red;
+  }
+}

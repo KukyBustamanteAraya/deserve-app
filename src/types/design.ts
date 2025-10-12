@@ -7,7 +7,7 @@ export interface DesignRequest {
   team_id: string;
   requested_by: string;
   brief: string | null;
-  status: 'open' | 'voting' | 'approved' | 'rejected';
+  status: 'pending' | 'rendering' | 'ready' | 'cancelled';
   selected_candidate_id: number | null;
   created_at: string;
   updated_at: string;
@@ -23,7 +23,7 @@ export type CreateDesignRequestPayload = z.infer<typeof CreateDesignRequestSchem
 
 // Zod schema for updating design request status
 export const UpdateDesignRequestStatusSchema = z.object({
-  status: z.enum(['open', 'voting', 'approved', 'rejected']),
+  status: z.enum(['pending', 'rendering', 'ready', 'cancelled']),
   selectedCandidateId: z.number().int().positive().optional(),
 });
 

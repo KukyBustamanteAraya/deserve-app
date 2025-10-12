@@ -2,6 +2,7 @@
 // Shim endpoint - uses queryProducts helper (no DB view dependency)
 import { NextRequest, NextResponse } from 'next/server';
 import { queryProducts } from '@/lib/catalog/queryProducts';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error: any) {
-    console.error('preview api error:', error);
+    logger.error('preview api error:', error);
     return NextResponse.json(
       {
         data: { items: [], total: 0, nextCursor: null },

@@ -1,6 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
+import { logger } from '@/lib/logger';
 
 export default function LogoutButton() {
   const [pending, startTransition] = useTransition();
@@ -11,7 +12,7 @@ export default function LogoutButton() {
         await fetch('/logout', { method: 'GET' });
         window.location.href = '/login';
       } catch (error) {
-        console.error('Logout error:', error);
+        logger.error('Logout error:', error);
         // Fallback: redirect anyway
         window.location.href = '/login';
       }

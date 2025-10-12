@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBuilderState } from '@/hooks/useBuilderState';
+import { logger } from '@/lib/logger';
 
 interface Sport {
   id: string;
@@ -25,15 +26,10 @@ export default function Home() {
         if (!res.ok) throw new Error('Failed to fetch sports');
         const data = await res.json();
 
-        // Filter out unwanted sports
-        const excludedSlugs = ['training', 'crossfit', 'padel', 'yoga-pilates', 'golf'];
-        const filteredSports = (data.data || []).filter(
-          (sport: Sport) => !excludedSlugs.includes(sport.slug)
-        );
-
-        setSports(filteredSports);
+        // Sports table is now clean - no filtering needed
+        setSports(data.data || []);
       } catch (err: any) {
-        console.error('Error fetching sports:', err);
+        logger.error('Error fetching sports:', err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -43,14 +39,17 @@ export default function Home() {
     fetchSports();
   }, []);
 
-  // Map sports to display with icons
+  // Map sports to display with icons - USE SPANISH SLUGS
   const getSportIcon = (slug: string) => {
     const iconMap: Record<string, string> = {
-      'soccer': '⚽',
-      'basketball': '🏀',
-      'volleyball': '🏐',
+      'futbol': '⚽',
+      'basquetbol': '🏀',
+      'voleibol': '🏐',
       'rugby': '🏉',
       'hockey': '🏒',
+      'tenis': '🎾',
+      'handball': '🤾',
+      'beisbol': '⚾',
     };
     return iconMap[slug] || '🏆';
   };

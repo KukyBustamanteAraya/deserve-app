@@ -1,103 +1,121 @@
 // Design requests API - GET list, POST create
-import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { NextRequest } from 'next/server';
+import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { CreateDesignRequestSchema } from '@/types/design';
+import { logger } from '@/lib/logger';
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiValidationError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
-  const supabase = createSupabaseServerClient();
-  
+  const supabase = createSupabaseServer();
+
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
+    return apiUnauthorized();
   }
 
   const searchParams = request.nextUrl.searchParams;
-  const teamId = searchParams.get('teamId');
+  const teamId = searchParams.get('team_id') || searchParams.get('teamId');
+  const status = searchParams.get('status');
+  const userId = searchParams.get('user_id') || searchParams.get('userId');
 
   let query = supabase
     .from('design_requests')
-    .select('*')
+    .select('*', { count: 'exact' })
     .order('created_at', { ascending: false });
 
+  // Apply filters
   if (teamId) {
     query = query.eq('team_id', teamId);
+  }
+
+  if (status) {
+    query = query.eq('status', status);
+  }
+
+  if (userId) {
+    query = query.eq('requested_by', userId);
   }
 
   const { data: requests, error, count } = await query;
 
   if (error) {
-    console.error('Error fetching design requests:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch design requests' },
-      { status: 500 }
-    );
+    logger.error('Error fetching design requests:', error);
+    return apiError('Failed to fetch design requests', 500);
   }
 
-  return NextResponse.json({
-    data: {
-      items: requests || [],
-      total: count || 0
-    }
-  });
+  return apiSuccess(requests || [], `Found ${count || 0} design requests`);
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createSupabaseServerClient();
-  
+  const supabase = createSupabaseServer();
+
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
+    return apiUnauthorized();
   }
 
   try {
     const body = await request.json();
     const validated = CreateDesignRequestSchema.parse(body);
 
-    // Verify user is team captain
-    const { data: team } = await supabase
-      .from('teams')
-      .select('created_by')
-      .eq('id', validated.teamId)
-      .single();
+    // Verify user is a team member
+    const { data: membership, error: membershipError } = await supabase
+      .from('team_memberships')
+      .select('role')
+      .eq('team_id', validated.teamId)
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    if (!team || team.created_by !== user.id) {
-      return NextResponse.json(
-        { error: 'Only team captain can create design requests' },
-        { status: 403 }
-      );
+    if (membershipError || !membership) {
+      logger.error('[DesignRequest] Membership check failed:', {
+        error: membershipError,
+        userId: user.id,
+        teamId: validated.teamId,
+        hasError: !!membershipError,
+        hasMembership: !!membership
+      });
+      return apiForbidden('Only team members can create design requests');
     }
+
+    // Get user's role to set user_type
+    const userType = membership.role === 'player' ? 'player' : 'manager';
+
+    logger.info('[DesignRequest] About to insert:', {
+      userId: user.id,
+      teamId: validated.teamId,
+      userType,
+      membershipRole: membership.role
+    });
 
     const { data: designRequest, error } = await supabase
       .from('design_requests')
       .insert({
         team_id: validated.teamId,
         requested_by: user.id,
-        brief: validated.brief || null,
-        status: 'open'
+        user_id: user.id,
+        user_type: userType,
+        status: 'pending'
       })
       .select()
       .single();
 
     if (error) {
-      console.error('Error creating design request:', error);
-      return NextResponse.json(
-        { error: 'Failed to create design request' },
-        { status: 500 }
-      );
+      logger.error('[DesignRequest] Insert failed:', {
+        error,
+        errorCode: error.code,
+        errorMessage: error.message,
+        errorDetails: error.details,
+        errorHint: error.hint,
+        userId: user.id,
+        teamId: validated.teamId,
+        userType
+      });
+      return apiError('Failed to create design request', 500);
     }
 
-    return NextResponse.json({ data: designRequest }, { status: 201 });
+    return apiSuccess(designRequest, 'Design request created successfully', 201);
   } catch (error) {
-    console.error('Validation error:', error);
-    return NextResponse.json(
-      { error: 'Invalid request data' },
-      { status: 400 }
-    );
+    logger.error('Validation error:', error);
+    return apiValidationError('Invalid request data');
   }
 }

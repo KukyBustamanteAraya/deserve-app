@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import { logger } from '@/lib/logger';
 
 export default function SetupPage() {
   const [status, setStatus] = useState('Ready to migrate to Supabase');
@@ -59,7 +60,7 @@ export default function SetupPage() {
             });
 
           if (uploadError) {
-            console.error(`Upload error for ${filename}:`, uploadError);
+            logger.error(`Upload error for ${filename}:`, uploadError);
             continue;
           }
 
@@ -89,7 +90,7 @@ export default function SetupPage() {
 
           await new Promise(resolve => setTimeout(resolve, 200));
         } catch (err) {
-          console.error(`Error processing ${filename}:`, err);
+          logger.error(`Error processing ${filename}:`, err);
         }
       }
 

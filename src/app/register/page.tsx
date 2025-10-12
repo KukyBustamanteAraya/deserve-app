@@ -22,6 +22,13 @@ export default function RegisterPage({ onSuccess }: { onSuccess?: () => void }) 
   const errorRef = useRef<HTMLParagraphElement>(null);
   const successRef = useRef<HTMLParagraphElement>(null);
 
+  // Get redirect parameter from URL
+  const redirectUrl = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('redirect');
+  }, []);
+
   // Load preferred mode and prefill email
   useEffect(() => {
     try {
@@ -68,12 +75,30 @@ export default function RegisterPage({ onSuccess }: { onSuccess?: () => void }) 
 
     try {
       if (mode === 'password') {
+        // Preserve redirect parameter for invite flow
+        const callbackUrl = redirectUrl
+          ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectUrl)}`
+          : `${window.location.origin}/auth/callback`;
+
         const { data, error } = await supabaseBrowser.auth.signUp({
           email: normalizedEmail,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+          options: { emailRedirectTo: callbackUrl },
         });
         if (error) throw error;
+
+        // Create profile for new user
+        if (data.user) {
+          try {
+            await supabaseBrowser.from('profiles').insert({
+              id: data.user.id,
+              full_name: data.user.user_metadata?.full_name || 'New User',
+            }).select().single();
+          } catch (profileError) {
+            // Ignore if profile already exists (conflict)
+            console.log('Profile creation:', profileError);
+          }
+        }
 
         localStorage.setItem('auth:lastEmail', normalizedEmail);
         if (!data.session) {
@@ -81,12 +106,17 @@ export default function RegisterPage({ onSuccess }: { onSuccess?: () => void }) 
         } else {
           setSuccessMsg('Account created. Redirecting…');
           onSuccess?.();
-          setTimeout(() => router.replace('/dashboard'), 400);
+          setTimeout(() => router.replace(redirectUrl || '/dashboard'), 400);
         }
       } else {
+        // Preserve redirect parameter for invite flow
+        const callbackUrl = redirectUrl
+          ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectUrl)}`
+          : `${window.location.origin}/auth/callback`;
+
         const { error } = await supabaseBrowser.auth.signInWithOtp({
           email: normalizedEmail,
-          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+          options: { emailRedirectTo: callbackUrl },
         });
         if (error) throw error;
         localStorage.setItem('auth:lastEmail', normalizedEmail);

@@ -3,6 +3,7 @@ import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const OrderStatusUpdateSchema = z.object({
   status: z.enum(['paid', 'cancelled'])
@@ -75,7 +76,7 @@ export async function PATCH(
       .single();
 
     if (updateError) {
-      console.error('Order update error:', updateError);
+      logger.error('Order update error:', updateError);
       return NextResponse.json(
         { error: 'Failed to update order status' },
         { status: 500 }
@@ -113,7 +114,7 @@ export async function PATCH(
       );
     }
 
-    console.error('Admin order status update error:', error);
+    logger.error('Admin order status update error:', error);
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

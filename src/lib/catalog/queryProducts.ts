@@ -1,6 +1,7 @@
 // Helper to fetch & shape products with standardized response
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import type { ProductListItem, ProductListResult } from '@/types/catalog';
+import { logger } from '@/lib/logger';
 
 export interface QueryProductsOptions {
   sport?: string | null;
@@ -24,9 +25,10 @@ export async function queryProducts(options: QueryProductsOptions = {}): Promise
       .select('*', { count: 'exact', head: true })
       .eq('status', 'active');
 
-    // Filter by sport_id if provided
+    // Filter by sport_ids array if provided (products can span multiple sports)
     if (sportId) {
-      countQuery = countQuery.eq('sport_id', sportId);
+      // Check if sport_ids array contains this sportId
+      countQuery = countQuery.contains('sport_ids', [parseInt(sportId)]);
     }
     // If sport slug is provided, need to look up sport_id first
     else if (sport) {
@@ -37,7 +39,8 @@ export async function queryProducts(options: QueryProductsOptions = {}): Promise
         .single();
 
       if (sportData) {
-        countQuery = countQuery.eq('sport_id', sportData.id);
+        // Check if sport_ids array contains this sport's id
+        countQuery = countQuery.contains('sport_ids', [sportData.id]);
       }
     }
 
@@ -46,6 +49,7 @@ export async function queryProducts(options: QueryProductsOptions = {}): Promise
     // 2) Build items query - uses OLD schema: path, alt, position
     //    Filter by status='active' (enum) not active (boolean)
     //    Include all price fields for display_price_cents calculation
+    //    Updated to use sport_ids array (products can span multiple sports)
     let itemsQuery = supabase
       .from('products')
       .select(`
@@ -56,7 +60,7 @@ export async function queryProducts(options: QueryProductsOptions = {}): Promise
         base_price_cents,
         retail_price_cents,
         status,
-        sport_id,
+        sport_ids,
         product_images!left (
           path,
           alt,
@@ -67,9 +71,10 @@ export async function queryProducts(options: QueryProductsOptions = {}): Promise
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    // Filter by sport_id if provided
+    // Filter by sport_ids array if provided (products can span multiple sports)
     if (sportId) {
-      itemsQuery = itemsQuery.eq('sport_id', sportId);
+      // Check if sport_ids array contains this sportId
+      itemsQuery = itemsQuery.contains('sport_ids', [parseInt(sportId)]);
     }
     // If sport slug is provided, need to look up sport_id first
     else if (sport) {
@@ -80,14 +85,15 @@ export async function queryProducts(options: QueryProductsOptions = {}): Promise
         .single();
 
       if (sportData) {
-        itemsQuery = itemsQuery.eq('sport_id', sportData.id);
+        // Check if sport_ids array contains this sport's id
+        itemsQuery = itemsQuery.contains('sport_ids', [sportData.id]);
       }
     }
 
     const { data: rows, error } = await itemsQuery;
 
     if (error) {
-      console.error('queryProducts error:', error);
+      logger.error('queryProducts error:', error);
       throw error;
     }
 
@@ -108,7 +114,7 @@ export async function queryProducts(options: QueryProductsOptions = {}): Promise
 
       // Log warning if product has no price data
       if (!p.retail_price_cents && !p.price_cents && !p.base_price_cents) {
-        console.warn(`⚠️  Product ${p.id} (${p.slug}) has no price data. Suggested fix: UPDATE products SET base_price_cents = price_cents WHERE id = ${p.id};`);
+        logger.warn(`⚠️  Product ${p.id} (${p.slug}) has no price data. Suggested fix: UPDATE products SET base_price_cents = price_cents WHERE id = ${p.id};`);
       }
 
       return {
@@ -131,7 +137,7 @@ export async function queryProducts(options: QueryProductsOptions = {}): Promise
     };
 
   } catch (error) {
-    console.error('queryProducts failed:', error);
+    logger.error('queryProducts failed:', error);
     // Return safe empty result on error
     return {
       items: [],

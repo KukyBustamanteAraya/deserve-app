@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getOrigin } from '@/lib/origin';
+import { logger } from '@/lib/logger';
 
 export async function sendMagicLink(formData: FormData) {
   const email = formData.get('email') as string;
@@ -21,13 +22,13 @@ export async function sendMagicLink(formData: FormData) {
     });
 
     if (error) {
-      console.error('Magic link error:', error);
+      logger.error('Magic link error:', error);
       return { ok: false, message: error.message };
     }
 
     return { ok: true };
   } catch (error: any) {
-    console.error('Magic link error:', error);
+    logger.error('Magic link error:', error);
     return { ok: false, message: 'Error al enviar el enlace' };
   }
 }
@@ -38,13 +39,13 @@ export async function signOut() {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      console.error('Sign out error:', error);
+      logger.error('Sign out error:', error);
       return { ok: false, message: error.message };
     }
 
     return { ok: true };
   } catch (error: any) {
-    console.error('Sign out error:', error);
+    logger.error('Sign out error:', error);
     return { ok: false, message: 'Error al cerrar sesión' };
   } finally {
     redirect('/login');
