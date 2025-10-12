@@ -46,6 +46,22 @@ export type Env = z.infer<typeof envSchema>;
  * Throws descriptive error if validation fails
  */
 function validateEnv(): Env {
+  // Skip validation in test mode - use mock values
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true') {
+    return {
+      NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',
+      SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
+      MP_ACCESS_TOKEN: undefined,
+      MP_WEBHOOK_SECRET: undefined,
+      NEXT_PUBLIC_MP_PUBLIC_KEY: undefined,
+      OPENAI_API_KEY: undefined,
+      NODE_ENV: 'test',
+      UPSTASH_REDIS_REST_URL: undefined,
+      UPSTASH_REDIS_REST_TOKEN: undefined,
+    };
+  }
+
   // On client-side, only validate public variables
   const isClient = typeof window !== 'undefined';
 
