@@ -6,7 +6,7 @@ import { slugify } from '@/lib/utils/slugify';
 import { logger } from '@/lib/logger';
 
 interface Sport {
-  id: string;
+  id: number;  // Supabase returns numeric IDs
   name: string;
 }
 
@@ -100,9 +100,12 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
         ? Math.round(parseFloat(formData.price_cents))
         : formData.price_cents;
 
-      // Prepare payload
+      // Prepare payload with deduplication
+      const sportIdsNumbers = formData.sport_ids.map(id => parseInt(id));
+      const uniqueSportIds = Array.from(new Set(sportIdsNumbers)); // Remove duplicates
+
       const payload: any = {
-        sport_ids: formData.sport_ids.map(id => parseInt(id)),  // Convert string IDs to numbers
+        sport_ids: uniqueSportIds,
         category: formData.category,
         name: formData.name,
         slug,
@@ -191,26 +194,29 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
             Select all sports this product will be available for
           </p>
           <div className="grid grid-cols-2 gap-3">
-            {sports.map((sport) => (
-              <label
-                key={sport.id}
-                className="flex items-center space-x-2 p-3 bg-gray-900 border border-gray-700 rounded-md hover:border-blue-500 cursor-pointer transition-colors"
-              >
-                <input
-                  type="checkbox"
-                  checked={formData.sport_ids.includes(sport.id)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setFormData({ ...formData, sport_ids: [...formData.sport_ids, sport.id] });
-                    } else {
-                      setFormData({ ...formData, sport_ids: formData.sport_ids.filter(id => id !== sport.id) });
-                    }
-                  }}
-                  className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
-                />
-                <span className="text-white">{sport.name}</span>
-              </label>
-            ))}
+            {sports.map((sport) => {
+              const sportIdStr = String(sport.id);
+              return (
+                <label
+                  key={sport.id}
+                  className="flex items-center space-x-2 p-3 bg-gray-900 border border-gray-700 rounded-md hover:border-blue-500 cursor-pointer transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.sport_ids.includes(sportIdStr)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setFormData({ ...formData, sport_ids: [...formData.sport_ids, sportIdStr] });
+                      } else {
+                        setFormData({ ...formData, sport_ids: formData.sport_ids.filter(id => id !== sportIdStr) });
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                  <span className="text-white">{sport.name}</span>
+                </label>
+              );
+            })}
           </div>
         </div>
 
