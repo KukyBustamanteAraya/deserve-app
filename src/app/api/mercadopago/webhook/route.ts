@@ -14,19 +14,41 @@ function verifySignature(
   xRequestId: string | null,
   dataId: string
 ): boolean {
-  if (!xSignature || !xRequestId) return false;
+  if (!xSignature || !xRequestId) {
+    logger.warn('[Webhook] Missing signature or request-id headers');
+    return false;
+  }
+
   const secret = process.env.MP_WEBHOOK_SECRET;
-  if (!secret) return false;
+  if (!secret) {
+    logger.error('[Webhook] MP_WEBHOOK_SECRET not configured');
+    return false;
+  }
 
   const parts = xSignature.split(',');
   const ts = parts.find(p => p.startsWith('ts='))?.split('=')[1];
   const hash = parts.find(p => p.startsWith('v1='))?.split('=')[1];
-  if (!ts || !hash) return false;
+
+  if (!ts || !hash) {
+    logger.warn('[Webhook] Invalid signature format:', xSignature);
+    return false;
+  }
 
   const template = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
   const hmac = crypto.createHmac('sha256', secret);
   hmac.update(template);
-  return hmac.digest('hex') === hash;
+  const calculatedHash = hmac.digest('hex');
+
+  const isValid = calculatedHash === hash;
+  if (!isValid) {
+    logger.warn('[Webhook] Signature mismatch:', {
+      template,
+      expected: hash,
+      calculated: calculatedHash
+    });
+  }
+
+  return isValid;
 }
 
 export async function POST(request: NextRequest) {
@@ -44,8 +66,11 @@ export async function POST(request: NextRequest) {
 
     if (process.env.NODE_ENV === 'production') {
       if (!verifySignature(xSignature, xRequestId, data.id)) {
+        logger.error('[Webhook] Signature verification failed for payment:', data.id);
         return new Response('Unauthorized', { status: 401 });
       }
+    } else {
+      logger.info('[Webhook] Skipping signature verification in development');
     }
 
     const accessToken = process.env.MP_ACCESS_TOKEN!;
