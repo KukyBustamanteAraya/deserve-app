@@ -87,20 +87,34 @@ export async function POST(request: NextRequest) {
     const paymentData = await payment.get({ id: data.id });
 
     const externalReference = paymentData.external_reference;
-    if (!externalReference) return new Response('OK', { status: 200 });
+    logger.info('[Webhook] External reference from MP:', externalReference);
+
+    if (!externalReference) {
+      logger.warn('[Webhook] No external reference in payment data');
+      return new Response('OK', { status: 200 });
+    }
 
     // Use service client to bypass RLS - webhooks are unauthenticated server-to-server calls
+    logger.info('[Webhook] Creating service client to query database');
     const supabase = createSupabaseServiceClient();
-    const { data: contribution } = await supabase
+
+    logger.info('[Webhook] Querying payment_contributions for external_reference:', externalReference);
+    const { data: contribution, error: queryError } = await supabase
       .from('payment_contributions')
       .select('id, order_id, payment_status')
       .eq('external_reference', externalReference)
       .single();
 
+    if (queryError) {
+      logger.error('[Webhook] Database query error:', queryError);
+    }
+
     if (!contribution) {
       logger.warn('[Webhook] Payment contribution not found for external_reference:', externalReference);
       return new Response('OK', { status: 200 });
     }
+
+    logger.info('[Webhook] Found contribution:', { id: contribution.id, current_status: contribution.payment_status });
 
     const statusMap: Record<string, string> = {
       'approved': 'approved',
@@ -112,8 +126,11 @@ export async function POST(request: NextRequest) {
     };
 
     const newStatus = statusMap[paymentData.status || 'pending'] || 'pending';
+    logger.info('[Webhook] MP payment status:', paymentData.status, '-> mapped to:', newStatus);
 
     if (contribution.payment_status !== newStatus) {
+      logger.info('[Webhook] Status changed, updating contribution:', contribution.id);
+
       const updateData: any = {
         payment_status: newStatus,
         status: newStatus,
@@ -126,12 +143,18 @@ export async function POST(request: NextRequest) {
         updateData.paid_at = new Date().toISOString();
       }
 
-      await supabase
+      const { error: updateError } = await supabase
         .from('payment_contributions')
         .update(updateData)
         .eq('id', contribution.id);
 
-      logger.info(`Updated contribution \${contribution.id} to \${newStatus}`);
+      if (updateError) {
+        logger.error('[Webhook] Failed to update contribution:', updateError);
+      } else {
+        logger.info(`[Webhook] ✅ Successfully updated contribution ${contribution.id} to ${newStatus}`);
+      }
+    } else {
+      logger.info('[Webhook] Status unchanged, skipping update');
     }
 
     if (newStatus === 'approved') {
