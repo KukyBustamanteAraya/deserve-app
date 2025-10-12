@@ -4,23 +4,49 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
 
+interface PaymentInfo {
+  orderId: string;
+  teamSlug: string;
+  amountCents: number;
+}
+
 export default function PaymentSuccessPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [verifying, setVerifying] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
+  const [redirecting, setRedirecting] = useState(false);
 
   const paymentId = searchParams.get('payment_id');
   const externalRef = searchParams.get('external_reference');
   const status = searchParams.get('status');
 
   useEffect(() => {
-    // Simulate payment verification
-    // In a real implementation, you might call your backend to verify the payment status
     const verify = async () => {
       try {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        // If we have external reference, fetch the payment details
+        if (externalRef) {
+          const response = await fetch(`/api/payment-contributions/${externalRef}`);
+          if (response.ok) {
+            const data = await response.json();
+            setPaymentInfo(data);
+          }
+        }
+
+        // Wait a moment to show success message
+        await new Promise((resolve) => setTimeout(resolve, 2000));
         setVerifying(false);
+
+        // Auto-redirect after 3 seconds
+        setTimeout(() => {
+          setRedirecting(true);
+          if (paymentInfo?.teamSlug) {
+            router.push(`/mi-equipo/${paymentInfo.teamSlug}`);
+          } else {
+            router.push('/mi-equipo');
+          }
+        }, 3000);
       } catch (err) {
         setError('Error al verificar el pago');
         setVerifying(false);
@@ -28,7 +54,7 @@ export default function PaymentSuccessPage() {
     };
 
     verify();
-  }, [paymentId]);
+  }, [paymentId, externalRef, router, paymentInfo?.teamSlug]);
 
   if (verifying) {
     return (
@@ -79,28 +105,42 @@ export default function PaymentSuccessPage() {
         <CheckCircleIcon className="w-16 h-16 text-green-600 mx-auto mb-4" />
         <h1 className="text-2xl font-bold text-gray-900 mb-2">¡Pago exitoso!</h1>
         <p className="text-gray-600 mb-6">
-          Tu pago ha sido procesado correctamente. Te enviaremos un email de confirmación pronto.
+          Tu pago ha sido procesado correctamente. {redirecting ? 'Redirigiendo...' : 'Serás redirigido en unos segundos.'}
         </p>
 
-        {paymentId && (
-          <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
+        {paymentInfo && (
+          <div className="bg-green-50 rounded-lg p-4 mb-6 text-left border border-green-200">
+            <p className="text-sm text-gray-700 font-semibold mb-2">Detalles del pago:</p>
             <p className="text-sm text-gray-600">
-              <span className="font-semibold">ID de pago:</span> {paymentId}
+              <span className="font-semibold">Monto:</span> ${paymentInfo.amountCents.toLocaleString('es-CL')} CLP
             </p>
-            {externalRef && (
+            {paymentId && (
               <p className="text-sm text-gray-600 mt-1">
-                <span className="font-semibold">Referencia:</span> {externalRef}
+                <span className="font-semibold">ID de pago:</span> {paymentId}
               </p>
             )}
           </div>
         )}
 
-        <button
-          onClick={() => router.push('/mi-equipo')}
-          className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
-        >
-          Ir a Mi Equipo
-        </button>
+        {!redirecting ? (
+          <button
+            onClick={() => {
+              if (paymentInfo?.teamSlug) {
+                router.push(`/mi-equipo/${paymentInfo.teamSlug}`);
+              } else {
+                router.push('/mi-equipo');
+              }
+            }}
+            className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+          >
+            Ir a Mi Equipo
+          </button>
+        ) : (
+          <div className="flex items-center justify-center gap-2 text-green-600">
+            <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-green-600 border-t-transparent" />
+            <span className="font-medium">Redirigiendo...</span>
+          </div>
+        )}
       </div>
     </div>
   );

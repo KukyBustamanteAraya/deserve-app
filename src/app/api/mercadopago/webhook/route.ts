@@ -1,280 +1,134 @@
+// POST /api/mercadopago/webhook
+// Receives payment notifications from Mercado Pago
+import { NextRequest } from 'next/server';
+import { createSupabaseServer } from '@/lib/supabase/server-client';
+import { logger } from '@/lib/logger';
+import { MercadoPagoConfig, Payment } from 'mercadopago';
+import crypto from 'crypto';
+
 /**
- * Mercado Pago Webhook Handler
- * Receives payment notifications from Mercado Pago and updates our database accordingly
+ * Verify Mercado Pago webhook signature
  */
+function verifySignature(
+  xSignature: string | null,
+  xRequestId: string | null,
+  dataId: string
+): boolean {
+  if (!xSignature || !xRequestId) return false;
+  const secret = process.env.MP_WEBHOOK_SECRET;
+  if (!secret) return false;
 
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import {
-  validateWebhookSignature,
-  getPaymentDetails,
-} from '@/lib/mercadopago';
+  const parts = xSignature.split(',');
+  const ts = parts.find(p => p.startsWith('ts='))?.split('=')[1];
+  const hash = parts.find(p => p.startsWith('v1='))?.split('=')[1];
+  if (!ts || !hash) return false;
 
-// Use service role for DB updates (bypasses RLS)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+  const template = `id:\${dataId};request-id:\${xRequestId};ts:\${ts};`;
+  const hmac = crypto.createHmac('sha256', secret);
+  hmac.update(template);
+  return hmac.digest('hex') === hash;
+}
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    // Parse webhook payload
     const body = await request.json();
-    console.log('[MP-Webhook] Received notification:', JSON.stringify(body, null, 2));
+    logger.info('MP webhook:', JSON.stringify(body));
 
-    // Get signature headers
+    const { data, type } = body;
+    if (type !== 'payment' || !data?.id) {
+      return new Response('OK', { status: 200 });
+    }
+
     const xSignature = request.headers.get('x-signature');
     const xRequestId = request.headers.get('x-request-id');
 
-    // Validate signature
-    const dataId = body?.data?.id?.toString() || '';
-    if (!validateWebhookSignature(xSignature, xRequestId, dataId)) {
-      console.error('[MP-Webhook] Invalid signature');
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-    }
-
-    // Check if this is a payment notification
-    if (body.type !== 'payment') {
-      console.log('[MP-Webhook] Not a payment notification, ignoring');
-      return NextResponse.json({ received: true });
-    }
-
-    const paymentId = body.data?.id;
-    if (!paymentId) {
-      console.error('[MP-Webhook] Missing payment ID');
-      return NextResponse.json({ error: 'Missing payment ID' }, { status: 400 });
-    }
-
-    // Fetch full payment details from Mercado Pago
-    const payment = await getPaymentDetails(paymentId);
-    console.log('[MP-Webhook] Payment details:', JSON.stringify(payment, null, 2));
-
-    // Extract metadata to determine payment type
-    const metadata = payment.metadata || {};
-    const paymentType = metadata.payment_type; // 'split' or 'bulk'
-    const externalRef = payment.external_reference;
-
-    if (payment.status === 'approved') {
-      // Payment approved - update database
-      if (paymentType === 'split') {
-        await handleSplitPaymentApproved(payment, externalRef, metadata);
-      } else if (paymentType === 'bulk') {
-        await handleBulkPaymentApproved(payment, externalRef, metadata);
-      } else {
-        console.warn('[MP-Webhook] Unknown payment type:', paymentType);
+    if (process.env.NODE_ENV === 'production') {
+      if (!verifySignature(xSignature, xRequestId, data.id)) {
+        return new Response('Unauthorized', { status: 401 });
       }
-    } else if (payment.status === 'rejected' || payment.status === 'cancelled') {
-      // Payment failed - update status
-      if (paymentType === 'split') {
-        await markSplitPaymentFailed(externalRef, payment.status);
-      } else if (paymentType === 'bulk') {
-        await markBulkPaymentFailed(externalRef, payment.status);
-      }
-    } else if (payment.status === 'pending') {
-      // Payment pending - optionally update status
-      console.log('[MP-Webhook] Payment pending:', paymentId);
     }
 
-    // Respond quickly with 200 OK
-    return NextResponse.json({ received: true });
+    const accessToken = process.env.MP_ACCESS_TOKEN!;
+    const client = new MercadoPagoConfig({ accessToken });
+    const payment = new Payment(client);
+    const paymentData = await payment.get({ id: data.id });
+
+    const externalReference = paymentData.external_reference;
+    if (!externalReference) return new Response('OK', { status: 200 });
+
+    const supabase = createSupabaseServer();
+    const { data: contribution } = await supabase
+      .from('payment_contributions')
+      .select('id, order_id, payment_status')
+      .eq('id', externalReference)
+      .single();
+
+    if (!contribution) return new Response('OK', { status: 200 });
+
+    const statusMap: Record<string, string> = {
+      'approved': 'approved',
+      'rejected': 'rejected',
+      'pending': 'pending',
+      'in_process': 'pending',
+      'cancelled': 'cancelled',
+      'refunded': 'refunded'
+    };
+
+    const newStatus = statusMap[paymentData.status || 'pending'] || 'pending';
+
+    if (contribution.payment_status !== newStatus) {
+      const updateData: any = {
+        payment_status: newStatus,
+        status: newStatus,
+        mp_payment_id: paymentData.id.toString(),
+        payment_method: paymentData.payment_method_id || null,
+        raw_payment_data: paymentData
+      };
+
+      if (newStatus === 'approved') {
+        updateData.paid_at = new Date().toISOString();
+      }
+
+      await supabase
+        .from('payment_contributions')
+        .update(updateData)
+        .eq('id', contribution.id);
+
+      logger.info(`Updated contribution \${contribution.id} to \${newStatus}`);
+    }
+
+    if (newStatus === 'approved') {
+      const { data: allContributions } = await supabase
+        .from('payment_contributions')
+        .select('amount_cents, payment_status')
+        .eq('order_id', contribution.order_id);
+
+      const totalPaid = allContributions
+        ?.filter(c => c.payment_status === 'approved')
+        .reduce((sum, c) => sum + c.amount_cents, 0) || 0;
+
+      const { data: order } = await supabase
+        .from('orders')
+        .select('total_amount_cents, payment_status')
+        .eq('id', contribution.order_id)
+        .single();
+
+      if (order) {
+        const newOrderStatus = totalPaid >= order.total_amount_cents ? 'paid'
+          : totalPaid > 0 ? 'partial' : 'unpaid';
+
+        if (order.payment_status !== newOrderStatus) {
+          await supabase
+            .from('orders')
+            .update({ payment_status: newOrderStatus })
+            .eq('id', contribution.order_id);
+        }
+      }
+    }
+
+    return new Response('OK', { status: 200 });
   } catch (error: any) {
-    console.error('[MP-Webhook] Error processing webhook:', error);
-    // Still return 200 to avoid Mercado Pago retrying indefinitely
-    return NextResponse.json(
-      { error: 'Internal error', message: error.message },
-      { status: 500 }
-    );
+    logger.error('Webhook error:', error);
+    return new Response('Error', { status: 500 });
   }
-}
-
-// =====================================================
-// SPLIT PAYMENT HANDLERS
-// =====================================================
-
-async function handleSplitPaymentApproved(
-  payment: any,
-  externalRef: string,
-  metadata: any
-) {
-  console.log('[MP-Webhook] Processing split payment approval:', externalRef);
-
-  // Find the payment contribution by external reference
-  const { data: contribution, error: fetchError } = await supabase
-    .from('payment_contributions')
-    .select('*')
-    .eq('external_reference', externalRef)
-    .single();
-
-  if (fetchError || !contribution) {
-    console.error('[MP-Webhook] Contribution not found:', externalRef, fetchError);
-    return;
-  }
-
-  // Check if already processed
-  if (contribution.status === 'approved') {
-    console.log('[MP-Webhook] Contribution already approved, skipping');
-    return;
-  }
-
-  // Update contribution status
-  const { error: updateError } = await supabase
-    .from('payment_contributions')
-    .update({
-      status: 'approved',
-      mp_payment_id: payment.id.toString(),
-      paid_at: payment.date_approved || new Date().toISOString(),
-      raw_payment_data: payment,
-    })
-    .eq('id', contribution.id);
-
-  if (updateError) {
-    console.error('[MP-Webhook] Error updating contribution:', updateError);
-    return;
-  }
-
-  console.log('[MP-Webhook] Split payment approved:', contribution.id);
-
-  // Check if order is now fully paid
-  await checkAndUpdateOrderStatus(contribution.order_id);
-}
-
-async function markSplitPaymentFailed(externalRef: string, status: string) {
-  console.log('[MP-Webhook] Marking split payment as failed:', externalRef);
-
-  const { error } = await supabase
-    .from('payment_contributions')
-    .update({ status: status === 'cancelled' ? 'cancelled' : 'rejected' })
-    .eq('external_reference', externalRef);
-
-  if (error) {
-    console.error('[MP-Webhook] Error updating failed contribution:', error);
-  }
-}
-
-// =====================================================
-// BULK PAYMENT HANDLERS
-// =====================================================
-
-async function handleBulkPaymentApproved(
-  payment: any,
-  externalRef: string,
-  metadata: any
-) {
-  console.log('[MP-Webhook] Processing bulk payment approval:', externalRef);
-
-  // Find the bulk payment by external reference
-  const { data: bulkPayment, error: fetchError } = await supabase
-    .from('bulk_payments')
-    .select('*')
-    .eq('external_reference', externalRef)
-    .single();
-
-  if (fetchError || !bulkPayment) {
-    console.error('[MP-Webhook] Bulk payment not found:', externalRef, fetchError);
-    return;
-  }
-
-  // Check if already processed
-  if (bulkPayment.status === 'approved') {
-    console.log('[MP-Webhook] Bulk payment already approved, skipping');
-    return;
-  }
-
-  // Update bulk payment status
-  const { error: updateError } = await supabase
-    .from('bulk_payments')
-    .update({
-      status: 'approved',
-      mp_payment_id: payment.id.toString(),
-      paid_at: payment.date_approved || new Date().toISOString(),
-      raw_payment_data: payment,
-    })
-    .eq('id', bulkPayment.id);
-
-  if (updateError) {
-    console.error('[MP-Webhook] Error updating bulk payment:', updateError);
-    return;
-  }
-
-  console.log('[MP-Webhook] Bulk payment approved:', bulkPayment.id);
-
-  // Get all orders covered by this bulk payment
-  const { data: orderLinks } = await supabase
-    .from('bulk_payment_orders')
-    .select('order_id')
-    .eq('bulk_payment_id', bulkPayment.id);
-
-  if (!orderLinks) return;
-
-  // Mark all orders as paid
-  for (const link of orderLinks) {
-    await markOrderAsPaid(link.order_id);
-  }
-}
-
-async function markBulkPaymentFailed(externalRef: string, status: string) {
-  console.log('[MP-Webhook] Marking bulk payment as failed:', externalRef);
-
-  const { error } = await supabase
-    .from('bulk_payments')
-    .update({ status: status === 'cancelled' ? 'cancelled' : 'rejected' })
-    .eq('external_reference', externalRef);
-
-  if (error) {
-    console.error('[MP-Webhook] Error updating failed bulk payment:', error);
-  }
-}
-
-// =====================================================
-// ORDER STATUS HELPERS
-// =====================================================
-
-/**
- * Checks if an order is fully paid via contributions and updates its status
- */
-async function checkAndUpdateOrderStatus(orderId: string) {
-  // Get order total
-  const { data: order } = await supabase
-    .from('orders')
-    .select('total_amount_cents, status')
-    .eq('id', orderId)
-    .single();
-
-  if (!order) return;
-
-  // Get sum of approved contributions
-  const { data: contributions } = await supabase
-    .from('payment_contributions')
-    .select('amount_cents')
-    .eq('order_id', orderId)
-    .eq('status', 'approved');
-
-  const totalPaid = (contributions || []).reduce(
-    (sum, c) => sum + c.amount_cents,
-    0
-  );
-
-  // If fully paid, update order status
-  if (totalPaid >= order.total_amount_cents && order.status !== 'paid') {
-    console.log('[MP-Webhook] Order fully paid via contributions:', orderId);
-    await markOrderAsPaid(orderId);
-  }
-}
-
-/**
- * Marks an order as paid
- */
-async function markOrderAsPaid(orderId: string) {
-  const { error } = await supabase
-    .from('orders')
-    .update({ status: 'paid', paid_at: new Date().toISOString() })
-    .eq('id', orderId);
-
-  if (error) {
-    console.error('[MP-Webhook] Error marking order as paid:', error);
-    return;
-  }
-
-  console.log('[MP-Webhook] Order marked as paid:', orderId);
 }

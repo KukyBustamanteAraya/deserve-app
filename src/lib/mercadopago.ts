@@ -5,6 +5,7 @@
 
 import { createHmac } from 'crypto';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
+import { logger } from '@/lib/logger';
 
 // Configure Mercado Pago SDK
 const client = new MercadoPagoConfig({
@@ -72,12 +73,12 @@ export async function createPaymentPreference(
   payload: PreferencePayload
 ): Promise<{ id: string; init_point: string; sandbox_init_point: string }> {
   try {
-    console.log('[MercadoPago] Creating preference with payload:', JSON.stringify(payload, null, 2));
+    logger.debug('[MercadoPago] Creating preference with payload:', JSON.stringify(payload, null, 2));
 
     const preference = new Preference(client);
     const response = await preference.create({ body: payload });
 
-    console.log('[MercadoPago] Preference response:', JSON.stringify(response, null, 2));
+    logger.debug('[MercadoPago] Preference response:', JSON.stringify(response, null, 2));
 
     return {
       id: response.id!,
@@ -85,9 +86,9 @@ export async function createPaymentPreference(
       sandbox_init_point: response.sandbox_init_point || response.init_point!,
     };
   } catch (error: any) {
-    console.error('[MercadoPago] Error creating preference:', error);
-    console.error('[MercadoPago] Error details:', JSON.stringify(error, null, 2));
-    console.error('[MercadoPago] Error response:', error.response?.data || error.response);
+    logger.error('[MercadoPago] Error creating preference:', error);
+    logger.error('[MercadoPago] Error details:', JSON.stringify(error, null, 2));
+    logger.error('[MercadoPago] Error response:', error.response?.data || error.response);
     throw new Error(
       error.message || 'Failed to create Mercado Pago preference'
     );
@@ -116,15 +117,12 @@ export async function createSplitPayPreference({
 }) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
-  // For localhost, don't use auto_return as MP doesn't accept localhost URLs
-  const isLocalhost = siteUrl.includes('localhost') || siteUrl.includes('127.0.0.1');
-
   const payload: PreferencePayload = {
     items: [
       {
         title: `${orderDescription} - Tu Parte`,
         quantity: 1,
-        unit_price: amountCents / 100, // MP expects in major currency unit
+        unit_price: amountCents, // CLP already stored as full pesos (no division needed)
         currency_id: 'CLP',
         description: `Contribución individual para orden #${orderId}`,
       },
@@ -135,12 +133,11 @@ export async function createSplitPayPreference({
     },
     external_reference: externalReference,
     back_urls: {
-      success: `${siteUrl}/payment/success`,
-      failure: `${siteUrl}/payment/failure`,
-      pending: `${siteUrl}/payment/pending`,
+      success: `${siteUrl}/payment/success?external_reference=${externalReference}`,
+      failure: `${siteUrl}/payment/failure?external_reference=${externalReference}`,
+      pending: `${siteUrl}/payment/pending?external_reference=${externalReference}`,
     },
-    // Only set auto_return for production URLs
-    ...(isLocalhost ? {} : { auto_return: 'approved' as const }),
+    auto_return: 'approved',
     notification_url: `${siteUrl}/api/mercadopago/webhook`,
     metadata: {
       order_id: orderId,
@@ -175,7 +172,7 @@ export async function createBulkPayPreference({
   const items: PaymentItem[] = orders.map((order) => ({
     title: order.description,
     quantity: 1,
-    unit_price: order.amountCents / 100, // MP expects in major currency unit
+    unit_price: order.amountCents, // CLP already stored as full pesos (no division needed)
     currency_id: 'CLP',
     description: `Orden completa #${order.id}`,
   }));
@@ -188,9 +185,9 @@ export async function createBulkPayPreference({
     },
     external_reference: externalReference,
     back_urls: {
-      success: `${siteUrl}/payment/success`,
-      failure: `${siteUrl}/payment/failure`,
-      pending: `${siteUrl}/payment/pending`,
+      success: `${siteUrl}/payment/success?external_reference=${externalReference}`,
+      failure: `${siteUrl}/payment/failure?external_reference=${externalReference}`,
+      pending: `${siteUrl}/payment/pending?external_reference=${externalReference}`,
     },
     auto_return: 'approved',
     notification_url: `${siteUrl}/api/mercadopago/webhook`,
@@ -231,7 +228,7 @@ export async function getPaymentDetails(
 
     return await response.json();
   } catch (error: any) {
-    console.error('[MercadoPago] Error fetching payment:', error);
+    logger.error('[MercadoPago] Error fetching payment:', error);
     throw new Error(error.message || 'Failed to fetch payment details');
   }
 }
@@ -252,7 +249,7 @@ export function validateWebhookSignature(
   const secret = process.env.MP_WEBHOOK_SECRET;
 
   if (!secret || !xSignature || !xRequestId) {
-    console.warn('[MercadoPago] Missing signature validation params');
+    logger.warn('[MercadoPago] Missing signature validation params');
     return false;
   }
 
@@ -263,7 +260,7 @@ export function validateWebhookSignature(
     const v1Part = parts.find((p) => p.startsWith('v1='));
 
     if (!tsPart || !v1Part) {
-      console.warn('[MercadoPago] Invalid signature format');
+      logger.warn('[MercadoPago] Invalid signature format');
       return false;
     }
 
@@ -282,14 +279,14 @@ export function validateWebhookSignature(
     const isValid = expectedSignature === providedSignature;
 
     if (!isValid) {
-      console.warn('[MercadoPago] Signature mismatch');
-      console.warn('Expected:', expectedSignature);
-      console.warn('Provided:', providedSignature);
+      logger.warn('[MercadoPago] Signature mismatch');
+      logger.warn('Expected:', expectedSignature);
+      logger.warn('Provided:', providedSignature);
     }
 
     return isValid;
   } catch (error) {
-    console.error('[MercadoPago] Error validating signature:', error);
+    logger.error('[MercadoPago] Error validating signature:', error);
     return false;
   }
 }
