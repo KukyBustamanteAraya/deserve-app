@@ -23,7 +23,7 @@ function verifySignature(
   const hash = parts.find(p => p.startsWith('v1='))?.split('=')[1];
   if (!ts || !hash) return false;
 
-  const template = `id:\${dataId};request-id:\${xRequestId};ts:\${ts};`;
+  const template = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
   const hmac = crypto.createHmac('sha256', secret);
   hmac.update(template);
   return hmac.digest('hex') === hash;
