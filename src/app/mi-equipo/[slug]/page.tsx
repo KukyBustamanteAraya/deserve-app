@@ -128,13 +128,10 @@ export default function MinimalTeamPage({ params }: { params: { slug: string } }
         if (!user) throw new Error('Not authenticated');
         setCurrentUser(user);
 
-        // Get team with sport JOIN
+        // Get team data (no sport JOIN - products have sport_ids instead)
         const { data: teamData, error: teamError } = await supabase
           .from('teams')
-          .select(`
-            *,
-            sport:sports!sport_id(id, slug, name)
-          `)
+          .select('*')
           .eq('slug', params.slug)
           .single();
 
@@ -255,10 +252,7 @@ export default function MinimalTeamPage({ params }: { params: { slug: string } }
           // Get all teams that belong to this organization
           const { data: subTeamsData } = await supabase
             .from('teams')
-            .select(`
-              id, name, slug, sport_id,
-              sport:sports!sport_id(id, slug, name)
-            `)
+            .select('id, name, slug, sport_id')
             .eq('institution_name', teamData.institution_name || teamData.name)
             .neq('id', teamData.id); // Exclude the parent organization
 
