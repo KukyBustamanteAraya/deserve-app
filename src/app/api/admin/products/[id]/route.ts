@@ -96,25 +96,21 @@ export async function PATCH(
       .eq('id', params.id)
       .select(`
         id,
+        sport_ids,
         slug,
         name,
         description,
         price_cents,
-        active,
+        status,
         created_at,
-        updated_at,
-        sports!inner (
-          id,
-          slug,
-          name
-        )
+        updated_at
       `)
       .single();
 
     if (error) {
       logger.error('Error updating product:', error);
       return NextResponse.json(
-        { error: 'Failed to update product' },
+        { error: 'Failed to update product', details: error.message },
         { status: 500 }
       );
     }
