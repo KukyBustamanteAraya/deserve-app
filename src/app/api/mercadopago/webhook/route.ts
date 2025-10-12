@@ -93,10 +93,13 @@ export async function POST(request: NextRequest) {
     const { data: contribution } = await supabase
       .from('payment_contributions')
       .select('id, order_id, payment_status')
-      .eq('id', externalReference)
+      .eq('external_reference', externalReference)
       .single();
 
-    if (!contribution) return new Response('OK', { status: 200 });
+    if (!contribution) {
+      logger.warn('[Webhook] Payment contribution not found for external_reference:', externalReference);
+      return new Response('OK', { status: 200 });
+    }
 
     const statusMap: Record<string, string> = {
       'approved': 'approved',
