@@ -1,7 +1,7 @@
 // POST /api/mercadopago/webhook
 // Receives payment notifications from Mercado Pago
 import { NextRequest } from 'next/server';
-import { createSupabaseServer } from '@/lib/supabase/server-client';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import crypto from 'crypto';
@@ -89,7 +89,8 @@ export async function POST(request: NextRequest) {
     const externalReference = paymentData.external_reference;
     if (!externalReference) return new Response('OK', { status: 200 });
 
-    const supabase = createSupabaseServer();
+    // Use service client to bypass RLS - webhooks are unauthenticated server-to-server calls
+    const supabase = createSupabaseServiceClient();
     const { data: contribution } = await supabase
       .from('payment_contributions')
       .select('id, order_id, payment_status')
