@@ -112,7 +112,7 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
       };
 
       // API call
-      const url = mode === 'create' ? '/api/catalog/products' : `/api/catalog/products/${productId}`;
+      const url = mode === 'create' ? '/api/admin/products' : `/api/admin/products/${productId}`;
       const method = mode === 'create' ? 'POST' : 'PATCH';
 
       const response = await fetch(url, {
