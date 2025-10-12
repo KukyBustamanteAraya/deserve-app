@@ -6,13 +6,14 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 
 const UpdateProductSchema = z.object({
-  sportId: z.string().uuid().optional(),         // DEPRECATED: Use sportIds instead
-  sportIds: z.array(z.number()).optional(),       // Array of sport IDs
+  sport_ids: z.array(z.number()).optional(),      // Array of sport IDs (snake_case to match form)
+  category: z.string().optional(),                 // Product category
   name: z.string().min(1).max(255).optional(),
   slug: z.string().min(1).max(255).optional(),
-  priceCents: z.number().int().min(0).optional(),
+  price_cents: z.number().int().min(0).optional(), // Price in cents (snake_case to match form)
   description: z.string().optional(),
-  active: z.boolean().optional(),
+  status: z.enum(['draft', 'active', 'archived']).optional(), // Status enum (to match form)
+  product_type_slug: z.string().optional(),        // Product type slug
 });
 
 export async function PATCH(
@@ -40,22 +41,6 @@ export async function PATCH(
       );
     }
 
-    // If updating sport, check if it exists
-    if (validatedData.sportId) {
-      const { data: sport, error: sportError } = await supabase
-        .from('sports')
-        .select('id')
-        .eq('id', validatedData.sportId)
-        .single();
-
-      if (sportError || !sport) {
-        return NextResponse.json(
-          { error: 'Sport not found' },
-          { status: 400 }
-        );
-      }
-    }
-
     // If updating slug, check if it's unique (excluding current product)
     if (validatedData.slug && validatedData.slug !== existingProduct.slug) {
       const { data: slugExists } = await supabase
@@ -73,15 +58,16 @@ export async function PATCH(
       }
     }
 
-    // Build update object
+    // Build update object (using snake_case to match database columns)
     const updateData: any = {};
-    if (validatedData.sportId) updateData.sport_id = validatedData.sportId;  // DEPRECATED
-    if (validatedData.sportIds) updateData.sport_ids = validatedData.sportIds;  // Use this instead
+    if (validatedData.sport_ids) updateData.sport_ids = validatedData.sport_ids;
+    if (validatedData.category) updateData.category = validatedData.category;
     if (validatedData.name) updateData.name = validatedData.name;
     if (validatedData.slug) updateData.slug = validatedData.slug;
-    if (validatedData.priceCents !== undefined) updateData.price_cents = validatedData.priceCents;
+    if (validatedData.price_cents !== undefined) updateData.price_cents = validatedData.price_cents;
     if (validatedData.description !== undefined) updateData.description = validatedData.description;
-    if (validatedData.active !== undefined) updateData.active = validatedData.active;
+    if (validatedData.status !== undefined) updateData.status = validatedData.status;
+    if (validatedData.product_type_slug) updateData.product_type_slug = validatedData.product_type_slug;
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
@@ -97,11 +83,13 @@ export async function PATCH(
       .select(`
         id,
         sport_ids,
+        category,
         slug,
         name,
         description,
         price_cents,
         status,
+        product_type_slug,
         created_at,
         updated_at
       `)
