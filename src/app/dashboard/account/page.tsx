@@ -22,17 +22,18 @@ export default async function AccountPage() {
     }
 
     return (
-      <main className="min-h-screen p-6 bg-gray-50">
+      <main className="min-h-screen p-6 bg-gradient-to-br from-gray-900 via-black to-gray-900">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Account Settings</h1>
-            <p className="text-gray-600">
+            <h1 className="text-3xl font-bold text-white mb-2">Account Settings</h1>
+            <p className="text-gray-300">
               Manage your profile information and preferences
             </p>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h2 className="text-xl font-semibold mb-6 text-gray-900">
+          <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-2xl overflow-hidden group p-6">
+            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+            <h2 className="text-xl font-semibold mb-6 text-white relative">
               Profile Information
             </h2>
 

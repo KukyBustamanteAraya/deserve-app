@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 // Import globals.css directly - Next.js handles Tailwind via PostCSS
 import './globals.css';
 import Providers from './providers';
-import Header from '@/app/components/Header';
+import ConditionalHeader from '@/app/components/ConditionalHeader';
 import SessionHydration from '@/app/components/SessionHydration';
 import ProgressBar from '@/components/ProgressBar';
 // Import env to trigger validation on startup
@@ -42,11 +42,13 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
-      <body className="antialiased font-montserrat">
+      <body className="antialiased font-montserrat bg-gradient-to-br from-gray-900 via-black to-gray-900 min-h-screen">
         <Providers initialUser={initialUser}>
           <SessionHydration />
-          <Header />
-          {children}
+          <ConditionalHeader />
+          <main className="pb-20">
+            {children}
+          </main>
           <ProgressBar />
         </Providers>
       </body>

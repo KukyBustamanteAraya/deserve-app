@@ -7,9 +7,10 @@ interface Product {
   name: string;
   slug: string;
   category: string;
-  price_cents: number;
+  price_clp: number;
   status: string;
   hero_path: string | null;
+  icon_url: string | null;
   sport_id?: string;                      // DEPRECATED
   sport_ids: number[];                    // Array of sport IDs
   sport_names?: string[];                 // Array of sport names for display
@@ -32,9 +33,10 @@ export default async function AdminProductsPage() {
       name,
       slug,
       category,
-      price_cents,
+      price_clp,
       status,
       hero_path,
+      icon_url,
       sport_ids
     `)
     .order('created_at', { ascending: false });

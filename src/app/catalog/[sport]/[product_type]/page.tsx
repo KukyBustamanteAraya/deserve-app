@@ -1,8 +1,7 @@
 // Design Browser - Shows all designs for a sport+product combination
 // Example: /catalog/futbol/jersey
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import { DesignBrowserClient } from './DesignBrowserClient';
 import { logger } from '@/lib/logger';
 
@@ -77,13 +76,7 @@ async function getProductInfo(sportSlug: string, productTypeSlug: string) {
 export default async function DesignBrowserPage({ params, searchParams }: PageProps) {
   const { sport, product_type } = params;
 
-  // Check authentication
-  const supabase = createSupabaseServer();
-  try {
-    await requireAuth(supabase);
-  } catch (error) {
-    redirect(`/login?redirect=/catalog/${sport}/${product_type}`);
-  }
+  // Catalog is public - no authentication required
 
   // Fetch design data and product info
   const [catalogData, productInfo] = await Promise.all([
@@ -98,32 +91,32 @@ export default async function DesignBrowserPage({ params, searchParams }: PagePr
   const { sport: sportData, product_type: productType, designs, total_designs, filters_applied } = catalogData;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Breadcrumbs */}
         <nav className="flex items-center gap-2 text-sm mb-6">
-          <Link href="/catalog" className="text-blue-400 hover:text-blue-300 transition-colors">
+          <Link href="/catalog" className="text-[#e21c21] hover:text-black transition-colors" style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}>
             Catálogo
           </Link>
           <span className="text-gray-500">/</span>
-          <Link href={`/catalog/${sport}`} className="text-blue-400 hover:text-blue-300 transition-colors">
+          <Link href={`/catalog/${sport}`} className="text-[#e21c21] hover:text-black transition-colors" style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}>
             {sportData.name}
           </Link>
           <span className="text-gray-500">/</span>
-          <span className="text-white">{productInfo?.product_type_name || productType}</span>
+          <span className="text-black">{productInfo?.product_type_name || productType}</span>
         </nav>
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
+          <h1 className="text-4xl font-bold text-black mb-2">
             {productInfo?.product_type_name || productType} - {sportData.name}
           </h1>
-          <div className="flex items-center gap-4 text-gray-400">
+          <div className="flex items-center gap-4 text-black">
             <span>{total_designs} {total_designs === 1 ? 'diseño' : 'diseños'}</span>
             {productInfo && (
               <>
                 <span>•</span>
-                <span className="text-blue-400 font-semibold">
+                <span className="text-[#e21c21] font-semibold">
                   ${productInfo.price_cents.toLocaleString()} CLP
                 </span>
               </>

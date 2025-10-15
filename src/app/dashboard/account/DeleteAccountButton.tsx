@@ -45,22 +45,25 @@ export default function DeleteAccountButton({ user }: { user: User }) {
   }
 
   return (
-    <div className="mt-8 pt-6 border-t-2 border-red-200">
-      <div className="bg-red-50 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-red-900 mb-2 flex items-center gap-2">
+    <div className="mt-8 pt-6 border-t-2 border-gray-700 relative">
+      <div className="relative bg-gradient-to-br from-red-900/30 via-red-800/20 to-red-900/30 backdrop-blur-sm rounded-lg p-6 border-2 border-red-500/50 shadow-lg shadow-red-500/20 overflow-hidden group/danger">
+        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover/danger:opacity-100 transition-opacity pointer-events-none"></div>
+        <h2 className="text-lg font-semibold text-white mb-2 flex items-center gap-2 relative">
           <span>⚠️</span>
           Danger Zone
         </h2>
-        <p className="text-sm text-red-700 mb-4">
+        <p className="text-sm text-gray-300 mb-4 relative">
           Once you delete your account, there is no going back. This action cannot be undone.
           All your data including teams, memberships, and submissions will be permanently deleted.
         </p>
         <button
           onClick={handleDeleteAccount}
           disabled={deleting}
-          className="bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-bold py-2 px-4 rounded transition-colors"
+          className="relative bg-gradient-to-br from-red-600/90 via-red-700/80 to-red-800/90 backdrop-blur-md hover:from-red-700/90 hover:via-red-800/80 hover:to-red-900/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded border border-red-500/50 shadow-lg shadow-red-600/30 hover:shadow-red-600/50 overflow-hidden group/delete"
+          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
         >
-          {deleting ? 'Deleting Account...' : 'Delete Account Permanently'}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/delete:opacity-100 transition-opacity pointer-events-none"></div>
+          <span className="relative">{deleting ? 'Deleting Account...' : 'Delete Account Permanently'}</span>
         </button>
       </div>
     </div>

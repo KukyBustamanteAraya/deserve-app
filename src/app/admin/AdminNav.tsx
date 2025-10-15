@@ -2,112 +2,74 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
 
 export default function AdminNav() {
   const pathname = usePathname();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { href: '/admin', label: 'Overview' },
+    { href: '/admin/clients', label: 'Clients' },
     { href: '/admin/products', label: 'Products' },
     { href: '/admin/designs', label: 'Designs' },
-    { href: '/admin/design-requests', label: 'Design Requests' },
+    { href: '/admin/users', label: 'Users' },
     { href: '/admin/analytics', label: 'Analytics' },
-    { href: '/admin/orders', label: 'Orders' },
+    { href: '/admin/theme', label: 'Theme' },
   ];
 
   const isActive = (href: string) => {
-    if (href === '/admin') {
-      return pathname === '/admin';
-    }
     return pathname.startsWith(href);
   };
 
   return (
-    <nav className="bg-black border-b border-gray-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex">
-            <div className="flex-shrink-0 flex items-center">
-              <h1 className="text-lg sm:text-xl font-bold text-white">Admin Panel</h1>
-            </div>
+    <div className="w-full sticky top-0 z-50 px-3 sm:px-4 pt-3 sm:pt-4">
+      <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-2xl overflow-hidden group">
+        {/* Glass shine effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden lg:ml-6 lg:flex lg:space-x-4 xl:space-x-8">
-              {navLinks.map((link) => (
+        <div className="max-w-7xl mx-auto py-2.5 sm:py-4 relative">
+          <div className="px-2.5 sm:px-4">
+            <div className="flex flex-col gap-2 sm:gap-3">
+              {/* Back to Deserve App - Above Title */}
+              <div className="flex justify-center sm:justify-start">
                 <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    isActive(link.href)
-                      ? 'border-[#e21c21] text-[#e21c21]'
-                      : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
-                  }`}
+                  href="/"
+                  className="flex items-center gap-1 sm:gap-1.5 text-gray-400 hover:text-white transition-colors group text-[10px] sm:text-sm"
                 >
-                  {link.label}
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4 transition-transform group-hover:-translate-x-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  <span className="font-medium">Back to Deserve</span>
                 </Link>
-              ))}
+              </div>
+
+              {/* Title */}
+              <Link href="/admin">
+                <h1 className="text-base sm:text-xl font-black text-[#e21c21] drop-shadow-[0_2px_8px_rgba(226,28,33,0.3)] text-center cursor-pointer hover:text-[#ff2528] transition-colors">
+                  ADMIN PANEL
+                </h1>
+              </Link>
+
+              {/* Navigation - Always visible, single row on all screens */}
+              <div className="flex gap-1.5 sm:gap-2 md:gap-2 overflow-x-auto pb-1 scrollbar-hide justify-center">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`relative px-1.5 xs:px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all backdrop-blur-md overflow-hidden group/link whitespace-nowrap flex-shrink-0 flex items-center justify-center ${
+                      isActive(link.href)
+                        ? 'bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 text-white shadow-lg shadow-[#e21c21]/30 border border-[#e21c21]/50'
+                        : 'bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 text-gray-300 hover:text-white border border-gray-700/50 hover:border-[#e21c21]/50'
+                    }`}
+                    style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/link:opacity-100 transition-opacity pointer-events-none"></div>
+                    <span className="relative text-[9px] xs:text-[10px] sm:text-xs md:text-sm">{link.label}</span>
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Back to Dashboard - Desktop only (when mobile menu is hidden) */}
-            <Link
-              href="/dashboard"
-              className="hidden lg:block text-gray-400 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
-            >
-              Back to Dashboard
-            </Link>
-
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#e21c21] transition-colors"
-              aria-expanded={mobileMenuOpen}
-            >
-              <span className="sr-only">Open main menu</span>
-              {!mobileMenuOpen ? (
-                <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                </svg>
-              ) : (
-                <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              )}
-            </button>
           </div>
         </div>
       </div>
-
-      {/* Mobile menu */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-gray-800 bg-black">
-          <div className="px-2 pt-2 pb-3 space-y-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                  isActive(link.href)
-                    ? 'bg-[#e21c21] text-white'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-            <Link
-              href="/dashboard"
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-400 hover:bg-gray-800 hover:text-white border-t border-gray-800 mt-2 pt-3 transition-colors"
-            >
-              Back to Dashboard
-            </Link>
-          </div>
-        </div>
-      )}
-    </nav>
+    </div>
   );
 }

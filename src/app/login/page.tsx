@@ -28,8 +28,8 @@ export default function LoginPage() {
     return (
       <main className="max-w-md mx-auto p-4">
         <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          <p className="mt-2 text-gray-600">Loading...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#e21c21]"></div>
+          <p className="mt-2 text-gray-300">Loading...</p>
         </div>
       </main>
     );
@@ -39,8 +39,8 @@ export default function LoginPage() {
     return (
       <main className="max-w-md mx-auto p-4">
         <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          <p className="mt-2 text-gray-600">Redirecting...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#e21c21]"></div>
+          <p className="mt-2 text-gray-300">Redirecting...</p>
         </div>
       </main>
     );
@@ -51,9 +51,9 @@ export default function LoginPage() {
 
   return (
     <main className="max-w-md mx-auto p-4">
-      <h1 className="text-xl font-semibold mb-4">Iniciar Sesión</h1>
+      <h1 className="text-2xl font-bold mb-6 text-white">Iniciar Sesión</h1>
       {loggedOut && (
-        <div role="status" aria-live="polite" className="rounded-md border px-3 py-2 text-sm mb-4 bg-green-50 border-green-200 text-green-800">
+        <div role="status" aria-live="polite" className="rounded-lg border px-4 py-3 text-sm mb-6 bg-green-500/20 border-green-500/50 text-green-400 backdrop-blur-sm">
           You've been signed out.
         </div>
       )}

@@ -21,6 +21,12 @@ export interface TeamSettings {
   payment_mode: PaymentMode;
   notify_on_design_ready: boolean;
   notify_on_vote_required: boolean;
+  // Branding customization
+  primary_color?: string;
+  secondary_color?: string;
+  tertiary_color?: string;
+  logo_url?: string;
+  banner_url?: string;
   created_at: string;
   updated_at: string;
 }

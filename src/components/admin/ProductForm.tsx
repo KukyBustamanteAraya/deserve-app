@@ -29,11 +29,9 @@ interface ProductFormProps {
 // We'll set product_type_slug separately to the correct English values
 const CATEGORIES = [
   { value: 'camiseta', label: 'Jersey (Camiseta)', typeSlug: 'jersey' },
-  { value: 'short', label: 'Shorts', typeSlug: 'shorts' },
+  { value: 'poleron', label: 'Hoodie (Poleron)', typeSlug: 'hoodie' },
   { value: 'medias', label: 'Socks (Calcetines)', typeSlug: 'socks' },
   { value: 'chaqueta', label: 'Jacket (Chaqueta)', typeSlug: 'jacket' },
-  { value: 'pantalon', label: 'Pants (Pantalón)', typeSlug: 'pants' },
-  { value: 'bolso', label: 'Duffle Bag (Bolso)', typeSlug: 'bag' },
 ];
 
 const STATUSES = [
@@ -161,36 +159,41 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
         <button
           type="button"
           onClick={() => router.back()}
-          className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+          className="relative px-4 py-2 bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 backdrop-blur-md text-gray-300 hover:text-white rounded-lg border border-gray-700/50 hover:border-[#e21c21]/50 transition-all overflow-hidden group"
+          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
         >
-          Cancel
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+          <span className="relative">Cancel</span>
         </button>
       </div>
 
       {/* Error message */}
       {error && (
-        <div className="bg-red-900/20 border border-red-500/50 text-red-300 px-4 py-3 rounded-lg">
-          {error}
+        <div className="relative bg-gradient-to-br from-red-900/40 via-red-800/30 to-red-900/40 backdrop-blur-md border border-red-500/50 text-red-300 px-4 py-3 rounded-lg shadow-lg overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+          <p className="relative">{error}</p>
         </div>
       )}
 
       {/* Success message */}
       {success && (
-        <div className="bg-green-900/20 border border-green-500/50 text-green-300 px-4 py-3 rounded-lg">
-          Product saved successfully! Redirecting...
+        <div className="relative bg-gradient-to-br from-green-900/40 via-green-800/30 to-green-900/40 backdrop-blur-md border border-green-500/50 text-green-300 px-4 py-3 rounded-lg shadow-lg overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+          <p className="relative">Product saved successfully! Redirecting...</p>
         </div>
       )}
 
       {/* Basic Information */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-lg p-6 shadow-xl space-y-4">
-        <h2 className="text-xl font-semibold text-white mb-4">Basic Information</h2>
+      <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg p-6 shadow-2xl space-y-4 group">
+        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+        <h2 className="text-xl font-semibold text-white mb-4 relative">Basic Information</h2>
 
         {/* Sports (Multi-select with checkboxes) */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Available for Sports <span className="text-blue-500">*</span>
+        <div className="relative">
+          <label className="block text-sm font-medium text-white mb-2">
+            Available for Sports <span className="text-[#e21c21]">*</span>
           </label>
-          <p className="text-xs text-gray-500 mb-3">
+          <p className="text-xs text-gray-400 mb-3">
             Select all sports this product will be available for
           </p>
           <div className="grid grid-cols-2 gap-3">
@@ -199,8 +202,10 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
               return (
                 <label
                   key={sport.id}
-                  className="flex items-center space-x-2 p-3 bg-gray-900 border border-gray-700 rounded-md hover:border-blue-500 cursor-pointer transition-colors"
+                  className="relative flex items-center space-x-2 p-3 bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 backdrop-blur-md border border-gray-700 rounded-md hover:border-[#e21c21]/50 cursor-pointer transition-all overflow-hidden group/checkbox"
+                  style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                 >
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/checkbox:opacity-100 transition-opacity pointer-events-none"></div>
                   <input
                     type="checkbox"
                     checked={formData.sport_ids.includes(sportIdStr)}
@@ -211,9 +216,9 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
                         setFormData({ ...formData, sport_ids: formData.sport_ids.filter(id => id !== sportIdStr) });
                       }
                     }}
-                    className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                    className="relative w-4 h-4 text-[#e21c21] bg-gray-800 border-gray-600 rounded focus:ring-2 focus:ring-[#e21c21]/50"
                   />
-                  <span className="text-white">{sport.name}</span>
+                  <span className="text-white relative">{sport.name}</span>
                 </label>
               );
             })}
@@ -221,19 +226,19 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
         </div>
 
         {/* Category */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
-            Category <span className="text-blue-500">*</span>
+        <div className="relative">
+          <label className="block text-sm font-medium text-white mb-1">
+            Category <span className="text-[#e21c21]">*</span>
           </label>
           <select
             value={formData.category}
             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 backdrop-blur-md border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#e21c21]/50 focus:border-[#e21c21]/50"
             required
           >
-            <option value="">Select a category</option>
+            <option value="" className="bg-black text-white">Select a category</option>
             {CATEGORIES.map((cat) => (
-              <option key={cat.value} value={cat.value}>
+              <option key={cat.value} value={cat.value} className="bg-black text-white">
                 {cat.label}
               </option>
             ))}
@@ -241,67 +246,68 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
         </div>
 
         {/* Name */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
-            Product Name <span className="text-blue-500">*</span>
+        <div className="relative">
+          <label className="block text-sm font-medium text-white mb-1">
+            Product Name <span className="text-[#e21c21]">*</span>
           </label>
           <input
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 backdrop-blur-md border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-[#e21c21]/50 focus:border-[#e21c21]/50"
             placeholder="e.g., Premium Jersey, Rugby Jersey, Team Hoodie"
             required
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-gray-400 mt-1">
             Give this product a descriptive name (e.g., "Premium Jersey" for standard build, "Rugby Jersey" for reinforced)
           </p>
         </div>
 
         {/* Price */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
-            Price (CLP) <span className="text-blue-500">*</span>
+        <div className="relative">
+          <label className="block text-sm font-medium text-white mb-1">
+            Price (CLP) <span className="text-[#e21c21]">*</span>
           </label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">$</span>
+            <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">$</span>
             <input
               type="number"
               step="1"
               min="0"
               value={formData.price_cents}
               onChange={(e) => setFormData({ ...formData, price_cents: e.target.value })}
-              className="w-full pl-8 pr-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-8 pr-4 py-2 bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 backdrop-blur-md border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-[#e21c21]/50 focus:border-[#e21c21]/50"
               placeholder="50000"
               required
             />
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-gray-400 mt-1">
             Set the price for this specific product in Chilean Pesos (e.g., $50,000 CLP for Premium Jersey, $70,000 CLP for Rugby Jersey)
           </p>
         </div>
       </div>
 
       {/* Status */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-lg p-6 shadow-xl space-y-4">
-        <h2 className="text-xl font-semibold text-white mb-4">Publication Status</h2>
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
-            Status <span className="text-blue-500">*</span>
+      <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg p-6 shadow-2xl space-y-4 group">
+        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+        <h2 className="text-xl font-semibold text-white mb-4 relative">Publication Status</h2>
+        <div className="relative">
+          <label className="block text-sm font-medium text-white mb-1">
+            Status <span className="text-[#e21c21]">*</span>
           </label>
           <select
             value={formData.status}
             onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 backdrop-blur-md border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#e21c21]/50 focus:border-[#e21c21]/50"
             required
           >
             {STATUSES.map((status) => (
-              <option key={status.value} value={status.value}>
+              <option key={status.value} value={status.value} className="bg-black text-white">
                 {status.label}
               </option>
             ))}
           </select>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-gray-400 mt-1">
             {formData.status === 'draft' && 'Draft products are not visible to users'}
             {formData.status === 'active' && 'Active products are visible in the catalog'}
             {formData.status === 'archived' && 'Archived products are hidden but not deleted'}
@@ -314,20 +320,24 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
         <button
           type="button"
           onClick={() => router.back()}
-          className="px-6 py-2 text-gray-400 hover:text-white transition-colors"
+          className="relative px-6 py-2 bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 backdrop-blur-md text-gray-300 hover:text-white rounded-lg border border-gray-700/50 hover:border-[#e21c21]/50 transition-all overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
           disabled={loading}
         >
-          Cancel
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+          <span className="relative">Cancel</span>
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg hover:shadow-blue-500/50"
+          className="relative px-6 py-2 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg font-semibold transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
         >
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
           {loading ? (
             <>
               <svg
-                className="animate-spin h-5 w-5"
+                className="animate-spin h-5 w-5 relative"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -346,10 +356,10 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
-              Saving...
+              <span className="relative">Saving...</span>
             </>
           ) : (
-            <>{mode === 'create' ? 'Create Product' : 'Save Changes'}</>
+            <span className="relative">{mode === 'create' ? 'Create Product' : 'Save Changes'}</span>
           )}
         </button>
       </div>

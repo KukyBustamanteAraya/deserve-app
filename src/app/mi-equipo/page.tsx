@@ -206,13 +206,20 @@ export default function MinimalTeamsPage() {
       // Add creator as owner member
       console.log('[Team Creation] Creating owner membership for user:', user.id, 'team:', newTeam.id);
 
+      const membershipInsert: any = {
+        team_id: newTeam.id,
+        user_id: user.id,
+        role: 'owner',
+      };
+
+      // For organizations, also set institution_role to athletic_director
+      if (teamType === 'organization') {
+        membershipInsert.institution_role = 'athletic_director';
+      }
+
       const { data: membershipData, error: memberError } = await supabase
         .from('team_memberships')
-        .insert({
-          team_id: newTeam.id,
-          user_id: user.id,
-          role: 'owner',
-        })
+        .insert(membershipInsert)
         .select()
         .single();
 
@@ -222,6 +229,12 @@ export default function MinimalTeamsPage() {
       }
 
       console.log('[Team Creation] Membership created successfully:', membershipData);
+
+      // For organizations, sports are stored in teams.sports array
+      // Sport programs will appear empty initially, prompting the user to add teams
+      if (teamType === 'organization' && selectedSportIds.length > 0) {
+        console.log('[Team Creation] Organization created with sports:', selectedSportIds.map(id => sports.find(s => s.id === id)?.name));
+      }
 
       // Refresh teams list
       setTeams([newTeam, ...teams]);
@@ -247,21 +260,21 @@ export default function MinimalTeamsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-lg text-gray-600">Cargando equipos...</div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
+        <div className="text-lg text-gray-300">Cargando equipos...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Error</h1>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <h1 className="text-2xl font-bold text-white mb-4">Error</h1>
+          <p className="text-gray-300 mb-6">{error}</p>
           <button
             onClick={() => router.push('/')}
-            className="text-blue-600 hover:text-blue-700 font-medium"
+            className="text-[#e21c21] hover:text-[#c11a1e] font-medium"
           >
             ← Inicio
           </button>
@@ -271,18 +284,19 @@ export default function MinimalTeamsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 p-6">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Mis Equipos</h1>
-          <p className="text-gray-600">Gestiona tus equipos y organizaciones</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Mis Equipos</h1>
+          <p className="text-gray-300">Gestiona tus equipos y organizaciones</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
           {teams.map((team) => (
             <div
               key={team.id}
-              className="relative bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow flex flex-col min-h-[200px] group"
+              className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-2xl p-6 border border-gray-700 flex flex-col min-h-[200px] group overflow-hidden transition-all"
+              style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
               onClick={() => {
                 // Reset deletion state when clicking on a different team card
                 if (deletingTeamId && deletingTeamId !== team.id) {
@@ -290,15 +304,19 @@ export default function MinimalTeamsPage() {
                 }
               }}
             >
+              {/* Glass shine effect */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+
               {/* Delete button */}
               <button
                 onClick={(e) => handleDeleteTeam(team.id, team.name, e)}
-                className={`absolute top-3 right-3 rounded-lg transition-all ${
+                className={`absolute top-3 right-3 rounded-lg transition-all z-10 ${
                   deletingTeamId === team.id
-                    ? 'px-3 py-2 bg-red-600 text-white opacity-100 shadow-lg'
-                    : 'p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full opacity-0 group-hover:opacity-100'
+                    ? 'px-3 py-2 bg-gradient-to-br from-red-600/90 via-red-700/80 to-red-800/90 text-white opacity-100 shadow-lg shadow-red-600/30'
+                    : 'p-2 text-gray-400 hover:text-red-400 hover:bg-red-900/30 rounded-full opacity-0 group-hover:opacity-100'
                 }`}
                 title={deletingTeamId === team.id ? 'Click para confirmar' : 'Eliminar equipo'}
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
               >
                 {deletingTeamId === team.id ? (
                   <span className="text-sm font-semibold whitespace-nowrap">¿Eliminar?</span>
@@ -316,20 +334,20 @@ export default function MinimalTeamsPage() {
                   setDeletingTeamId(null); // Cancel any pending deletion
                   router.push(`/mi-equipo/${team.slug}`);
                 }}
-                className="text-left flex flex-col flex-1"
+                className="text-left flex flex-col flex-1 relative"
               >
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                <h3 className="text-xl font-semibold text-white mb-2">
                   {team.name}
                 </h3>
-                <p className="text-sm text-gray-600 mb-1">
+                <p className="text-sm text-gray-300 mb-1">
                   <span className="font-medium">Deporte:</span> {team.sport}
                 </p>
                 {team.institution_name && (
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-300">
                     <span className="font-medium">Institución:</span> {team.institution_name}
                   </p>
                 )}
-                <div className="mt-auto pt-4 text-sm text-blue-600 font-medium">
+                <div className="mt-auto pt-4 text-sm text-[#e21c21] font-medium">
                   Ver equipo →
                 </div>
               </button>
@@ -339,11 +357,15 @@ export default function MinimalTeamsPage() {
           {/* Create Team Card */}
           <button
             onClick={handleCreateTeamClick}
-            className="bg-white rounded-lg shadow-sm p-6 border-2 border-dashed border-gray-300 hover:border-blue-400 hover:shadow-md transition-all flex flex-col items-center justify-center min-h-[200px]"
+            className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-2xl p-6 border-2 border-dashed border-gray-700 hover:border-[#e21c21]/50 transition-all flex flex-col items-center justify-center min-h-[200px] group overflow-hidden"
+            style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
           >
-            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
+            {/* Glass shine effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+
+            <div className="w-16 h-16 rounded-full bg-[#e21c21]/20 border border-[#e21c21]/50 flex items-center justify-center mb-4 relative">
               <svg
-                className="w-8 h-8 text-blue-600"
+                className="w-8 h-8 text-[#e21c21]"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -356,28 +378,64 @@ export default function MinimalTeamsPage() {
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+            <h3 className="text-lg font-semibold text-white mb-1 relative">
               Crea un equipo
             </h3>
-            <p className="text-sm text-gray-500 text-center">
+            <p className="text-sm text-gray-300 text-center relative">
               Agrega un nuevo equipo para gestionar tus diseños
+            </p>
+          </button>
+
+          {/* Join Team Card */}
+          <button
+            onClick={() => alert('Funcionalidad de unirse a equipo próximamente')}
+            className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-2xl p-6 border-2 border-dashed border-gray-700 hover:border-[#e21c21]/50 transition-all flex flex-col items-center justify-center min-h-[200px] group overflow-hidden"
+            style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+          >
+            {/* Glass shine effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+
+            <div className="w-16 h-16 rounded-full bg-[#e21c21]/20 border border-[#e21c21]/50 flex items-center justify-center mb-4 relative">
+              <svg
+                className="w-8 h-8 text-[#e21c21]"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-1 relative">
+              Únete a un equipo
+            </h3>
+            <p className="text-sm text-gray-300 text-center relative">
+              Solicita acceso a un equipo existente
             </p>
           </button>
         </div>
 
-        <div className="mt-8 p-4 bg-blue-50 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>Nota:</strong> Crea equipos individuales o instituciones con múltiples programas deportivos.
+        <div className="mt-8 p-4 relative bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-700 overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+          <p className="text-sm text-gray-300 relative">
+            <strong className="text-white">Nota:</strong> Crea equipos individuales o instituciones con múltiples programas deportivos.
           </p>
         </div>
       </div>
 
       {/* Create Team Modal - Reusing from /dashboard/team/page.tsx */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="relative bg-gradient-to-br from-gray-800/95 via-black/90 to-gray-900/95 backdrop-blur-md rounded-lg shadow-2xl border border-gray-700 max-w-md w-full p-6 overflow-hidden group">
+            {/* Glass shine effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+
+            <div className="flex justify-between items-center mb-4 relative">
+              <h2 className="text-2xl font-bold text-white">
                 {modalStep === 'type' ? '¿Qué tipo de equipo tienes?' : 'Crear Equipo'}
               </h2>
               <button
@@ -386,7 +444,8 @@ export default function MinimalTeamsPage() {
                   setModalStep('type');
                   setTeamType(null);
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-[#e21c21] transition-colors"
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
               >
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -396,8 +455,8 @@ export default function MinimalTeamsPage() {
 
             {modalStep === 'type' ? (
               // Step 1: Team Type Selection
-              <div className="space-y-4">
-                <p className="text-gray-600 mb-6">
+              <div className="space-y-4 relative">
+                <p className="text-gray-300 mb-6">
                   Selecciona el tipo de equipo que deseas crear
                 </p>
 
@@ -406,17 +465,19 @@ export default function MinimalTeamsPage() {
                     setTeamType('single');
                     setModalStep('details');
                   }}
-                  className="w-full p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left group"
+                  className="relative w-full p-6 border-2 border-gray-700 rounded-lg hover:border-[#e21c21]/50 transition-all text-left group overflow-hidden bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50"
+                  style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-                      <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                  <div className="flex items-start gap-4 relative">
+                    <div className="w-12 h-12 rounded-full bg-[#e21c21]/20 border border-[#e21c21]/50 flex items-center justify-center flex-shrink-0 transition-colors">
+                      <svg className="w-6 h-6 text-[#e21c21]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900 text-lg mb-1">Equipo Único</h3>
-                      <p className="text-sm text-gray-600">
+                      <h3 className="font-semibold text-white text-lg mb-1">Equipo Único</h3>
+                      <p className="text-sm text-gray-300">
                         Un solo equipo deportivo (ej: Los Tigres, Equipo de Fútbol)
                       </p>
                     </div>
@@ -428,17 +489,19 @@ export default function MinimalTeamsPage() {
                     setTeamType('organization');
                     setModalStep('details');
                   }}
-                  className="w-full p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left group"
+                  className="relative w-full p-6 border-2 border-gray-700 rounded-lg hover:border-[#e21c21]/50 transition-all text-left group overflow-hidden bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50"
+                  style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-                      <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                  <div className="flex items-start gap-4 relative">
+                    <div className="w-12 h-12 rounded-full bg-[#e21c21]/20 border border-[#e21c21]/50 flex items-center justify-center flex-shrink-0 transition-colors">
+                      <svg className="w-6 h-6 text-[#e21c21]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900 text-lg mb-1">Organización</h3>
-                      <p className="text-sm text-gray-600">
+                      <h3 className="font-semibold text-white text-lg mb-1">Organización</h3>
+                      <p className="text-sm text-gray-300">
                         Una institución con múltiples equipos (ej: Club Deportivo, Universidad)
                       </p>
                     </div>
@@ -447,58 +510,71 @@ export default function MinimalTeamsPage() {
               </div>
             ) : (
               // Step 2: Team Details Form
-              <form onSubmit={handleCreateTeam} className="space-y-4">
-              <div>
-                <label htmlFor="teamName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre del equipo *
+              <form onSubmit={handleCreateTeam} className="space-y-4 relative">
+              <div className="relative">
+                <label htmlFor="teamName" className="block text-sm font-medium text-white mb-2">
+                  {teamType === 'organization' ? 'Nombre de la Organización *' : 'Nombre del Equipo *'}
                 </label>
-                <input
-                  type="text"
-                  id="teamName"
-                  value={teamName}
-                  onChange={(e) => setTeamName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ej: Los Tigres"
-                  required
-                />
+                <div className="relative overflow-hidden rounded-lg group/input">
+                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/input:opacity-100 transition-opacity pointer-events-none"></div>
+                  <input
+                    type="text"
+                    id="teamName"
+                    value={teamName}
+                    onChange={(e) => setTeamName(e.target.value)}
+                    className="relative w-full px-4 py-2 bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e21c21]/50 focus:border-[#e21c21]/50 transition-all"
+                    style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                    placeholder={teamType === 'organization' ? 'Ej: Club Deportivo Águilas' : 'Ej: Los Tigres'}
+                    required
+                  />
+                </div>
               </div>
 
               {/* Sport Selection - Different UI based on team type */}
               {teamType === 'single' ? (
-                <div>
-                  <label htmlFor="sport" className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="relative">
+                  <label htmlFor="sport" className="block text-sm font-medium text-white mb-2">
                     Deporte *
                   </label>
-                  <select
-                    id="sport"
-                    value={sportId || ''}
-                    onChange={(e) => setSportId(e.target.value ? Number(e.target.value) : null)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  >
-                    <option value="">Selecciona un deporte</option>
-                    {sports.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative overflow-hidden rounded-lg group/input">
+                    <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/input:opacity-100 transition-opacity pointer-events-none"></div>
+                    <select
+                      id="sport"
+                      value={sportId || ''}
+                      onChange={(e) => setSportId(e.target.value ? Number(e.target.value) : null)}
+                      className="relative w-full px-4 py-2 bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-lg text-white focus:outline-none focus:ring-2 focus:ring-[#e21c21]/50 focus:border-[#e21c21]/50 transition-all"
+                      style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                      required
+                    >
+                      <option value="" className="bg-gray-900">Selecciona un deporte</option>
+                      {sports.map((s) => (
+                        <option key={s.id} value={s.id} className="bg-gray-900">
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Programas Deportivos * (selecciona todos los que apliquen)
+                <div className="relative">
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Deportes de tu Organización *
                   </label>
-                  <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto p-3 border border-gray-200 rounded-lg">
+                  <p className="text-xs text-gray-400 mb-3">
+                    Selecciona los deportes que tendrá tu organización. Se crearán programas automáticamente.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto p-3 border border-gray-700 rounded-lg bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50">
                     {sports.map((s) => (
                       <label
                         key={s.id}
-                        className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        className={`relative flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all overflow-hidden group ${
                           selectedSportIds.includes(s.id)
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-[#e21c21]/50 bg-[#e21c21]/10'
+                            : 'border-gray-700 hover:border-gray-600 bg-gray-800/30'
                         }`}
+                        style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                       >
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
                         <input
                           type="checkbox"
                           checked={selectedSportIds.includes(s.id)}
@@ -509,40 +585,48 @@ export default function MinimalTeamsPage() {
                               setSelectedSportIds(selectedSportIds.filter(id => id !== s.id));
                             }
                           }}
-                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                          className="w-4 h-4 text-[#e21c21] bg-gray-800 border-gray-600 rounded focus:ring-[#e21c21]/50 relative"
                         />
-                        <span className="text-sm font-medium text-gray-700">{s.name}</span>
+                        <span className="text-sm font-medium text-white relative">{s.name}</span>
                       </label>
                     ))}
                   </div>
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-xs text-gray-400">
                     {selectedSportIds.length} deporte{selectedSportIds.length !== 1 ? 's' : ''} seleccionado{selectedSportIds.length !== 1 ? 's' : ''}
                   </p>
                 </div>
               )}
 
-              <div>
-                <label htmlFor="institution" className="block text-sm font-medium text-gray-700 mb-2">
-                  Institución (opcional)
-                </label>
-                <input
-                  type="text"
-                  id="institution"
-                  value={institutionName}
-                  onChange={(e) => setInstitutionName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ej: Universidad Nacional"
-                />
-              </div>
+              {/* Institution field - only show for single teams */}
+              {teamType === 'single' && (
+                <div className="relative">
+                  <label htmlFor="institution" className="block text-sm font-medium text-white mb-2">
+                    Institución (opcional)
+                  </label>
+                  <div className="relative overflow-hidden rounded-lg group/input">
+                    <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/input:opacity-100 transition-opacity pointer-events-none"></div>
+                    <input
+                      type="text"
+                      id="institution"
+                      value={institutionName}
+                      onChange={(e) => setInstitutionName(e.target.value)}
+                      className="relative w-full px-4 py-2 bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e21c21]/50 focus:border-[#e21c21]/50 transition-all"
+                      style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                      placeholder="Ej: Universidad Nacional"
+                    />
+                  </div>
+                </div>
+              )}
 
-                <div className="flex items-center justify-between gap-3 mt-6">
+                <div className="flex items-center justify-between gap-3 mt-6 relative">
                   <button
                     type="button"
                     onClick={() => {
                       setModalStep('type');
                       setTeamType(null);
                     }}
-                    className="px-6 py-2 text-gray-700 hover:text-gray-900 font-medium transition-colors"
+                    className="px-6 py-2 text-gray-300 hover:text-white font-medium transition-colors"
+                    style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                   >
                     ← Volver
                   </button>
@@ -554,20 +638,25 @@ export default function MinimalTeamsPage() {
                         setModalStep('type');
                         setTeamType(null);
                       }}
-                      className="px-6 py-2 text-gray-700 hover:text-gray-900 font-medium transition-colors"
+                      className="px-6 py-2 text-gray-300 hover:text-white font-medium transition-colors"
+                      style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
                       disabled={creating}
-                      className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
+                      className={`relative px-6 py-2 rounded-lg font-semibold transition-all overflow-hidden group ${
                         creating
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                          ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                          : 'bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 text-white shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50'
                       }`}
+                      style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                     >
-                      {creating ? 'Creando...' : 'Crear Equipo'}
+                      {!creating && (
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                      )}
+                      <span className="relative">{creating ? 'Creando...' : 'Crear Equipo'}</span>
                     </button>
                   </div>
                 </div>

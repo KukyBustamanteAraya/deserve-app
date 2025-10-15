@@ -443,20 +443,23 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
         <button
           type="button"
           onClick={() => router.back()}
-          className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+          className="relative px-4 py-2 bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 backdrop-blur-md text-gray-300 hover:text-white rounded-lg border border-gray-700/50 hover:border-[#e21c21]/50 transition-all overflow-hidden group"
+          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
         >
-          Cancel
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+          <span className="relative">Cancel</span>
         </button>
       </div>
 
       {/* Basic Information */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-lg p-6 shadow-xl">
+      <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg p-6 shadow-2xl group">
+        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
         <h2 className="text-xl font-semibold text-white mb-4">Basic Information</h2>
         <div className="space-y-4">
           {/* Name */}
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">
-              Name <span className="text-pink-500">*</span>
+              Name <span className="text-[#e21c21]">*</span>
             </label>
             <input
               type="text"
@@ -464,18 +467,18 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
               value={formData.name}
               onChange={(e) => updateFormData('name', e.target.value)}
               className={`w-full px-3 py-2 bg-gray-900 border ${
-                errors.name ? 'border-pink-500' : 'border-gray-700'
-              } rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent`}
+                errors.name ? 'border-[#e21c21]' : 'border-gray-700'
+              } rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e21c21]/50 focus:border-transparent`}
               placeholder="Thunder Strike"
               data-error={!!errors.name}
             />
-            {errors.name && <p className="text-pink-400 text-sm mt-1">{errors.name}</p>}
+            {errors.name && <p className="text-red-400 text-sm mt-1">{errors.name}</p>}
           </div>
 
           {/* Slug */}
           <div>
             <label htmlFor="slug" className="block text-sm font-medium text-gray-300 mb-1">
-              Slug <span className="text-pink-500">*</span>
+              Slug <span className="text-[#e21c21]">*</span>
             </label>
             <input
               type="text"
@@ -483,12 +486,12 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
               value={formData.slug}
               onChange={(e) => updateFormData('slug', e.target.value)}
               className={`w-full px-3 py-2 bg-gray-900 border ${
-                errors.slug ? 'border-pink-500' : 'border-gray-700'
-              } rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent`}
+                errors.slug ? 'border-[#e21c21]' : 'border-gray-700'
+              } rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e21c21]/50 focus:border-transparent`}
               placeholder="thunder-strike"
               data-error={!!errors.slug}
             />
-            {errors.slug && <p className="text-pink-400 text-sm mt-1">{errors.slug}</p>}
+            {errors.slug && <p className="text-red-400 text-sm mt-1">{errors.slug}</p>}
             <p className="text-gray-500 text-xs mt-1">
               URL-friendly identifier (lowercase, hyphens only)
             </p>
@@ -504,7 +507,7 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
               value={formData.description}
               onChange={(e) => updateFormData('description', e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e21c21]/50 focus:border-transparent"
               placeholder="A bold, modern design featuring striking geometric patterns..."
             />
           </div>
@@ -519,7 +522,7 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
               id="designer_name"
               value={formData.designer_name}
               onChange={(e) => updateFormData('designer_name', e.target.value)}
-              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e21c21]/50 focus:border-transparent"
               placeholder="Studio Deserve"
             />
           </div>
@@ -527,8 +530,9 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
       </div>
 
       {/* Classification */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-lg p-6 shadow-xl">
-        <h2 className="text-xl font-semibold text-white mb-4">Classification</h2>
+      <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg p-6 shadow-2xl group">
+        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+        <h2 className="text-xl font-semibold text-white mb-4 relative">Classification</h2>
         <div className="space-y-6">
           {/* Style Tags */}
           <div>
@@ -541,7 +545,7 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
                   onClick={() => toggleStyleTag(tag)}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     formData.style_tags.includes(tag)
-                      ? 'bg-pink-600 text-white'
+                      ? 'bg-[#e21c21] text-white'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
@@ -570,13 +574,13 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
                     addColor();
                   }
                 }}
-                className="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                className="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e21c21]/50 focus:border-transparent"
                 placeholder="Enter color name or hex code (e.g., #FF0000 or red)"
               />
               <button
                 type="button"
                 onClick={addColor}
-                className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 transition-colors"
+                className="px-4 py-2 bg-[#e21c21] text-white rounded-md hover:bg-[#c11a1e] transition-colors"
               >
                 Add
               </button>
@@ -596,7 +600,7 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
                     <button
                       type="button"
                       onClick={() => removeColor(color)}
-                      className="text-gray-500 hover:text-pink-400 transition-colors"
+                      className="text-gray-500 hover:text-red-400 transition-colors"
                     >
                       ×
                     </button>
@@ -609,8 +613,9 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
       </div>
 
       {/* Settings */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-lg p-6 shadow-xl">
-        <h2 className="text-xl font-semibold text-white mb-4">Settings</h2>
+      <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg p-6 shadow-2xl group">
+        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+        <h2 className="text-xl font-semibold text-white mb-4 relative">Settings</h2>
         <div className="space-y-3">
           {/* Is Customizable */}
           <label className="flex items-center gap-3 cursor-pointer">
@@ -618,7 +623,7 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
               type="checkbox"
               checked={formData.is_customizable}
               onChange={(e) => updateFormData('is_customizable', e.target.checked)}
-              className="w-5 h-5 rounded border-gray-600 bg-gray-900 text-pink-600 focus:ring-2 focus:ring-pink-500 focus:ring-offset-0"
+              className="w-5 h-5 rounded border-gray-600 bg-gray-900 text-[#e21c21] focus:ring-2 focus:ring-[#e21c21]/50 focus:ring-offset-0"
             />
             <div>
               <div className="text-white font-medium">Is Customizable</div>
@@ -634,7 +639,7 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
               type="checkbox"
               checked={formData.allows_recoloring}
               onChange={(e) => updateFormData('allows_recoloring', e.target.checked)}
-              className="w-5 h-5 rounded border-gray-600 bg-gray-900 text-pink-600 focus:ring-2 focus:ring-pink-500 focus:ring-offset-0"
+              className="w-5 h-5 rounded border-gray-600 bg-gray-900 text-[#e21c21] focus:ring-2 focus:ring-[#e21c21]/50 focus:ring-offset-0"
             />
             <div>
               <div className="text-white font-medium">Allows Recoloring</div>
@@ -650,7 +655,7 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
               type="checkbox"
               checked={formData.featured}
               onChange={(e) => updateFormData('featured', e.target.checked)}
-              className="w-5 h-5 rounded border-gray-600 bg-gray-900 text-pink-600 focus:ring-2 focus:ring-pink-500 focus:ring-offset-0"
+              className="w-5 h-5 rounded border-gray-600 bg-gray-900 text-[#e21c21] focus:ring-2 focus:ring-[#e21c21]/50 focus:ring-offset-0"
             />
             <div>
               <div className="text-white font-medium">Featured</div>
@@ -664,7 +669,7 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
               type="checkbox"
               checked={formData.active}
               onChange={(e) => updateFormData('active', e.target.checked)}
-              className="w-5 h-5 rounded border-gray-600 bg-gray-900 text-pink-600 focus:ring-2 focus:ring-pink-500 focus:ring-offset-0"
+              className="w-5 h-5 rounded border-gray-600 bg-gray-900 text-[#e21c21] focus:ring-2 focus:ring-[#e21c21]/50 focus:ring-offset-0"
             />
             <div>
               <div className="text-white font-medium">Active</div>
@@ -677,8 +682,9 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
       </div>
 
       {/* Design Images */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-lg p-6 shadow-xl">
-        <div className="flex items-center justify-between mb-4">
+      <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg p-6 shadow-2xl group">
+        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+        <div className="flex items-center justify-between mb-4 relative">
           <div>
             <h2 className="text-xl font-semibold text-white">Design Images</h2>
             <p className="text-gray-400 text-sm mt-1">
@@ -688,12 +694,14 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
           <button
             type="button"
             onClick={addDesignImage}
-            className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 transition-colors flex items-center gap-2"
+            className="relative px-4 py-2 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg font-semibold transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group/btn flex items-center gap-2"
+            style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none"></div>
+            <svg className="w-5 h-5 relative" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Add Design Image
+            <span className="relative">Add Design Image</span>
           </button>
         </div>
 
@@ -716,7 +724,7 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
             <button
               type="button"
               onClick={addDesignImage}
-              className="px-6 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 transition-colors"
+              className="px-6 py-2 bg-[#e21c21] text-white rounded-md hover:bg-[#c11a1e] transition-colors"
             >
               Add Your First Design Image
             </button>
@@ -761,14 +769,14 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
                     {/* Sport */}
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-1">
-                        Sport <span className="text-pink-500">*</span>
+                        Sport <span className="text-[#e21c21]">*</span>
                       </label>
                       <select
                         value={image.sport_id}
                         onChange={(e) => updateDesignImage(index, 'sport_id', e.target.value)}
                         className={`w-full px-3 py-2 bg-gray-800 border ${
-                          errors[`image_${index}_sport`] ? 'border-pink-500' : 'border-gray-700'
-                        } rounded-md text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent`}
+                          errors[`image_${index}_sport`] ? 'border-[#e21c21]' : 'border-gray-700'
+                        } rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#e21c21]/50 focus:border-transparent`}
                         data-error={!!errors[`image_${index}_sport`]}
                       >
                         <option value="">Select sport</option>
@@ -779,7 +787,7 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
                         ))}
                       </select>
                       {errors[`image_${index}_sport`] && (
-                        <p className="text-pink-400 text-sm mt-1">
+                        <p className="text-red-400 text-sm mt-1">
                           {errors[`image_${index}_sport`]}
                         </p>
                       )}
@@ -788,14 +796,14 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
                     {/* Product */}
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-1">
-                        Product <span className="text-pink-500">*</span>
+                        Product <span className="text-[#e21c21]">*</span>
                       </label>
                       <select
                         value={image.product_id || ''}
                         onChange={(e) => updateDesignImage(index, 'product_id', e.target.value)}
                         className={`w-full px-3 py-2 bg-gray-800 border ${
-                          errors[`image_${index}_product`] ? 'border-pink-500' : 'border-gray-700'
-                        } rounded-md text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent`}
+                          errors[`image_${index}_product`] ? 'border-[#e21c21]' : 'border-gray-700'
+                        } rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#e21c21]/50 focus:border-transparent`}
                         data-error={!!errors[`image_${index}_product`]}
                       >
                         <option value="">Select product</option>
@@ -806,7 +814,7 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
                         ))}
                       </select>
                       {errors[`image_${index}_product`] && (
-                        <p className="text-pink-400 text-sm mt-1">
+                        <p className="text-red-400 text-sm mt-1">
                           {errors[`image_${index}_product`]}
                         </p>
                       )}
@@ -825,7 +833,7 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
                       <select
                         value={image.view_angle}
                         onChange={(e) => updateDesignImage(index, 'view_angle', e.target.value)}
-                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#e21c21]/50 focus:border-transparent"
                       >
                         {VIEW_ANGLE_OPTIONS.map((angle) => (
                           <option key={angle} value={angle}>
@@ -838,7 +846,7 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
                     {/* Image Upload */}
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-1">
-                        Image <span className="text-pink-500">*</span>
+                        Image <span className="text-[#e21c21]">*</span>
                       </label>
                       <input
                         type="file"
@@ -848,12 +856,12 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
                           if (file) handleFileChange(index, file);
                         }}
                         className={`w-full px-3 py-2 bg-gray-800 border ${
-                          errors[`image_${index}_url`] ? 'border-pink-500' : 'border-gray-700'
-                        } rounded-md text-white file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-pink-600 file:text-white hover:file:bg-pink-700 cursor-pointer`}
+                          errors[`image_${index}_url`] ? 'border-[#e21c21]' : 'border-gray-700'
+                        } rounded-md text-white file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-[#e21c21] file:text-white hover:file:bg-pink-700 cursor-pointer`}
                         data-error={!!errors[`image_${index}_url`]}
                       />
                       {errors[`image_${index}_url`] && (
-                        <p className="text-pink-400 text-sm mt-1">{errors[`image_${index}_url`]}</p>
+                        <p className="text-red-400 text-sm mt-1">{errors[`image_${index}_url`]}</p>
                       )}
                     </div>
                   </div>
@@ -865,14 +873,14 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
                         type="checkbox"
                         checked={image.is_primary}
                         onChange={(e) => updateDesignImage(index, 'is_primary', e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-600 bg-gray-900 text-pink-600 focus:ring-2 focus:ring-pink-500 focus:ring-offset-0"
+                        className="w-4 h-4 rounded border-gray-600 bg-gray-900 text-[#e21c21] focus:ring-2 focus:ring-[#e21c21]/50 focus:ring-offset-0"
                       />
                       <span className="text-sm text-gray-400">Primary</span>
                     </label>
                     <button
                       type="button"
                       onClick={() => removeDesignImage(index)}
-                      className="text-pink-400 hover:text-pink-300 transition-colors text-sm"
+                      className="text-red-400 hover:text-pink-300 transition-colors text-sm"
                     >
                       Remove
                     </button>
@@ -889,20 +897,24 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
         <button
           type="button"
           onClick={() => router.back()}
-          className="px-6 py-2 text-gray-400 hover:text-white transition-colors"
+          className="relative px-6 py-2 bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 backdrop-blur-md text-gray-300 hover:text-white rounded-lg border border-gray-700/50 hover:border-[#e21c21]/50 transition-all overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
           disabled={loading}
         >
-          Cancel
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+          <span className="relative">Cancel</span>
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="px-6 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg hover:shadow-pink-500/50"
+          className="relative px-6 py-2 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg font-semibold transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
         >
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
           {loading ? (
             <>
               <svg
-                className="animate-spin h-5 w-5"
+                className="animate-spin h-5 w-5 relative"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -921,10 +933,10 @@ export default function DesignForm({ design, mode }: DesignFormProps) {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
-              {mode === 'create' ? 'Creating...' : 'Saving...'}
+              <span className="relative">{mode === 'create' ? 'Creating...' : 'Saving...'}</span>
             </>
           ) : (
-            <>{mode === 'create' ? 'Create Design' : 'Save Changes'}</>
+            <span className="relative">{mode === 'create' ? 'Create Design' : 'Save Changes'}</span>
           )}
         </button>
       </div>

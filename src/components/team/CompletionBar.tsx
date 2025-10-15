@@ -2,42 +2,57 @@ type CompletionBarProps = {
   percentage: number;
   label?: string;
   showPercentage?: boolean;
+  color?: string;
 };
 
 export function CompletionBar({
   percentage,
   label,
-  showPercentage = true
+  showPercentage = true,
+  color = '#e21c21'
 }: CompletionBarProps) {
   // Ensure percentage is between 0 and 100
   const validPercentage = Math.min(Math.max(percentage, 0), 100);
 
-  // Color based on completion
-  const getColor = () => {
-    if (validPercentage === 100) return 'bg-green-500';
-    if (validPercentage >= 75) return 'bg-blue-500';
-    if (validPercentage >= 50) return 'bg-yellow-500';
-    if (validPercentage >= 25) return 'bg-orange-500';
-    return 'bg-red-500';
+  // If custom color provided, use it. Otherwise use completion-based colors
+  const getBarStyle = () => {
+    if (color) {
+      return {
+        backgroundColor: color,
+        width: `${validPercentage}%`
+      };
+    }
+
+    // Fallback to completion-based colors if no custom color
+    let bgColor = '#ef4444'; // red-500
+    if (validPercentage === 100) bgColor = '#22c55e'; // green-500
+    else if (validPercentage >= 75) bgColor = '#3b82f6'; // blue-500
+    else if (validPercentage >= 50) bgColor = '#eab308'; // yellow-500
+    else if (validPercentage >= 25) bgColor = '#f97316'; // orange-500
+
+    return {
+      backgroundColor: bgColor,
+      width: `${validPercentage}%`
+    };
   };
 
   return (
     <div className="w-full">
       {label && (
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">{label}</span>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-base font-semibold text-gray-300">{label}</span>
           {showPercentage && (
-            <span className="text-sm font-semibold text-gray-900">
+            <span className="text-base font-bold text-white">
               {validPercentage}%
             </span>
           )}
         </div>
       )}
 
-      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+      <div className="w-full bg-gray-700/50 rounded-full h-4 overflow-hidden border border-gray-700">
         <div
-          className={`h-full transition-all duration-500 ease-out ${getColor()}`}
-          style={{ width: `${validPercentage}%` }}
+          className="h-full transition-all duration-700 ease-out rounded-full shadow-lg"
+          style={getBarStyle()}
         />
       </div>
     </div>

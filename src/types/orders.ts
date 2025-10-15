@@ -22,14 +22,14 @@ export interface CartItem {
   updated_at: string;
   // Populated from joins
   product_name?: string;
-  product_price_cents?: number;
+  product_price_clp?: number;
   product_images?: string[];
-  line_total_cents?: number;
+  line_total_clp?: number;
 }
 
 export interface CartWithItems extends Cart {
   items: CartItem[];
-  total_cents: number;
+  total_clp: number;
   total_items: number;
 }
 
@@ -39,8 +39,8 @@ export interface Order {
   team_id: string | null;
   status: OrderStatus;
   currency: string;
-  subtotal_cents: number;
-  total_cents: number;
+  subtotal_clp: number;
+  total_clp: number;
   notes: string | null;
   created_at: string;
 }
@@ -50,9 +50,9 @@ export interface OrderItem {
   order_id: string;
   product_id: string;
   name: string; // Snapshot
-  unit_price_cents: number;
+  unit_price_clp: number;
   quantity: number;
-  line_total_cents: number;
+  line_total_clp: number;
 }
 
 export interface OrderWithItems extends Order {
@@ -114,24 +114,26 @@ export const ordersQuerySchema = z.object({
 });
 
 // Currency formatting utility
-export function formatCurrency(cents: number, currency: string = 'CLP'): string {
-  const amount = cents / 100;
-
+// NOTE: Chilean Pesos (CLP) don't have cents, so amounts are stored as full pesos
+export function formatCurrency(clp: number, currency: string = 'CLP'): string {
   switch (currency) {
     case 'CLP':
+      // CLP is stored as full pesos - no division needed
       return new Intl.NumberFormat('es-CL', {
         style: 'currency',
         currency: 'CLP',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
-      }).format(amount);
+      }).format(clp);
     case 'USD':
+      // USD has cents - divide by 100
+      const usdAmount = clp / 100;
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'USD'
-      }).format(amount);
+      }).format(usdAmount);
     default:
-      return `${currency} ${amount.toFixed(2)}`;
+      return `${currency} ${clp.toFixed(2)}`;
   }
 }
 

@@ -113,48 +113,54 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
   }
 
   return (
-    <div className="max-w-md mx-auto p-4 border rounded-lg">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">
+    <div className="relative max-w-md mx-auto p-6 bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-2xl overflow-hidden group">
+      {/* Glass shine effect */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+
+      <div className="flex items-center justify-between mb-6 relative">
+        <h2 className="text-lg font-semibold text-white">
           {mode === 'password' ? 'Login with Email & Password' : 'Login with Magic Link'}
         </h2>
         <button
           type="button"
           onClick={() => setMode(m => (m === 'password' ? 'magic' : 'password'))}
-          className="text-sm underline"
+          className="text-sm text-[#e21c21] hover:text-white transition-colors underline"
+          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
         >
           {mode === 'password' ? 'Use magic link' : 'Use password'}
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-4 relative">
         <label className="block">
-          <span className="text-sm">Email</span>
+          <span className="text-sm text-gray-300 font-medium">Email</span>
           <input
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
-            className="mt-1 w-full border rounded px-3 py-2"
+            className="mt-2 w-full bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-[#e21c21]/50 focus:outline-none focus:ring-2 focus:ring-[#e21c21]/30 transition-all backdrop-blur-sm"
             placeholder="you@example.com"
             autoComplete="email"
+            style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
           />
         </label>
 
         {mode === 'password' && (
           <label className="block">
-            <span className="text-sm">Password</span>
+            <span className="text-sm text-gray-300 font-medium">Password</span>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
               minLength={8}
-              className="mt-1 w-full border rounded px-3 py-2"
+              className="mt-2 w-full bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-[#e21c21]/50 focus:outline-none focus:ring-2 focus:ring-[#e21c21]/30 transition-all backdrop-blur-sm"
               placeholder="Your password"
               autoComplete="current-password"
+              style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
             />
-            <a href="/auth/forgot-password" className="text-xs underline mt-1 inline-block">
+            <a href="/auth/forgot-password" className="text-xs text-gray-400 hover:text-[#e21c21] underline mt-2 inline-block transition-colors" style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}>
               Forgot password?
             </a>
           </label>
@@ -164,17 +170,21 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
           type="submit"
           disabled={!canSubmit || loading}
           aria-busy={loading}
-          className="w-full py-2 rounded bg-black text-white disabled:opacity-50"
+          className="relative w-full py-3 rounded-lg bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white font-semibold transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden group"
+          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
         >
-          {loading && <Spinner />}
-          {loading ? 'Please wait…' : mode === 'password' ? 'Log in' : 'Send magic link'}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+          <span className="relative">
+            {loading && <Spinner />}
+            {loading ? 'Please wait…' : mode === 'password' ? 'Log in' : 'Send magic link'}
+          </span>
         </button>
 
         {errorMsg && (
           <p
             ref={errorRef}
             tabIndex={-1}
-            className="text-sm text-red-600"
+            className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 backdrop-blur-sm"
             aria-live="assertive"
           >
             {errorMsg}
@@ -184,7 +194,7 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
           <p
             ref={successRef}
             tabIndex={-1}
-            className="text-sm text-green-700"
+            className="text-sm text-green-400 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2 backdrop-blur-sm"
             aria-live="polite"
           >
             {successMsg}
@@ -192,7 +202,7 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
         )}
       </form>
 
-      <p className="text-xs text-gray-600 mt-3">
+      <p className="text-xs text-gray-400 mt-4 relative">
         New here? You can register with a password or use a magic link during signup.
       </p>
     </div>

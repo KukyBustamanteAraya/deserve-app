@@ -10,10 +10,11 @@ const UpdateProductSchema = z.object({
   category: z.string().optional(),                 // Product category
   name: z.string().min(1).max(255).optional(),
   slug: z.string().min(1).max(255).optional(),
-  price_cents: z.number().int().min(0).optional(), // Price in cents (snake_case to match form)
+  price_clp: z.number().int().min(0).optional(), // Price in CLP (full pesos, not cents)
   description: z.string().optional(),
   status: z.enum(['draft', 'active', 'archived']).optional(), // Status enum (to match form)
   product_type_slug: z.string().optional(),        // Product type slug
+  icon_url: z.string().optional(),                 // Product icon URL for selection grids
 });
 
 export async function PATCH(
@@ -64,10 +65,11 @@ export async function PATCH(
     if (validatedData.category) updateData.category = validatedData.category;
     if (validatedData.name) updateData.name = validatedData.name;
     if (validatedData.slug) updateData.slug = validatedData.slug;
-    if (validatedData.price_cents !== undefined) updateData.price_cents = validatedData.price_cents;
+    if (validatedData.price_clp !== undefined) updateData.price_clp = validatedData.price_clp;
     if (validatedData.description !== undefined) updateData.description = validatedData.description;
     if (validatedData.status !== undefined) updateData.status = validatedData.status;
     if (validatedData.product_type_slug) updateData.product_type_slug = validatedData.product_type_slug;
+    if (validatedData.icon_url !== undefined) updateData.icon_url = validatedData.icon_url;
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
@@ -87,9 +89,10 @@ export async function PATCH(
         slug,
         name,
         description,
-        price_cents,
+        price_clp,
         status,
         product_type_slug,
+        icon_url,
         created_at,
         updated_at
       `)

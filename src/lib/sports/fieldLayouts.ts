@@ -41,17 +41,20 @@ export const soccerLayout: FieldLayout = {
   ],
 };
 
-// Basketball - Horizontal orientation
+// Basketball - NBA Half-court (50ft wide × 43ft deep)
 export const basketballLayout: FieldLayout = {
   sport: 'basketball',
-  fieldType: 'horizontal',
-  aspectRatio: '16/9',
+  fieldType: 'vertical',
+  aspectRatio: '56/49', // Matches viewBox with padding (50+6)/(43+6) for narrower glass card
   positions: [
-    { name: 'Point Guard', x: 30, y: 50, abbr: 'PG' },
-    { name: 'Shooting Guard', x: 50, y: 30, abbr: 'SG' },
-    { name: 'Small Forward', x: 65, y: 50, abbr: 'SF' },
-    { name: 'Power Forward', x: 75, y: 35, abbr: 'PF' },
-    { name: 'Center', x: 80, y: 50, abbr: 'C' },
+    // NOTE: With narrower glass card (maxWidth: 320px), x-coordinates need wider spread
+    // These x-coordinates are adjusted to position players evenly across the court width
+    // Power Forward is positioned higher up on the court
+    { name: 'Point Guard', x: 60, y: 78, abbr: 'PG' },       // Mid-court, slightly lower and left
+    { name: 'Shooting Guard', x: 23, y: 67, abbr: 'SG' },    // Mid left, slightly lower
+    { name: 'Small Forward', x: 85, y: 45, abbr: 'SF' },     // Right side, higher up
+    { name: 'Power Forward', x: 15, y: 25, abbr: 'PF' },     // High left - near basket
+    { name: 'Center', x: 70, y: 22, abbr: 'C' },             // High right, near basket
   ],
 };
 

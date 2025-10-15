@@ -57,26 +57,27 @@ export default function ProfileForm({ user, profile }: ProfileFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6 relative">
       {/* Read-only user info */}
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <h3 className="font-medium text-gray-900 mb-3">Account Information</h3>
-        <div className="space-y-2 text-sm">
+      <div className="relative bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 backdrop-blur-sm p-4 rounded-lg border border-gray-700 overflow-hidden group/info">
+        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/info:opacity-100 transition-opacity pointer-events-none"></div>
+        <h3 className="font-medium text-white mb-3 relative">Account Information</h3>
+        <div className="space-y-2 text-sm relative">
           <div>
-            <span className="font-medium text-gray-700">Email:</span>
-            <span className="ml-2 text-gray-600">{user.email}</span>
+            <span className="font-medium text-white">Email:</span>
+            <span className="ml-2 text-gray-300">{user.email}</span>
           </div>
           <div>
-            <span className="font-medium text-gray-700">User ID:</span>
-            <span className="ml-2 text-gray-600">{user.id}</span>
+            <span className="font-medium text-white">User ID:</span>
+            <span className="ml-2 text-gray-300">{user.id}</span>
           </div>
           <div>
-            <span className="font-medium text-gray-700">Role:</span>
+            <span className="font-medium text-white">Role:</span>
             <span className="ml-2">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium backdrop-blur-sm ${
                 profile.role === 'admin'
-                  ? 'bg-red-100 text-red-800'
-                  : 'bg-blue-100 text-blue-800'
+                  ? 'bg-[#e21c21]/20 text-[#e21c21] border border-[#e21c21]/50'
+                  : 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
               }`}>
                 {profile.role}
               </span>
@@ -86,62 +87,76 @@ export default function ProfileForm({ user, profile }: ProfileFormProps) {
       </div>
 
       {/* Editable fields */}
-      <div>
-        <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1">
+      <div className="relative">
+        <label htmlFor="full_name" className="block text-sm font-medium text-white mb-1">
           Full Name
         </label>
-        <input
-          type="text"
-          id="full_name"
-          name="full_name"
-          value={formData.full_name}
-          onChange={handleChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          placeholder="Your full name"
-        />
+        <div className="relative overflow-hidden rounded-md group/input">
+          <div className="absolute inset-0 rounded-md bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/input:opacity-100 transition-opacity pointer-events-none"></div>
+          <input
+            type="text"
+            id="full_name"
+            name="full_name"
+            value={formData.full_name}
+            onChange={handleChange}
+            className="relative w-full px-3 py-2 bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-md shadow-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e21c21]/50 focus:border-[#e21c21]/50 transition-all"
+            style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+            placeholder="Your full name"
+          />
+        </div>
       </div>
 
-      <div>
-        <label htmlFor="avatar_url" className="block text-sm font-medium text-gray-700 mb-1">
+      <div className="relative">
+        <label htmlFor="avatar_url" className="block text-sm font-medium text-white mb-1">
           Avatar URL
         </label>
-        <input
-          type="url"
-          id="avatar_url"
-          name="avatar_url"
-          value={formData.avatar_url}
-          onChange={handleChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          placeholder="https://example.com/avatar.jpg"
-        />
+        <div className="relative overflow-hidden rounded-md group/input">
+          <div className="absolute inset-0 rounded-md bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/input:opacity-100 transition-opacity pointer-events-none"></div>
+          <input
+            type="url"
+            id="avatar_url"
+            name="avatar_url"
+            value={formData.avatar_url}
+            onChange={handleChange}
+            className="relative w-full px-3 py-2 bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-md shadow-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e21c21]/50 focus:border-[#e21c21]/50 transition-all"
+            style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+            placeholder="https://example.com/avatar.jpg"
+          />
+        </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-3">
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="relative bg-gradient-to-br from-red-900/30 via-red-800/20 to-red-900/30 backdrop-blur-sm border border-red-500/50 rounded-md p-3 overflow-hidden group/error">
+          <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover/error:opacity-100 transition-opacity pointer-events-none"></div>
+          <p className="text-sm text-red-400 relative">{error}</p>
         </div>
       )}
 
       {success && (
-        <div className="bg-green-50 border border-green-200 rounded-md p-3">
-          <p className="text-sm text-green-600">Profile updated successfully!</p>
+        <div className="relative bg-gradient-to-br from-green-900/30 via-green-800/20 to-green-900/30 backdrop-blur-sm border border-green-500/50 rounded-md p-3 overflow-hidden group/success">
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent opacity-0 group-hover/success:opacity-100 transition-opacity pointer-events-none"></div>
+          <p className="text-sm text-green-400 relative">Profile updated successfully!</p>
         </div>
       )}
 
-      <div className="flex justify-end space-x-3">
+      <div className="flex justify-end space-x-3 relative">
         <button
           type="button"
           onClick={() => router.push('/dashboard')}
-          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+          className="relative px-4 py-2 bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md text-gray-300 hover:text-white rounded-md border border-gray-700 hover:border-[#e21c21]/50 font-medium text-sm transition-all shadow-lg overflow-hidden group/cancel"
+          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
         >
-          Cancel
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/cancel:opacity-100 transition-opacity pointer-events-none"></div>
+          <span className="relative">Cancel</span>
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="relative px-4 py-2 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-md font-medium text-sm transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group/submit disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
         >
-          {loading ? 'Saving...' : 'Save Changes'}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/submit:opacity-100 transition-opacity pointer-events-none"></div>
+          <span className="relative">{loading ? 'Saving...' : 'Save Changes'}</span>
         </button>
       </div>
     </form>

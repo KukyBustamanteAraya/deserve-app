@@ -4,24 +4,89 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTeamDesignRequest } from '@/hooks/useTeamDesignRequest';
 
+interface ColorConfiguration {
+  primary: string;
+  secondary: string;
+  tertiary: string;
+}
+
+interface ProductColorState {
+  includeHome: boolean;
+  includeAway: boolean;
+  homeColors: ColorConfiguration;
+  awayColors: ColorConfiguration;
+}
+
 export default function ColorCustomizationPage({ params }: { params: { slug: string } }) {
   const router = useRouter();
   const {
     teamColors,
-    customColors,
-    setCustomColors,
-    selectedProductName,
+    selectedProducts,
     teamSlug,
+    setProductColorOptions,
   } = useTeamDesignRequest();
 
-  const [colors, setColors] = useState(customColors);
+  const [currentProductIndex, setCurrentProductIndex] = useState(0);
+  const [productColorStates, setProductColorStates] = useState<Record<string, ProductColorState>>({});
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Redirect if no product selected
+  // Initialize color states for all products
   useEffect(() => {
-    if (!selectedProductName) {
+    console.log('[Customize Page] Initializing...', {
+      hasTeamColors: !!teamColors,
+      teamColors: teamColors,
+      teamColorsPrimary: teamColors?.primary,
+      selectedProductsCount: selectedProducts.length,
+      selectedProducts: selectedProducts,
+    });
+
+    // Only initialize if we have valid team colors and products
+    if (!teamColors || !teamColors.primary || selectedProducts.length === 0) {
+      console.log('[Customize Page] Missing requirements, not initializing', {
+        hasTeamColors: !!teamColors,
+        hasPrimary: !!teamColors?.primary,
+        hasProducts: selectedProducts.length > 0,
+      });
+      setIsInitialized(false);
+      return;
+    }
+
+    const initialStates: Record<string, ProductColorState> = {};
+    selectedProducts.forEach(product => {
+      if (product.colorOptions) {
+        // Use existing color options if available
+        console.log(`[Customize Page] Using existing colors for ${product.name}`);
+        initialStates[product.id] = product.colorOptions;
+      } else {
+        // Default: include home with team colors, suggest away colors
+        console.log(`[Customize Page] Initializing default colors for ${product.name}`);
+        initialStates[product.id] = {
+          includeHome: true,
+          includeAway: false,
+          homeColors: {
+            primary: teamColors.primary,
+            secondary: teamColors.secondary,
+            tertiary: teamColors.tertiary,
+          },
+          awayColors: {
+            primary: teamColors.secondary,
+            secondary: teamColors.primary,
+            tertiary: teamColors.tertiary,
+          },
+        };
+      }
+    });
+    console.log('[Customize Page] Initialization complete', initialStates);
+    setProductColorStates(initialStates);
+    setIsInitialized(true);
+  }, [selectedProducts, teamColors]);
+
+  // Redirect if no products selected
+  useEffect(() => {
+    if (selectedProducts.length === 0) {
       router.push(`/mi-equipo/${params.slug}/design-request/new`);
     }
-  }, [selectedProductName, params.slug, router]);
+  }, [selectedProducts, params.slug, router]);
 
   // Validate team slug matches
   useEffect(() => {
@@ -30,12 +95,58 @@ export default function ColorCustomizationPage({ params }: { params: { slug: str
     }
   }, [teamSlug, params.slug, router]);
 
-  const handleColorChange = (colorType: 'primary' | 'secondary' | 'tertiary', value: string) => {
-    setColors({ ...colors, [colorType]: value });
+  const currentProduct = selectedProducts[currentProductIndex];
+  const currentColorState = productColorStates[currentProduct?.id];
+
+  const handleColorChange = (
+    variant: 'home' | 'away',
+    colorType: 'primary' | 'secondary' | 'tertiary',
+    value: string
+  ) => {
+    if (!currentProduct) return;
+
+    setProductColorStates(prev => ({
+      ...prev,
+      [currentProduct.id]: {
+        ...prev[currentProduct.id],
+        [variant === 'home' ? 'homeColors' : 'awayColors']: {
+          ...prev[currentProduct.id][variant === 'home' ? 'homeColors' : 'awayColors'],
+          [colorType]: value,
+        },
+      },
+    }));
   };
 
-  const handleResetToTeamColors = () => {
-    setColors(teamColors);
+  const handleToggleVariant = (variant: 'home' | 'away') => {
+    if (!currentProduct) return;
+
+    setProductColorStates(prev => ({
+      ...prev,
+      [currentProduct.id]: {
+        ...prev[currentProduct.id],
+        [variant === 'home' ? 'includeHome' : 'includeAway']: !prev[currentProduct.id][variant === 'home' ? 'includeHome' : 'includeAway'],
+      },
+    }));
+  };
+
+  const handleResetColors = (variant: 'home' | 'away') => {
+    if (!currentProduct) return;
+
+    const resetColors = variant === 'home'
+      ? teamColors
+      : {
+          primary: teamColors.secondary,
+          secondary: teamColors.primary,
+          tertiary: teamColors.tertiary,
+        };
+
+    setProductColorStates(prev => ({
+      ...prev,
+      [currentProduct.id]: {
+        ...prev[currentProduct.id],
+        [variant === 'home' ? 'homeColors' : 'awayColors']: resetColors,
+      },
+    }));
   };
 
   const handleBack = () => {
@@ -43,249 +154,347 @@ export default function ColorCustomizationPage({ params }: { params: { slug: str
   };
 
   const handleContinue = () => {
-    setCustomColors(colors);
+    // Save all color options
+    Object.entries(productColorStates).forEach(([productId, colorState]) => {
+      setProductColorOptions(productId, colorState);
+    });
     router.push(`/mi-equipo/${params.slug}/design-request/details`);
   };
 
-  if (!selectedProductName) {
-    return null; // Will redirect
+  // Show loading state while initializing
+  if (!isInitialized || selectedProducts.length === 0 || !currentColorState) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-300">Cargando configuración de colores...</p>
+        </div>
+      </div>
+    );
   }
 
+  const canContinue = Object.values(productColorStates).every(
+    state => state.includeHome || state.includeAway
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
       {/* Header */}
-      <div
-        className="relative overflow-hidden"
-        style={{
-          background: `linear-gradient(135deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
-        }}
-      >
-        <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="relative overflow-hidden bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border-b border-gray-700">
+        <div className="max-w-7xl mx-auto px-6 py-4">
           <button
             onClick={() => router.push(`/mi-equipo/${params.slug}`)}
-            className="mb-4 text-white/90 hover:text-white font-medium flex items-center gap-2"
+            className="mb-3 text-gray-300 hover:text-white font-medium flex items-center gap-2 transition-colors text-sm"
           >
-            ← Volver al equipo
+            ← Volver
           </button>
 
           <div>
-            <div className="inline-block px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm text-white/90 mb-3">
-              🎨 Nueva Solicitud de Diseño
+            <div className="inline-block px-2 py-0.5 bg-white/10 backdrop-blur-sm rounded-full text-xs text-gray-400 mb-2">
+              Paso 3 de 7
             </div>
-            <h1 className="text-4xl font-bold text-white mb-2">Paso 2: Personaliza los Colores</h1>
-            <p className="text-white/80 text-lg">{selectedProductName}</p>
+            <h1 className="text-2xl font-bold text-white mb-1">Personaliza los Colores</h1>
+            <p className="text-gray-300 text-sm">
+              Elige colores para casa y visitante para cada producto
+            </p>
           </div>
         </div>
       </div>
 
       {/* Progress Bar */}
-      <div className="bg-white border-b">
-        <div className="max-w-5xl mx-auto px-6 py-4">
+      <div className="bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border-b border-gray-700">
+        <div className="max-w-7xl mx-auto px-6 py-2">
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 bg-blue-600 rounded-full"></div>
-            <div className="flex-1 h-2 bg-blue-600 rounded-full"></div>
-            <div className="flex-1 h-2 bg-blue-600 rounded-full"></div>
-            <div className="flex-1 h-2 bg-gray-200 rounded-full"></div>
-            <div className="flex-1 h-2 bg-gray-200 rounded-full"></div>
-            <div className="flex-1 h-2 bg-gray-200 rounded-full"></div>
-            <div className="flex-1 h-2 bg-gray-200 rounded-full"></div>
-          </div>
-          <div className="flex justify-between mt-2 text-xs text-gray-600">
-            <span>Producto</span>
-            <span>Diseño</span>
-            <span className="font-semibold text-blue-600">Colores</span>
-            <span>Detalles</span>
-            <span>Logo</span>
-            <span>Nombres</span>
-            <span>Revisar</span>
+            <div className="flex-1 h-1.5 bg-blue-600 rounded-full"></div>
+            <div className="flex-1 h-1.5 bg-blue-600 rounded-full"></div>
+            <div className="flex-1 h-1.5 bg-blue-600 rounded-full"></div>
+            <div className="flex-1 h-1.5 bg-gray-700 rounded-full"></div>
+            <div className="flex-1 h-1.5 bg-gray-700 rounded-full"></div>
+            <div className="flex-1 h-1.5 bg-gray-700 rounded-full"></div>
+            <div className="flex-1 h-1.5 bg-gray-700 rounded-full"></div>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Color Pickers */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Elige tus colores</h2>
-              <p className="text-gray-600">
-                Personaliza los colores de tu {selectedProductName.toLowerCase()}. Los colores de tu equipo ya están pre-seleccionados, pero puedes cambiarlos si lo deseas.
-              </p>
-            </div>
-
-            {/* Primary Color */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Color Primario
-              </label>
-              <div className="flex items-center gap-4">
-                <input
-                  type="color"
-                  value={colors.primary}
-                  onChange={(e) => handleColorChange('primary', e.target.value)}
-                  className="w-20 h-20 rounded-lg border-2 border-gray-300 cursor-pointer"
-                />
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    value={colors.primary}
-                    onChange={(e) => handleColorChange('primary', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg font-mono text-sm uppercase"
-                    placeholder="#000000"
-                    pattern="^#[0-9A-Fa-f]{6}$"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">El color principal de tu diseño</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Secondary Color */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Color Secundario
-              </label>
-              <div className="flex items-center gap-4">
-                <input
-                  type="color"
-                  value={colors.secondary}
-                  onChange={(e) => handleColorChange('secondary', e.target.value)}
-                  className="w-20 h-20 rounded-lg border-2 border-gray-300 cursor-pointer"
-                />
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    value={colors.secondary}
-                    onChange={(e) => handleColorChange('secondary', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg font-mono text-sm uppercase"
-                    placeholder="#000000"
-                    pattern="^#[0-9A-Fa-f]{6}$"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Color de acento o detalles</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Tertiary Color */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Color Terciario
-              </label>
-              <div className="flex items-center gap-4">
-                <input
-                  type="color"
-                  value={colors.tertiary}
-                  onChange={(e) => handleColorChange('tertiary', e.target.value)}
-                  className="w-20 h-20 rounded-lg border-2 border-gray-300 cursor-pointer"
-                />
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    value={colors.tertiary}
-                    onChange={(e) => handleColorChange('tertiary', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg font-mono text-sm uppercase"
-                    placeholder="#000000"
-                    pattern="^#[0-9A-Fa-f]{6}$"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Color adicional para contraste</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Reset Button */}
-            <button
-              onClick={handleResetToTeamColors}
-              className="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium flex items-center justify-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Usar Colores del Equipo
-            </button>
-          </div>
-
-          {/* Preview */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Vista Previa</h2>
-
-            {/* Color Palette Preview */}
-            <div className="mb-6">
-              <p className="text-sm text-gray-600 mb-3">Tu paleta de colores:</p>
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <div
-                    className="w-full h-24 rounded-lg border-2 border-gray-300 mb-2"
-                    style={{ backgroundColor: colors.primary }}
-                  ></div>
-                  <p className="text-xs text-gray-600 text-center font-mono">{colors.primary}</p>
-                  <p className="text-xs text-gray-500 text-center">Primario</p>
-                </div>
-                <div className="flex-1">
-                  <div
-                    className="w-full h-24 rounded-lg border-2 border-gray-300 mb-2"
-                    style={{ backgroundColor: colors.secondary }}
-                  ></div>
-                  <p className="text-xs text-gray-600 text-center font-mono">{colors.secondary}</p>
-                  <p className="text-xs text-gray-500 text-center">Secundario</p>
-                </div>
-                <div className="flex-1">
-                  <div
-                    className="w-full h-24 rounded-lg border-2 border-gray-300 mb-2"
-                    style={{ backgroundColor: colors.tertiary }}
-                  ></div>
-                  <p className="text-xs text-gray-600 text-center font-mono">{colors.tertiary}</p>
-                  <p className="text-xs text-gray-500 text-center">Terciario</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Simple Mockup Preview */}
-            <div className="bg-gray-100 rounded-lg p-8 flex items-center justify-center">
-              <div className="text-center">
-                <div
-                  className="w-48 h-48 rounded-lg shadow-lg mx-auto mb-4 flex items-center justify-center"
-                  style={{
-                    background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
-                  }}
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        {/* Product Tabs */}
+        {selectedProducts.length > 1 && (
+          <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+            {selectedProducts.map((product, index) => {
+              const productState = productColorStates[product.id];
+              const variantCount = (productState?.includeHome ? 1 : 0) + (productState?.includeAway ? 1 : 0);
+              return (
+                <button
+                  key={product.id}
+                  onClick={() => setCurrentProductIndex(index)}
+                  className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    currentProductIndex === index
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700'
+                  }`}
                 >
-                  <div
-                    className="w-24 h-24 rounded-full flex items-center justify-center text-4xl font-bold"
-                    style={{ backgroundColor: colors.tertiary, color: colors.primary }}
+                  {product.name}
+                  {variantCount > 0 && (
+                    <span className="ml-2 text-xs">({variantCount} variant{variantCount !== 1 ? 'es' : ''})</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Info Banner */}
+        <div className="mb-6 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+          <p className="text-sm text-gray-300">
+            <strong>{currentProduct.name}:</strong> Selecciona si quieres crear versión de casa, visitante, o ambas. Los colores de visitante usan tu secundario como principal.
+          </p>
+        </div>
+
+        {/* Dual Column Layout */}
+        <div className="grid grid-cols-2 gap-3 md:gap-6">
+          {/* Home Colors */}
+          <div className={`relative group bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border-2 rounded-lg shadow-sm p-3 md:p-4 transition-all ${
+            currentColorState.includeHome
+              ? 'border-blue-500 ring-2 ring-blue-500/50'
+              : 'border-gray-700'
+          }`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-lg"></div>
+            <div className="relative">
+              {/* Header with Checkbox */}
+              <div className="flex items-center justify-between mb-3 md:mb-4">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <button
+                    onClick={() => handleToggleVariant('home')}
+                    className={`w-5 h-5 md:w-6 md:h-6 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 ${
+                      currentColorState.includeHome
+                        ? 'bg-blue-600 border-blue-600'
+                        : 'border-gray-600'
+                    }`}
                   >
-                    👕
+                    {currentColorState.includeHome && (
+                      <svg className="w-3 h-3 md:w-4 md:h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                  <div>
+                    <h2 className="text-sm md:text-lg font-bold text-white">🏠 Casa</h2>
+                    <p className="text-xs text-gray-400 hidden md:block">Colores principales del equipo</p>
                   </div>
                 </div>
-                <p className="text-sm text-gray-600">
-                  Vista previa aproximada de tus colores
-                </p>
+              </div>
+
+              {/* Color Inputs */}
+              <div className={`space-y-3 ${!currentColorState.includeHome ? 'opacity-50 pointer-events-none' : ''}`}>
+                {/* Primary */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1.5">Primario</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={currentColorState.homeColors.primary}
+                      onChange={(e) => handleColorChange('home', 'primary', e.target.value)}
+                      className="w-12 h-12 rounded border border-gray-600 cursor-pointer bg-gray-800"
+                    />
+                    <input
+                      type="text"
+                      value={currentColorState.homeColors.primary}
+                      onChange={(e) => handleColorChange('home', 'primary', e.target.value)}
+                      className="flex-1 px-3 py-1.5 border border-gray-600 bg-gray-800/50 text-white rounded font-mono text-xs uppercase"
+                      placeholder="#000000"
+                    />
+                  </div>
+                </div>
+
+                {/* Secondary */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1.5">Secundario</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={currentColorState.homeColors.secondary}
+                      onChange={(e) => handleColorChange('home', 'secondary', e.target.value)}
+                      className="w-12 h-12 rounded border border-gray-600 cursor-pointer bg-gray-800"
+                    />
+                    <input
+                      type="text"
+                      value={currentColorState.homeColors.secondary}
+                      onChange={(e) => handleColorChange('home', 'secondary', e.target.value)}
+                      className="flex-1 px-3 py-1.5 border border-gray-600 bg-gray-800/50 text-white rounded font-mono text-xs uppercase"
+                      placeholder="#000000"
+                    />
+                  </div>
+                </div>
+
+                {/* Tertiary */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1.5">Terciario</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={currentColorState.homeColors.tertiary}
+                      onChange={(e) => handleColorChange('home', 'tertiary', e.target.value)}
+                      className="w-12 h-12 rounded border border-gray-600 cursor-pointer bg-gray-800"
+                    />
+                    <input
+                      type="text"
+                      value={currentColorState.homeColors.tertiary}
+                      onChange={(e) => handleColorChange('home', 'tertiary', e.target.value)}
+                      className="flex-1 px-3 py-1.5 border border-gray-600 bg-gray-800/50 text-white rounded font-mono text-xs uppercase"
+                      placeholder="#000000"
+                    />
+                  </div>
+                </div>
+
+                {/* Reset Button */}
+                <button
+                  onClick={() => handleResetColors('home')}
+                  className="w-full px-3 py-2 bg-gray-700 text-gray-200 text-sm rounded-lg hover:bg-gray-600 font-medium flex items-center justify-center gap-2 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Restaurar Colores del Equipo
+                </button>
               </div>
             </div>
+          </div>
 
-            {/* Info Box */}
-            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <span className="text-xl">💡</span>
-                <div>
-                  <p className="text-sm text-gray-700">
-                    <strong>Nota:</strong> Esta es solo una vista previa aproximada. Nuestro equipo de diseño creará un mockup detallado con tus colores y te lo enviará para revisión.
-                  </p>
+          {/* Away Colors */}
+          <div className={`relative group bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border-2 rounded-lg shadow-sm p-3 md:p-4 transition-all ${
+            currentColorState.includeAway
+              ? 'border-blue-500 ring-2 ring-blue-500/50'
+              : 'border-gray-700'
+          }`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-lg"></div>
+            <div className="relative">
+              {/* Header with Checkbox */}
+              <div className="flex items-center justify-between mb-3 md:mb-4">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <button
+                    onClick={() => handleToggleVariant('away')}
+                    className={`w-5 h-5 md:w-6 md:h-6 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 ${
+                      currentColorState.includeAway
+                        ? 'bg-blue-600 border-blue-600'
+                        : 'border-gray-600'
+                    }`}
+                  >
+                    {currentColorState.includeAway && (
+                      <svg className="w-3 h-3 md:w-4 md:h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                  <div>
+                    <h2 className="text-sm md:text-lg font-bold text-white">✈️ Visitante</h2>
+                    <p className="text-xs text-gray-400 hidden md:block">Colores invertidos sugeridos</p>
+                  </div>
                 </div>
+              </div>
+
+              {/* Color Inputs */}
+              <div className={`space-y-3 ${!currentColorState.includeAway ? 'opacity-50 pointer-events-none' : ''}`}>
+                {/* Primary */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1.5">Primario</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={currentColorState.awayColors.primary}
+                      onChange={(e) => handleColorChange('away', 'primary', e.target.value)}
+                      className="w-12 h-12 rounded border border-gray-600 cursor-pointer bg-gray-800"
+                    />
+                    <input
+                      type="text"
+                      value={currentColorState.awayColors.primary}
+                      onChange={(e) => handleColorChange('away', 'primary', e.target.value)}
+                      className="flex-1 px-3 py-1.5 border border-gray-600 bg-gray-800/50 text-white rounded font-mono text-xs uppercase"
+                      placeholder="#000000"
+                    />
+                  </div>
+                </div>
+
+                {/* Secondary */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1.5">Secundario</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={currentColorState.awayColors.secondary}
+                      onChange={(e) => handleColorChange('away', 'secondary', e.target.value)}
+                      className="w-12 h-12 rounded border border-gray-600 cursor-pointer bg-gray-800"
+                    />
+                    <input
+                      type="text"
+                      value={currentColorState.awayColors.secondary}
+                      onChange={(e) => handleColorChange('away', 'secondary', e.target.value)}
+                      className="flex-1 px-3 py-1.5 border border-gray-600 bg-gray-800/50 text-white rounded font-mono text-xs uppercase"
+                      placeholder="#000000"
+                    />
+                  </div>
+                </div>
+
+                {/* Tertiary */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1.5">Terciario</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={currentColorState.awayColors.tertiary}
+                      onChange={(e) => handleColorChange('away', 'tertiary', e.target.value)}
+                      className="w-12 h-12 rounded border border-gray-600 cursor-pointer bg-gray-800"
+                    />
+                    <input
+                      type="text"
+                      value={currentColorState.awayColors.tertiary}
+                      onChange={(e) => handleColorChange('away', 'tertiary', e.target.value)}
+                      className="flex-1 px-3 py-1.5 border border-gray-600 bg-gray-800/50 text-white rounded font-mono text-xs uppercase"
+                      placeholder="#000000"
+                    />
+                  </div>
+                </div>
+
+                {/* Reset Button */}
+                <button
+                  onClick={() => handleResetColors('away')}
+                  className="w-full px-3 py-2 bg-gray-700 text-gray-200 text-sm rounded-lg hover:bg-gray-600 font-medium flex items-center justify-center gap-2 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Restaurar Colores Sugeridos
+                </button>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Validation Message */}
+        {!canContinue && (
+          <div className="mt-6 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+            <p className="text-sm text-yellow-300">
+              ⚠️ Debes seleccionar al menos una variante (casa o visitante) para cada producto.
+            </p>
+          </div>
+        )}
+
         {/* Navigation Buttons */}
-        <div className="mt-8 flex items-center justify-between gap-4">
+        <div className="mt-6 flex items-center justify-between gap-4">
           <button
             onClick={handleBack}
-            className="px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+            className="px-4 py-2 text-sm bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md text-gray-200 border border-gray-700 rounded-lg hover:bg-gray-800 font-medium transition-colors"
           >
             ← Volver
           </button>
           <button
             onClick={handleContinue}
-            className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+            disabled={!canContinue}
+            className={`px-6 py-2.5 text-sm rounded-lg font-medium transition-colors ${
+              canContinue
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+            }`}
           >
             Continuar →
           </button>

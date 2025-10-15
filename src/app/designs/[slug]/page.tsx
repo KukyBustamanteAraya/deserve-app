@@ -1,8 +1,6 @@
 // Design Detail Page - Shows design with sport switcher
 // Example: /designs/elevate?sport=futbol
-import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
-import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
+import { notFound } from 'next/navigation';
 import { DesignDetailClient } from './DesignDetailClient';
 import { logger } from '@/lib/logger';
 
@@ -47,15 +45,7 @@ export default async function DesignDetailPage({ params, searchParams }: PagePro
   const { slug } = params;
   const { sport } = searchParams;
 
-  // Check authentication
-  const supabase = createSupabaseServer();
-  try {
-    await requireAuth(supabase);
-  } catch (error) {
-    redirect(`/login?redirect=/designs/${slug}${sport ? `?sport=${sport}` : ''}`);
-  }
-
-  // Fetch design data
+  // Fetch design data (no authentication required - catalog is public)
   const designData = await getDesignData(slug, sport);
 
   if (!designData) {
@@ -72,28 +62,8 @@ export default async function DesignDetailPage({ params, searchParams }: PagePro
   } = designData;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Breadcrumbs */}
-        <nav className="flex items-center gap-2 text-sm mb-6">
-          <Link href="/catalog" className="text-blue-400 hover:text-blue-300 transition-colors">
-            Catálogo
-          </Link>
-          {current_sport && (
-            <>
-              <span className="text-gray-500">/</span>
-              <Link
-                href={`/catalog/${current_sport.slug}`}
-                className="text-blue-400 hover:text-blue-300 transition-colors"
-              >
-                {current_sport.name}
-              </Link>
-            </>
-          )}
-          <span className="text-gray-500">/</span>
-          <span className="text-white">{design.name}</span>
-        </nav>
-
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-12">
         {/* Client component with sport switcher and design info */}
         <DesignDetailClient
           design={design}

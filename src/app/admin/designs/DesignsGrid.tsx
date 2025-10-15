@@ -38,6 +38,7 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
   const [featuredFilter, setFeaturedFilter] = useState(searchParams.get('featured') || 'all');
   const [sportFilter, setSportFilter] = useState(searchParams.get('sport') || 'all');
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'newest');
+  const [productTypeFilter, setProductTypeFilter] = useState(searchParams.get('product_type') || 'all');
   const [selectedDesigns, setSelectedDesigns] = useState<Set<string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [previewDesign, setPreviewDesign] = useState<Design | null>(null);
@@ -50,6 +51,14 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
       .flatMap((d) => d.available_sports || [])
       .filter((s): s is string => !!s);
     return Array.from(new Set(sports)).sort();
+  }, [designs]);
+
+  // Get unique product types from designs
+  const uniqueProductTypes = useMemo(() => {
+    const types = designs
+      .flatMap((d) => d.available_product_types || [])
+      .filter((t): t is string => !!t);
+    return Array.from(new Set(types)).sort();
   }, [designs]);
 
   // Filtered and sorted designs
@@ -87,6 +96,11 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
     // Sport filter
     if (sportFilter !== 'all') {
       filtered = filtered.filter((d) => d.available_sports?.includes(sportFilter));
+    }
+
+    // Product type filter
+    if (productTypeFilter !== 'all') {
+      filtered = filtered.filter((d) => d.available_product_types?.includes(productTypeFilter));
     }
 
     // Sorting
@@ -139,11 +153,12 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
     setStatusFilter('all');
     setFeaturedFilter('all');
     setSportFilter('all');
+    setProductTypeFilter('all');
     setSortBy('newest');
   };
 
   const hasActiveFilters =
-    searchQuery || statusFilter !== 'all' || featuredFilter !== 'all' || sportFilter !== 'all' || sortBy !== 'newest';
+    searchQuery || statusFilter !== 'all' || featuredFilter !== 'all' || sportFilter !== 'all' || productTypeFilter !== 'all' || sortBy !== 'newest';
 
   // Update URL params
   useEffect(() => {
@@ -152,11 +167,12 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
     if (statusFilter !== 'all') params.set('status', statusFilter);
     if (featuredFilter !== 'all') params.set('featured', featuredFilter);
     if (sportFilter !== 'all') params.set('sport', sportFilter);
+    if (productTypeFilter !== 'all') params.set('product_type', productTypeFilter);
     if (sortBy !== 'newest') params.set('sort', sortBy);
 
     const newUrl = params.toString() ? `?${params.toString()}` : '/admin/designs';
     router.replace(newUrl, { scroll: false });
-  }, [searchQuery, statusFilter, featuredFilter, sportFilter, sortBy, router]);
+  }, [searchQuery, statusFilter, featuredFilter, sportFilter, productTypeFilter, sortBy, router]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -313,312 +329,274 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Designs</h1>
-          <p className="text-gray-400 mt-1">Manage your design library</p>
-        </div>
-        <Link
-          href="/admin/designs/new"
-          className="px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 font-medium transition-all shadow-lg hover:shadow-pink-500/50 flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          New Design
-        </Link>
-      </div>
+    <div className="p-3 sm:p-4 md:p-6 max-w-7xl mx-auto">
 
       {/* Bulk Actions Bar */}
       {showBulkActions && (
-        <div className="bg-gradient-to-br from-pink-900 to-pink-800 border border-pink-500/50 rounded-xl p-4 mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="text-white font-medium">{selectedDesigns.size} selected</span>
+        <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-[#e21c21]/50 rounded-xl shadow-2xl p-3 sm:p-4 mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+          <div className="flex items-center gap-3 sm:gap-4 relative">
+            <span className="text-white font-medium text-sm sm:text-base">{selectedDesigns.size} selected</span>
             <button
               onClick={() => {
                 setSelectedDesigns(new Set());
                 setShowBulkActions(false);
               }}
-              className="text-pink-200 hover:text-white text-sm"
+              className="text-gray-300 hover:text-white text-xs sm:text-sm transition-colors"
             >
               Clear selection
             </button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative flex-wrap">
             <button
               onClick={handleBulkToggleFeatured}
-              className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium transition-colors"
+              className="relative px-4 py-2 bg-gradient-to-br from-yellow-500/90 via-yellow-600/80 to-yellow-700/90 backdrop-blur-md text-white rounded-lg text-sm font-semibold transition-all shadow-lg shadow-yellow-500/30 hover:shadow-yellow-500/50 border border-yellow-500/50 overflow-hidden group/btn"
+              style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
             >
-              Toggle Featured
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none"></div>
+              <span className="relative">Toggle Featured</span>
             </button>
             <button
               onClick={exportSelected}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              className="relative px-4 py-2 bg-gradient-to-br from-green-500/90 via-green-600/80 to-green-700/90 backdrop-blur-md text-white rounded-lg text-sm font-semibold transition-all shadow-lg shadow-green-500/30 hover:shadow-green-500/50 border border-green-500/50 overflow-hidden group/btn flex items-center gap-2"
+              style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none"></div>
+              <svg className="w-4 h-4 relative" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              Export CSV
+              <span className="relative">Export CSV</span>
             </button>
             <button
               onClick={handleBulkDelete}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              className="relative px-4 py-2 bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 backdrop-blur-md text-red-400 hover:text-red-300 rounded-lg border border-gray-700/50 hover:border-red-500/50 transition-all text-sm font-semibold overflow-hidden group/btn flex items-center gap-2"
+              style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none"></div>
+              <svg className="w-4 h-4 relative" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
-              Delete
+              <span className="relative">Delete</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-lg p-4">
-          <div className="text-sm text-gray-400">Total</div>
-          <div className="text-2xl font-bold text-white">{stats.total}</div>
-        </div>
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-green-500/30 rounded-lg p-4">
-          <div className="text-sm text-gray-400">Active</div>
-          <div className="text-2xl font-bold text-green-400">{stats.active}</div>
-        </div>
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-500/30 rounded-lg p-4">
-          <div className="text-sm text-gray-400">Inactive</div>
-          <div className="text-2xl font-bold text-gray-400">{stats.inactive}</div>
-        </div>
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-yellow-500/30 rounded-lg p-4">
-          <div className="text-sm text-gray-400">Featured</div>
-          <div className="text-2xl font-bold text-yellow-400">{stats.featured}</div>
-        </div>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-4 mb-6">
-        {/* Select All Checkbox */}
-        {filteredDesigns.length > 0 && (
-          <div className="mb-4 pb-4 border-b border-gray-700">
-            <label className="flex items-center gap-3 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={selectedDesigns.size === filteredDesigns.length && filteredDesigns.length > 0}
-                onChange={toggleSelectAll}
-                className="w-5 h-5 rounded border-gray-600 text-pink-600 focus:ring-2 focus:ring-pink-500 focus:ring-offset-0 bg-gray-700 cursor-pointer"
-              />
-              <span className="text-sm text-gray-300 group-hover:text-white">
-                Select all {filteredDesigns.length} design{filteredDesigns.length !== 1 ? 's' : ''}
-              </span>
-            </label>
-          </div>
-        )}
-
-        {/* Search Bar */}
-        <div className="mb-4">
-          <div className="relative">
+      {/* Minimal Search and Filters */}
+      <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-2xl p-3 sm:p-4 mb-3 sm:mb-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+          {/* Search Bar */}
+          <div className="flex-1 relative">
             <input
               type="text"
               placeholder="Search designs..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 pl-11 bg-gray-900 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 placeholder-gray-500"
+              className="w-full px-3 sm:px-4 py-2 pl-9 sm:pl-10 bg-black/50 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-[#e21c21]/50 focus:border-[#e21c21]/50 placeholder-gray-500 text-xs sm:text-sm"
             />
             <svg
-              className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2"
+              className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            {searchQuery && (
+          </div>
+
+          {/* Filters Row */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="flex-1 sm:flex-none px-2 sm:px-3 py-2 bg-black/50 border border-gray-700 text-white rounded-lg text-xs sm:text-sm"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Draft</option>
+            </select>
+
+            {/* Sport Filter */}
+            <select
+              value={sportFilter}
+              onChange={(e) => setSportFilter(e.target.value)}
+              className="flex-1 sm:flex-none px-2 sm:px-3 py-2 bg-black/50 border border-gray-700 text-white rounded-lg text-xs sm:text-sm"
+            >
+              <option value="all">All Sports</option>
+              {uniqueSports.map((sport) => (
+                <option key={sport} value={sport}>
+                  {sport.charAt(0).toUpperCase() + sport.slice(1)}
+                </option>
+              ))}
+            </select>
+
+            {/* Sort */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="flex-1 sm:flex-none px-2 sm:px-3 py-2 bg-black/50 border border-gray-700 text-white rounded-lg text-xs sm:text-sm"
+            >
+              <option value="newest">Newest</option>
+              <option value="name-asc">A-Z</option>
+              <option value="name-desc">Z-A</option>
+              <option value="featured">Featured</option>
+            </select>
+
+            {/* Clear Filters */}
+            {hasActiveFilters && (
               <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                onClick={clearFilters}
+                className="px-2 sm:px-3 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg border border-red-500/30 text-xs sm:text-sm font-medium whitespace-nowrap"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                Clear
               </button>
             )}
           </div>
         </div>
+      </div>
 
-        {/* Filters Row */}
-        <div className="flex flex-wrap gap-3 items-center">
-          {/* Status Filter */}
-          <div className="flex gap-2">
-            {['all', 'active', 'inactive'].map((status) => (
+      {/* Product Category Toggles and New Design Button */}
+      <div className="mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+          {/* Category Toggles */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <button
+              onClick={() => setProductTypeFilter('all')}
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+                productTypeFilter === 'all'
+                  ? 'bg-[#e21c21] text-white'
+                  : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700/50 border border-gray-700'
+              }`}
+            >
+              All
+            </button>
+            {uniqueProductTypes.map((type) => (
               <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize ${
-                  statusFilter === status
-                    ? 'bg-pink-600 text-white shadow-lg shadow-pink-500/50'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                key={type}
+                onClick={() => setProductTypeFilter(type)}
+                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium capitalize transition-all ${
+                  productTypeFilter === type
+                    ? 'bg-[#e21c21] text-white'
+                    : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700/50 border border-gray-700'
                 }`}
               >
-                {status}
+                {type}
               </button>
             ))}
           </div>
 
-          {/* Featured Filter */}
-          <select
-            value={featuredFilter}
-            onChange={(e) => setFeaturedFilter(e.target.value)}
-            className="px-4 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-pink-500 text-sm"
+          {/* New Design Button */}
+          <Link
+            href="/admin/designs/new"
+            className="px-3 sm:px-4 py-1.5 sm:py-2 bg-[#e21c21] text-white rounded-lg text-xs sm:text-sm font-medium transition-all hover:bg-[#c11a1e] flex items-center justify-center gap-2 whitespace-nowrap"
           >
-            <option value="all">All Designs</option>
-            <option value="featured">Featured Only</option>
-            <option value="not-featured">Not Featured</option>
-          </select>
-
-          {/* Sport Filter */}
-          <select
-            value={sportFilter}
-            onChange={(e) => setSportFilter(e.target.value)}
-            className="px-4 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-pink-500 text-sm"
-          >
-            <option value="all">All Sports</option>
-            {uniqueSports.map((sport) => (
-              <option key={sport} value={sport}>
-                {getSportIcon(sport)} {sport.charAt(0).toUpperCase() + sport.slice(1)}
-              </option>
-            ))}
-          </select>
-
-          {/* Sort */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="px-4 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-pink-500 text-sm"
-          >
-            <option value="newest">Newest First</option>
-            <option value="name-asc">Name (A-Z)</option>
-            <option value="name-desc">Name (Z-A)</option>
-            <option value="featured">Featured First</option>
-          </select>
-
-          {/* Clear Filters */}
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Clear Filters
-            </button>
-          )}
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            New Design
+          </Link>
         </div>
       </div>
 
       {/* Results count and View Toggle */}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-400">
-            Showing {filteredDesigns.length} of {designs.length} design{designs.length !== 1 ? 's' : ''}
-          </div>
-
-          {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-gray-800 border border-gray-700 rounded-lg p-1">
-            <button
-              onClick={toggleViewMode}
-              className={`p-2 rounded transition-colors ${
-                viewMode === 'grid' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'
-              }`}
-              title="Grid view"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-              </svg>
-            </button>
-            <button
-              onClick={toggleViewMode}
-              className={`p-2 rounded transition-colors ${
-                viewMode === 'list' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'
-              }`}
-              title="List view"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-          </div>
+      <div className="mb-4 sm:mb-6 flex items-center justify-between">
+        <div className="text-xs sm:text-sm text-gray-400">
+          Showing {filteredDesigns.length} of {designs.length} design{designs.length !== 1 ? 's' : ''}
         </div>
 
-        <div className="flex items-center gap-4 text-xs text-gray-500">
-          <div className="flex items-center gap-1">
-            <kbd className="px-2 py-1 bg-gray-800 border border-gray-600 rounded text-gray-400">⌘/Ctrl</kbd>
-            <span>+</span>
-            <kbd className="px-2 py-1 bg-gray-800 border border-gray-600 rounded text-gray-400">F</kbd>
-            <span className="ml-1">Search</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <kbd className="px-2 py-1 bg-gray-800 border border-gray-600 rounded text-gray-400">Esc</kbd>
-            <span className="ml-1">Clear</span>
-          </div>
+        {/* View Toggle */}
+        <div className="flex items-center gap-0.5 sm:gap-1 bg-gray-800/50 border border-gray-700 rounded-lg p-0.5 sm:p-1">
+          <button
+            onClick={toggleViewMode}
+            className={`p-1.5 sm:p-2 rounded transition-all ${
+              viewMode === 'grid' ? 'bg-[#e21c21] text-white' : 'text-gray-400 hover:text-white'
+            }`}
+            title="Grid view"
+          >
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+          </button>
+          <button
+            onClick={toggleViewMode}
+            className={`p-1.5 sm:p-2 rounded transition-all ${
+              viewMode === 'list' ? 'bg-[#e21c21] text-white' : 'text-gray-400 hover:text-white'
+            }`}
+            title="List view"
+          >
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
         </div>
       </div>
 
       {/* Designs Display */}
       {filteredDesigns.length === 0 ? (
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-12 text-center">
-          <div className="max-w-md mx-auto">
-            <div className="w-16 h-16 bg-pink-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-2xl p-6 sm:p-8 md:p-12 text-center overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+          <div className="max-w-md mx-auto relative">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-[#e21c21]/10 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 border border-[#e21c21]/30">
+              <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-[#e21c21]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
               </svg>
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">No designs found</h3>
-            <p className="text-gray-400 mb-6">
+            <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">No designs found</h3>
+            <p className="text-sm sm:text-base text-gray-400 mb-4 sm:mb-6">
               {hasActiveFilters ? 'Try adjusting your filters or search query' : 'Get started by creating your first design'}
             </p>
             {hasActiveFilters ? (
               <button
                 onClick={clearFilters}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 font-medium transition-all shadow-lg hover:shadow-pink-500/50"
+                className="relative inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg font-semibold transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group/btn"
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
               >
-                Clear All Filters
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none"></div>
+                <span className="relative">Clear All Filters</span>
               </button>
             ) : (
               <Link
                 href="/admin/designs/new"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 font-medium transition-all shadow-lg hover:shadow-pink-500/50"
+                className="relative inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg font-semibold transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group/btn"
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none"></div>
+                <svg className="w-5 h-5 relative" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Create your first design
+                <span className="relative">Create your first design</span>
               </Link>
             )}
           </div>
         </div>
       ) : viewMode === 'grid' ? (
         /* Grid View */
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
           {filteredDesigns.map((design) => {
             const isSelected = selectedDesigns.has(design.id);
             return (
               <div
                 key={design.id}
-                className={`group bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl border overflow-hidden transition-all hover:shadow-2xl cursor-pointer ${
+                className={`relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl shadow-2xl border overflow-hidden transition-all hover:shadow-2xl cursor-pointer group/card ${
                   isSelected
-                    ? 'border-pink-500 ring-2 ring-pink-500/50'
-                    : 'border-gray-700 hover:border-pink-500/50 hover:shadow-pink-500/20'
+                    ? 'border-[#e21c21] ring-2 ring-[#e21c21]/50'
+                    : 'border-gray-700 hover:border-[#e21c21]/50'
                 }`}
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                 onClick={() => setPreviewDesign(design)}
               >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity pointer-events-none"></div>
                 {/* Design Image */}
                 <div className="relative aspect-square bg-gray-900 overflow-hidden">
                   {/* Selection Checkbox */}
-                  <div className="absolute top-3 left-3 z-10">
+                  <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10">
                     <label className="cursor-pointer" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleDesignSelection(design.id)}
-                        className="w-5 h-5 rounded border-gray-600 text-pink-600 focus:ring-2 focus:ring-pink-500 focus:ring-offset-0 bg-gray-700 cursor-pointer shadow-lg"
+                        className="w-4 h-4 sm:w-5 sm:h-5 rounded border-gray-600 text-[#e21c21] focus:ring-2 focus:ring-[#e21c21]/50 focus:ring-offset-0 bg-gray-700 cursor-pointer shadow-lg"
                       />
                     </label>
                   </div>
@@ -630,15 +608,15 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-600">
-                      <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-12 h-12 sm:w-16 sm:h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </div>
                   )}
                   {/* Badges */}
-                  <div className="absolute top-3 right-3 flex flex-col gap-2">
+                  <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col gap-1 sm:gap-2">
                     <span
-                      className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full backdrop-blur-sm ${
+                      className={`inline-flex items-center px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold rounded-full backdrop-blur-sm ${
                         design.active
                           ? 'bg-green-500/90 text-white'
                           : 'bg-gray-500/90 text-white'
@@ -647,7 +625,7 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
                       {design.active ? 'Active' : 'Inactive'}
                     </span>
                     {design.featured && (
-                      <span className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full backdrop-blur-sm bg-yellow-500/90 text-white">
+                      <span className="inline-flex items-center px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold rounded-full backdrop-blur-sm bg-yellow-500/90 text-white">
                         ★ Featured
                       </span>
                     )}
@@ -655,17 +633,17 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
                 </div>
 
                 {/* Design Info */}
-                <div className="p-5">
-                  <div className="mb-3">
-                    <h3 className="font-bold text-lg text-white mb-1 line-clamp-1">{design.name}</h3>
-                    <p className="text-sm text-gray-400 line-clamp-1">/{design.slug}</p>
+                <div className="p-3 sm:p-4 md:p-5">
+                  <div className="mb-2 sm:mb-3">
+                    <h3 className="font-bold text-sm sm:text-base md:text-lg text-white mb-1 line-clamp-1">{design.name}</h3>
+                    <p className="text-xs sm:text-sm text-gray-400 line-clamp-1">/{design.slug}</p>
                   </div>
 
                   {/* Sport Icons */}
                   {design.available_sports && design.available_sports.length > 0 && (
-                    <div className="flex items-center gap-2 text-sm mb-3">
+                    <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm mb-2 sm:mb-3">
                       {design.available_sports.map((sport) => (
-                        <span key={sport} className="text-lg" title={sport}>
+                        <span key={sport} className="text-base sm:text-lg" title={sport}>
                           {getSportIcon(sport)}
                         </span>
                       ))}
@@ -676,11 +654,11 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
 
                   {/* Color Scheme */}
                   {design.color_scheme && design.color_scheme.length > 0 && (
-                    <div className="flex items-center gap-1 mb-3">
+                    <div className="flex items-center gap-1 mb-2 sm:mb-3">
                       {design.color_scheme.slice(0, 5).map((color, idx) => (
                         <div
                           key={idx}
-                          className="w-6 h-6 rounded-full border border-gray-600"
+                          className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded-full border border-gray-600"
                           style={{ backgroundColor: color }}
                           title={color}
                         />
@@ -689,23 +667,27 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
                   )}
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 pt-3 border-t border-gray-700">
+                  <div className="flex items-center gap-1.5 sm:gap-2 pt-2 sm:pt-3 border-t border-gray-700 relative">
                     <Link
                       href={`/admin/designs/${design.id}/edit`}
-                      className="flex-1 p-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors text-center text-sm font-medium"
+                      className="relative flex-1 p-1.5 sm:p-2 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg transition-all text-center text-xs sm:text-sm font-semibold shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group/btn"
                       onClick={(e) => e.stopPropagation()}
+                      style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                     >
-                      Edit
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none"></div>
+                      <span className="relative">Edit</span>
                     </Link>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteDesign(design);
                       }}
-                      className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                      className="relative p-1.5 sm:p-2 bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 backdrop-blur-md text-red-400 hover:text-red-300 rounded-lg border border-gray-700/50 hover:border-red-500/50 transition-all overflow-hidden group/btn"
                       title="Delete"
+                      style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none"></div>
+                      <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 relative" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
@@ -717,38 +699,40 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
         </div>
       ) : (
         /* List View */
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {filteredDesigns.map((design) => {
             const isSelected = selectedDesigns.has(design.id);
             return (
               <div
                 key={design.id}
-                className={`group bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl border overflow-hidden transition-all hover:shadow-2xl cursor-pointer flex ${
+                className={`relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl shadow-2xl border overflow-hidden transition-all hover:shadow-2xl cursor-pointer flex group/card ${
                   isSelected
-                    ? 'border-pink-500 ring-2 ring-pink-500/50'
-                    : 'border-gray-700 hover:border-pink-500/50 hover:shadow-pink-500/20'
+                    ? 'border-[#e21c21] ring-2 ring-[#e21c21]/50'
+                    : 'border-gray-700 hover:border-[#e21c21]/50'
                 }`}
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                 onClick={() => setPreviewDesign(design)}
               >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity pointer-events-none"></div>
                 {/* Checkbox */}
-                <div className="flex items-center p-4">
+                <div className="flex items-center p-2 sm:p-3 md:p-4 relative">
                   <label className="cursor-pointer" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleDesignSelection(design.id)}
-                      className="w-5 h-5 rounded border-gray-600 text-pink-600 focus:ring-2 focus:ring-pink-500 focus:ring-offset-0 bg-gray-700 cursor-pointer"
+                      className="w-4 h-4 sm:w-5 sm:h-5 rounded border-gray-600 text-[#e21c21] focus:ring-2 focus:ring-[#e21c21]/50 focus:ring-offset-0 bg-gray-700 cursor-pointer"
                     />
                   </label>
                 </div>
 
                 {/* Image */}
-                <div className="w-24 h-24 bg-gray-900 flex-shrink-0">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gray-900 flex-shrink-0">
                   {design.primary_mockup_url ? (
                     <img src={design.primary_mockup_url} alt={design.name} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-600">
-                      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </div>
@@ -756,10 +740,10 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
                 </div>
 
                 {/* Info */}
-                <div className="flex-1 p-4 flex items-center justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-bold text-lg text-white mb-1">{design.name}</h3>
-                    <div className="flex items-center gap-4 text-sm text-gray-400">
+                <div className="flex-1 p-2 sm:p-3 md:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                  <div className="flex-1 w-full sm:w-auto">
+                    <h3 className="font-bold text-sm sm:text-base md:text-lg text-white mb-1">{design.name}</h3>
+                    <div className="flex items-center gap-2 sm:gap-3 md:gap-4 text-xs sm:text-sm text-gray-400 flex-wrap">
                       <span>/{design.slug}</span>
                       {design.available_sports && design.available_sports.length > 0 && (
                         <>
@@ -778,11 +762,11 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 md:gap-4 w-full sm:w-auto">
                     {/* Status & Featured Badges */}
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-row sm:flex-col gap-2 flex-wrap">
                       <span
-                        className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                        className={`px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-semibold rounded-full ${
                           design.active
                             ? 'bg-green-500/20 text-green-300 border border-green-500/50'
                             : 'bg-gray-500/20 text-gray-300 border border-gray-500/50'
@@ -791,21 +775,23 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
                         {design.active ? 'Active' : 'Inactive'}
                       </span>
                       {design.featured && (
-                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/50">
+                        <span className="px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-semibold rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/50">
                           ★ Featured
                         </span>
                       )}
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 relative">
                       <Link
                         href={`/admin/designs/${design.id}/edit`}
-                        className="p-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
+                        className="relative p-1.5 sm:p-2 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group/btn"
                         title="Edit"
                         onClick={(e) => e.stopPropagation()}
+                        style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                       >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none"></div>
+                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 relative" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </Link>
@@ -814,10 +800,12 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
                           e.stopPropagation();
                           handleDeleteDesign(design);
                         }}
-                        className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                        className="relative p-1.5 sm:p-2 bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 backdrop-blur-md text-red-400 hover:text-red-300 rounded-lg border border-gray-700/50 hover:border-red-500/50 transition-all overflow-hidden group/btn"
                         title="Delete"
+                        style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                       >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none"></div>
+                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 relative" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
@@ -837,9 +825,10 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
           onClick={() => setPreviewDesign(null)}
         >
           <div
-            className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl border border-gray-700 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-700 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/5 to-transparent pointer-events-none"></div>
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-700">
               <div className="flex items-center gap-4">
@@ -941,7 +930,7 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
                         {previewDesign.style_tags.map((tag) => (
                           <span
                             key={tag}
-                            className="px-3 py-1 bg-pink-500/20 border border-pink-500/50 rounded-full text-pink-300 text-sm"
+                            className="px-3 py-1 bg-[#e21c21]/20 border border-[#e21c21]/50 rounded-full text-[#e21c21] text-sm"
                           >
                             {tag}
                           </span>
@@ -975,27 +964,31 @@ export default function DesignsGrid({ designs }: DesignsGridProps) {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-3 pt-4 border-t border-gray-700">
+                  <div className="flex gap-3 pt-4 border-t border-gray-700 relative">
                     <Link
                       href={`/admin/designs/${previewDesign.id}/edit`}
-                      className="flex-1 px-4 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-lg font-medium transition-colors text-center flex items-center justify-center gap-2"
+                      className="relative flex-1 px-4 py-3 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg font-semibold transition-all text-center flex items-center justify-center gap-2 shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group/btn"
+                      style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                     >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none"></div>
+                      <svg className="w-5 h-5 relative" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
-                      Edit
+                      <span className="relative">Edit</span>
                     </Link>
                     <button
                       onClick={() => {
                         handleDeleteDesign(previewDesign);
                         setPreviewDesign(null);
                       }}
-                      className="px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                      className="relative px-4 py-3 bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 backdrop-blur-md text-red-400 hover:text-red-300 rounded-lg border border-gray-700/50 hover:border-red-500/50 transition-all font-semibold flex items-center justify-center gap-2 overflow-hidden group/btn"
+                      style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                     >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none"></div>
+                      <svg className="w-5 h-5 relative" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
-                      Delete
+                      <span className="relative">Delete</span>
                     </button>
                   </div>
                 </div>

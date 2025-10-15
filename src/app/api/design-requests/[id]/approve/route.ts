@@ -17,14 +17,17 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { payment_mode, save_as_default, team_id } = body;
+    const { order_id, team_id } = body;
 
-    if (!payment_mode || !team_id) {
+    if (!team_id) {
       return NextResponse.json(
-        { error: 'Missing required fields: payment_mode, team_id' },
+        { error: 'Missing required field: team_id' },
         { status: 400 }
       );
     }
+
+    // Default payment mode is 'individual' for new orders
+    const payment_mode = 'individual';
 
     const designRequestId = parseInt(params.id);
 
@@ -32,8 +35,9 @@ export async function POST(
       designRequestId,
       teamId: team_id,
       userId: user.id,
+      orderId: order_id,
       paymentMode: payment_mode,
-      saveAsDefault: save_as_default,
+      action: order_id ? 'add_to_existing_order' : 'create_new_order',
     });
 
     // 1. Get design request
@@ -126,37 +130,74 @@ export async function POST(
       totalAmount,
     });
 
-    // 5. Create order
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert({
-        team_id: team_id,
-        user_id: user.id,
-        status: 'pending',
-        payment_status: 'unpaid',
-        payment_mode: payment_mode,
-        currency: 'CLP',
-        subtotal_cents: totalAmount,
-        discount_cents: 0,
-        tax_cents: 0,
-        shipping_cents: 0,
-        // total_cents is a GENERATED column - do not insert
-        total_amount_cents: totalAmount,
-        current_stage: 'pending',
-        notes: `Order from design request #${designRequestId}: ${product.name}`,
-      })
-      .select()
-      .single();
+    // 5. Get or create order
+    let order;
 
-    if (orderError || !order) {
-      logger.error('[Approve Design] Error creating order:', orderError);
-      return NextResponse.json(
-        { error: 'Error creating order' },
-        { status: 500 }
-      );
+    if (order_id) {
+      // Adding to existing order
+      logger.info('[Approve Design] Adding to existing order:', order_id);
+
+      const { data: existingOrder, error: orderError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', order_id)
+        .eq('team_id', team_id)
+        .single();
+
+      if (orderError || !existingOrder) {
+        logger.error('[Approve Design] Existing order not found:', orderError);
+        return NextResponse.json(
+          { error: 'Order not found' },
+          { status: 404 }
+        );
+      }
+
+      // Check if order can be modified (not shipped or cancelled)
+      if (!['pending', 'paid', 'processing'].includes(existingOrder.status)) {
+        logger.error('[Approve Design] Order cannot be modified:', existingOrder.status);
+        return NextResponse.json(
+          { error: 'Order cannot be modified (already shipped or cancelled)' },
+          { status: 400 }
+        );
+      }
+
+      order = existingOrder;
+      logger.info('[Approve Design] Using existing order:', order.id);
+    } else {
+      // Creating new order
+      logger.info('[Approve Design] Creating new order');
+
+      const { data: newOrder, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          team_id: team_id,
+          user_id: user.id,
+          status: 'pending',
+          payment_status: 'unpaid',
+          payment_mode: payment_mode,
+          currency: 'CLP',
+          subtotal_cents: totalAmount,
+          discount_cents: 0,
+          tax_cents: 0,
+          shipping_cents: 0,
+          total_amount_cents: totalAmount,
+          current_stage: 'pending',
+          notes: `Order from design request #${designRequestId}: ${product.name}`,
+        })
+        .select()
+        .single();
+
+      if (orderError || !newOrder) {
+        logger.error('[Approve Design] Error creating order:', orderError);
+        return NextResponse.json(
+          { error: 'Error creating order' },
+          { status: 500 }
+        );
+      }
+
+      order = newOrder;
+      logger.info('[Approve Design] Order created:', order.id);
     }
-
-    logger.info('[Approve Design] Order created:', order.id);
 
     // 6. Create order_items for ALL team members
     const designId = designRequest.selected_apparel?.design_id || designRequest.design_id || null;
@@ -196,6 +237,27 @@ export async function POST(
 
     logger.info('[Approve Design] Order items created:', orderItems.length);
 
+    // 6b. If adding to existing order, update the order total
+    if (order_id) {
+      const newTotal = (order.total_amount_cents || 0) + totalAmount;
+
+      const { error: updateOrderError } = await supabase
+        .from('orders')
+        .update({
+          total_amount_cents: newTotal,
+          subtotal_cents: newTotal,
+          notes: `${order.notes || ''}\nAdded design request #${designRequestId}: ${product.name}`,
+        })
+        .eq('id', order.id);
+
+      if (updateOrderError) {
+        logger.error('[Approve Design] Error updating order total:', updateOrderError);
+        // Don't fail - items are created, just log error
+      } else {
+        logger.info('[Approve Design] Updated order total:', { oldTotal: order.total_amount_cents, newTotal });
+      }
+    }
+
     // 7. Update design request status and link to order
     const { error: updateError } = await supabase
       .from('design_requests')
@@ -213,28 +275,14 @@ export async function POST(
       // Don't rollback - order is created, just log error
     }
 
-    // 8. Optionally update team payment mode
-    if (save_as_default) {
-      const { error: settingsError } = await supabase
-        .from('team_settings')
-        .update({ payment_mode: payment_mode })
-        .eq('team_id', team_id);
-
-      if (settingsError) {
-        logger.warn('[Approve Design] Error updating team settings:', settingsError);
-        // Don't fail - this is optional
-      } else {
-        logger.info('[Approve Design] Updated team payment mode to:', payment_mode);
-      }
-    }
-
-    // 9. TODO: Send notifications to team members
+    // 8. TODO: Send notifications to team members
     // This will be implemented later
 
-    logger.info('[Approve Design] Success! Design approved and order created:', {
+    logger.info(`[Approve Design] Success! Design approved and ${order_id ? 'added to existing order' : 'new order created'}:`, {
       designRequestId,
       orderId: order.id,
       orderItemsCount: orderItems.length,
+      action: order_id ? 'added_to_existing' : 'created_new',
     });
 
     return NextResponse.json({

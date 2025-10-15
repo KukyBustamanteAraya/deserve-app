@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
 
     const { data: product, error: productError } = await supabase
       .from('products')
-      .select('id, name, collection, base_price_cents, images')
+      .select('id, name, collection, base_price_clp, images')
       .eq('id', designCandidate.product_id)
       .single();
 
@@ -120,9 +120,9 @@ export async function POST(request: NextRequest) {
     // ========================================================================
 
     const quantity = playerSubmissions.length;
-    const unitPriceCents = product.base_price_cents;
-    const subtotalCents = unitPriceCents * quantity;
-    const totalCents = subtotalCents; // No tax/shipping for now
+    const unitPriceClp = product.base_price_clp;
+    const subtotalClp = unitPriceClp * quantity;
+    const totalClp = subtotalClp; // No tax/shipping for now
 
     // ========================================================================
     // STEP 5: Create order
@@ -136,12 +136,12 @@ export async function POST(request: NextRequest) {
         status: 'pending',
         payment_status: 'unpaid',
         currency: 'CLP',
-        subtotal_cents: subtotalCents,
-        discount_cents: 0,
-        tax_cents: 0,
-        shipping_cents: 0,
-        // total_cents is GENERATED ALWAYS - database calculates it
-        total_amount_cents: totalCents,
+        subtotal_clp: subtotalClp,
+        discount_clp: 0,
+        tax_clp: 0,
+        shipping_clp: 0,
+        // total_clp is GENERATED ALWAYS - database calculates it
+        total_amount_clp: totalClp,
         current_stage: 'pending',
       })
       .select('id')
@@ -162,9 +162,9 @@ export async function POST(request: NextRequest) {
       product_name: product.name,
       collection: product.collection || null,
       images: designCandidate.mockup_urls || product.images || [],
-      unit_price_cents: unitPriceCents,
+      unit_price_clp: unitPriceClp,
       quantity: 1,
-      // line_total_cents is GENERATED ALWAYS as (unit_price_cents * quantity)
+      // line_total_clp is GENERATED ALWAYS as (unit_price_clp * quantity)
       player_id: player.id,
       player_name: player.player_name,
       jersey_number: player.jersey_number,

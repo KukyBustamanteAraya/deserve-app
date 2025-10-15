@@ -13,10 +13,10 @@ export interface ProductBase {
   slug: string;
   name: string;
   description: string | null;
-  price_cents: number;
-  base_price_cents?: number | null;
-  retail_price_cents?: number | null;
-  display_price_cents?: number;
+  price_clp: number;
+  base_price_clp?: number | null;
+  retail_price_clp?: number | null;
+  display_price_clp?: number;
   active: boolean;
   product_type_slug?: string | null;
   created_at: string;
@@ -43,10 +43,10 @@ export type ProductListItem = {
   id: number | string;
   slug: string | null;
   name: string;
-  price_cents: number | null;
-  base_price_cents?: number | null;
-  retail_price_cents?: number | null;
-  display_price_cents: number;
+  price_clp: number | null;
+  base_price_clp?: number | null;
+  retail_price_clp?: number | null;
+  display_price_clp: number;
   active: boolean | null;
   thumbnail_url: string | null;
   thumbnail_alt?: string | null;
@@ -103,6 +103,6 @@ export interface ApiError {
 export type Currency = 'CLP' | 'USD' | 'EUR';
 
 export interface PriceFormat {
-  cents: number;
+  clp: number; // Chilean Pesos stored as full pesos (no cents subdivision)
   currency?: Currency;
 }

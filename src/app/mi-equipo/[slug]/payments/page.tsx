@@ -14,12 +14,7 @@ type Team = {
   name: string;
   slug: string;
   sport?: string;
-};
-
-type TeamColors = {
-  primary_color?: string;
-  secondary_color?: string;
-  tertiary_color?: string;
+  logo_url?: string;
 };
 
 type OrderWithDetails = Order & {
@@ -38,7 +33,6 @@ type OrderWithDetails = Order & {
 export default function TeamPaymentsPage({ params }: { params: { slug: string } }) {
   const router = useRouter();
   const [team, setTeam] = useState<Team | null>(null);
-  const [colors, setColors] = useState<TeamColors>({});
   const [isManager, setIsManager] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [orders, setOrders] = useState<OrderWithDetails[]>([]);
@@ -64,18 +58,15 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
           .single();
 
         if (teamError) throw teamError;
-        setTeam(teamData);
 
-        // Get team settings (colors)
+        // Get team logo from settings
         const { data: settingsData } = await supabase
           .from('team_settings')
-          .select('primary_color, secondary_color, tertiary_color')
+          .select('logo_url')
           .eq('team_id', teamData.id)
           .single();
 
-        if (settingsData) {
-          setColors(settingsData);
-        }
+        setTeam({ ...teamData, logo_url: settingsData?.logo_url });
 
         // Check if user is manager
         const { data: membership } = await supabase
@@ -210,21 +201,21 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-lg text-gray-600">Cargando información de pagos...</div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
+        <div className="text-lg text-gray-300">Cargando información de pagos...</div>
       </div>
     );
   }
 
   if (error || !team) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Error</h1>
-          <p className="text-gray-600 mb-6">{error || 'Equipo no encontrado'}</p>
+          <h1 className="text-2xl font-bold text-white mb-4">Error</h1>
+          <p className="text-gray-300 mb-6">{error || 'Equipo no encontrado'}</p>
           <button
             onClick={() => router.push(`/mi-equipo/${params.slug}`)}
-            className="text-blue-600 hover:text-blue-700 font-medium"
+            className="text-[#e21c21] hover:text-[#c11a1e] font-medium"
           >
             ← Volver
           </button>
@@ -240,37 +231,46 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
   const totalPendingCents = orders.reduce((sum, o) => sum + o.total_pending_cents, 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header Banner */}
-      <div
-        className="relative overflow-hidden"
-        style={{
-          background: colors.primary_color
-            ? `linear-gradient(135deg, ${colors.primary_color} 0%, ${colors.secondary_color || colors.primary_color} 100%)`
-            : 'linear-gradient(135deg, #10B981 0%, #059669 100%)'
-        }}
-      >
-        <div className="max-w-6xl mx-auto px-6 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
+      {/* Team Header Banner */}
+      <div className="max-w-6xl mx-auto px-6 py-6">
+        <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-2xl p-6 border border-gray-700 overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+
+          {/* Back Arrow - Top Left */}
           <button
             onClick={() => router.push(`/mi-equipo/${params.slug}`)}
-            className="mb-4 text-white/90 hover:text-white font-medium flex items-center gap-2"
+            className="absolute top-2 left-2 p-1.5 rounded-md bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 border border-gray-700 text-gray-400 hover:text-white hover:border-[#e21c21]/50 transition-all z-10"
+            style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
           >
-            ← Volver al equipo
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
           </button>
 
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="inline-block px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm text-white/90 mb-3">
-                💰 Pagos
+          <div className="relative pt-2 pl-6">
+            <div className="flex items-center gap-6">
+              {/* Team Logo */}
+              <div className="relative flex-shrink-0">
+                {team.logo_url ? (
+                  <img
+                    src={team.logo_url}
+                    alt={`${team.name} logo`}
+                    className="w-24 h-24 object-contain rounded-lg border-2 border-gray-700 bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 p-2 shadow-lg"
+                  />
+                ) : (
+                  <div className="w-24 h-24 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50">
+                    <span className="text-4xl">🏆</span>
+                  </div>
+                )}
               </div>
-              <h1 className="text-4xl font-bold text-white mb-2">Gestión de Pagos</h1>
-              <p className="text-white/80 text-lg">{team.name}</p>
-            </div>
 
-            <div className="flex items-center gap-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-white">{totalOrders}</div>
-                <div className="text-white/80 text-sm">Pedidos</div>
+              {/* Team Info */}
+              <div className="flex-1">
+                <h1 className="text-4xl font-bold text-white mb-2">{team.name}</h1>
+                <p className="text-gray-300 text-lg">
+                  Gestión de Pagos • {totalOrders} {totalOrders === 1 ? 'pedido' : 'pedidos'}
+                </p>
               </div>
             </div>
           </div>
@@ -281,17 +281,20 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
         {/* Empty State */}
         {orders.length === 0 && (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <span className="text-6xl mb-4 block">💳</span>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">No hay pedidos todavía</h2>
-            <p className="text-gray-600 mb-6">
+          <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-2xl p-12 text-center border border-gray-700 overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+            <span className="text-6xl mb-4 block relative">💳</span>
+            <h2 className="text-2xl font-bold text-white mb-2 relative">No hay pedidos todavía</h2>
+            <p className="text-gray-300 mb-6 relative">
               Crea un pedido desde un diseño aprobado para comenzar a gestionar pagos
             </p>
             <button
               onClick={() => router.push(`/mi-equipo/${params.slug}`)}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              className="relative px-6 py-3 bg-gradient-to-br from-blue-600/90 via-blue-700/80 to-blue-800/90 text-white rounded-lg font-medium overflow-hidden group/btn border border-blue-600/50 shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50"
+              style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
             >
-              ← Volver al equipo
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none"></div>
+              <span className="relative">← Volver al equipo</span>
             </button>
           </div>
         )}
@@ -304,13 +307,14 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
           return (
             <div key={order.id} className="space-y-4">
               {/* Order Header */}
-              <div className="bg-white rounded-lg shadow-sm p-6 border-2 border-gray-200">
-                <div className="flex items-center justify-between mb-4">
+              <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-2xl p-6 border border-gray-700 overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                <div className="flex items-center justify-between mb-4 relative">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">
+                    <h2 className="text-2xl font-bold text-white">
                       Pedido #{order.id.slice(0, 8)}
                     </h2>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-300">
                       Creado el {new Date(order.created_at).toLocaleDateString('es-CL')}
                     </p>
                   </div>
@@ -318,10 +322,10 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-medium ${
                         order.payment_status === 'paid'
-                          ? 'bg-green-100 text-green-800'
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/50'
                           : order.payment_status === 'partial'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
+                          ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50'
+                          : 'bg-red-500/20 text-red-400 border border-red-500/50'
                       }`}
                     >
                       {order.payment_status === 'paid'
@@ -333,12 +337,12 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-medium ${
                         order.status === 'delivered'
-                          ? 'bg-green-100 text-green-800'
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/50'
                           : order.status === 'shipped'
-                          ? 'bg-blue-100 text-blue-800'
+                          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
                           : order.status === 'processing'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-gray-100 text-gray-800'
+                          ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50'
+                          : 'bg-gray-700/50 text-gray-300 border border-gray-600/50'
                       }`}
                     >
                       {order.status === 'delivered'
@@ -372,41 +376,44 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
 
                 if (myItem) {
                   return (
-                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6 border-2 border-green-200">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg p-6 border border-green-500/50 overflow-hidden group/payment">
+                      <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent opacity-0 group-hover/payment:opacity-100 transition-opacity pointer-events-none"></div>
+                      <h3 className="text-lg font-semibold text-white mb-4 relative">
                         💳 Tu Pago
                       </h3>
 
                       {myContribution ? (
-                        <div className="bg-white rounded-lg p-4 border-2 border-green-300">
-                          <div className="flex items-center justify-between">
+                        <div className="relative bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 rounded-lg p-4 border border-green-500/50 overflow-hidden group/status">
+                          <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent opacity-0 group-hover/status:opacity-100 transition-opacity pointer-events-none"></div>
+                          <div className="flex items-center justify-between relative">
                             <div>
-                              <div className="text-sm text-gray-600 mb-1">Estado del Pago</div>
-                              <div className="text-xl font-bold text-green-700">✅ Pagado</div>
+                              <div className="text-sm text-gray-300 mb-1">Estado del Pago</div>
+                              <div className="text-xl font-bold text-green-400">✅ Pagado</div>
                             </div>
                             <div>
-                              <div className="text-sm text-gray-600 mb-1">Monto</div>
-                              <div className="text-xl font-bold text-gray-900">{formatCLP(myItem.line_total_cents || myItem.unit_price_cents)}</div>
+                              <div className="text-sm text-gray-300 mb-1">Monto</div>
+                              <div className="text-xl font-bold text-white">{formatCLP(myItem.line_total_cents || myItem.unit_price_cents)}</div>
                             </div>
                           </div>
-                          <p className="text-sm text-gray-600 mt-3">
+                          <p className="text-sm text-gray-300 mt-3 relative">
                             Gracias por tu pago. Tu pedido será procesado junto con el resto del equipo.
                           </p>
                         </div>
                       ) : (
-                        <div className="space-y-4">
-                          <div className="bg-white rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-4">
+                        <div className="space-y-4 relative">
+                          <div className="relative bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 rounded-lg p-4 border border-gray-700 overflow-hidden group/details">
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/details:opacity-100 transition-opacity pointer-events-none"></div>
+                            <div className="flex items-center justify-between mb-4 relative">
                               <div>
-                                <div className="text-sm text-gray-600 mb-1">Tu Parte</div>
-                                <div className="text-3xl font-bold text-gray-900">{formatCLP(myItem.line_total_cents || myItem.unit_price_cents)}</div>
+                                <div className="text-sm text-gray-300 mb-1">Tu Parte</div>
+                                <div className="text-3xl font-bold text-white">{formatCLP(myItem.line_total_cents || myItem.unit_price_cents)}</div>
                               </div>
                               <div className="text-right">
-                                <div className="text-sm text-gray-600 mb-1">Producto</div>
-                                <div className="font-semibold text-gray-900">{myItem.product_name}</div>
+                                <div className="text-sm text-gray-300 mb-1">Producto</div>
+                                <div className="font-semibold text-white">{myItem.product_name}</div>
                               </div>
                             </div>
-                            <div className="text-sm text-gray-600">
+                            <div className="text-sm text-gray-300 relative">
                               {myItem.player_name && <p>Jugador: {myItem.player_name}</p>}
                               {myItem.jersey_number && <p>Número: {myItem.jersey_number}</p>}
                             </div>
@@ -438,9 +445,11 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
                                 alert(`Error: ${err.message}`);
                               }
                             }}
-                            className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm transition-colors"
+                            className="relative w-full px-4 py-2 bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 text-gray-300 hover:text-white rounded-lg border border-gray-700 hover:border-red-500/50 font-medium text-sm overflow-hidden group/optout"
+                            style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                           >
-                            ❌ No quiero participar en este pedido
+                            <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-transparent opacity-0 group-hover/optout:opacity-100 transition-opacity pointer-events-none"></div>
+                            <span className="relative">❌ No quiero participar en este pedido</span>
                           </button>
 
                           <button
@@ -471,12 +480,14 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
                               }
                             }}
                             disabled={processingPayment !== null}
-                            className="w-full px-6 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative"
+                            className="relative w-full px-6 py-4 bg-gradient-to-br from-green-600/90 via-green-700/80 to-green-800/90 backdrop-blur-md text-white rounded-lg font-bold text-lg overflow-hidden group/pay disabled:opacity-50 disabled:cursor-not-allowed border border-green-600/50 shadow-lg shadow-green-600/30 hover:shadow-green-600/50"
+                            style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                           >
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/pay:opacity-100 transition-opacity pointer-events-none"></div>
                             {processingPayment === order.id ? (
-                              <span>Procesando...</span>
+                              <span className="relative">Procesando...</span>
                             ) : (
-                              <span>💳 Pagar Mi Parte ({formatCLP(myItem.line_total_cents || myItem.unit_price_cents)})</span>
+                              <span className="relative">💳 Pagar Mi Parte ({formatCLP(myItem.line_total_cents || myItem.unit_price_cents)})</span>
                             )}
                           </button>
                         </div>
@@ -489,21 +500,24 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
 
               {/* Manager Actions */}
               {isManager && order.payment_status !== 'paid' && (
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border-2 border-blue-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg p-6 border border-blue-500/50 overflow-hidden group/manager">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover/manager:opacity-100 transition-opacity pointer-events-none"></div>
+                  <h3 className="text-lg font-semibold text-white mb-4 relative">
                     Acciones de Pago
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
                     <button
                       onClick={() => handleSplitPaymentSetup(order.id)}
                       disabled={processingPayment !== null}
-                      className="bg-white hover:bg-gray-50 rounded-lg p-4 text-left transition-all border-2 border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="relative bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 rounded-lg p-4 text-left border border-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden group/split hover:border-blue-400/70"
+                      style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                     >
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover/split:opacity-100 transition-opacity pointer-events-none"></div>
+                      <div className="flex items-center gap-3 mb-2 relative">
                         <span className="text-2xl">👥</span>
-                        <h4 className="font-semibold text-gray-900">Pago Individual</h4>
+                        <h4 className="font-semibold text-white">Pago Individual</h4>
                       </div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-300 relative">
                         Cada miembro paga su parte individualmente
                       </p>
                     </button>
@@ -511,18 +525,20 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
                     <button
                       onClick={() => handleFullOrderPayment(order.id, order.total_pending_cents)}
                       disabled={processingPayment !== null}
-                      className="bg-white hover:bg-gray-50 rounded-lg p-4 text-left transition-all border-2 border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed relative"
+                      className="relative bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 rounded-lg p-4 text-left border border-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden group/full hover:border-blue-400/70"
+                      style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                     >
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover/full:opacity-100 transition-opacity pointer-events-none"></div>
+                      <div className="flex items-center gap-3 mb-2 relative">
                         <span className="text-2xl">💳</span>
-                        <h4 className="font-semibold text-gray-900">Pago Completo</h4>
+                        <h4 className="font-semibold text-white">Pago Completo</h4>
                       </div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-300 relative">
                         Paga {formatCLP(order.total_pending_cents)} ahora
                       </p>
                       {processingPayment === order.id && (
-                        <div className="absolute inset-0 bg-white/80 rounded-lg flex items-center justify-center">
-                          <div className="text-blue-600 font-medium">Procesando...</div>
+                        <div className="absolute inset-0 bg-gradient-to-br from-gray-900/95 via-black/90 to-gray-900/95 backdrop-blur-md rounded-lg flex items-center justify-center border border-blue-500/50">
+                          <div className="text-blue-400 font-medium">Procesando...</div>
                         </div>
                       )}
                     </button>

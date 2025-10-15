@@ -1,17 +1,26 @@
 import type { Currency, PriceFormat } from '@/types/catalog';
 
+/**
+ * IMPORTANT: Chilean Pesos (CLP) do not have cents/decimals.
+ * All CLP amounts are stored as full pesos (e.g., 40000 = $40.000 CLP, not $400.00)
+ *
+ * USD and EUR have cents, so they divide by 100.
+ * CLP does NOT divide by 100.
+ */
+
 // Currency formatting utilities
-export function formatCLP(cents: number): string {
-  const amount = cents / 100;
+export function formatCLP(clp: number): string {
+  // CLP is stored as full pesos - NO division needed
   return new Intl.NumberFormat('es-CL', {
     style: 'currency',
     currency: 'CLP',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(clp);
 }
 
 export function formatUSD(cents: number): string {
+  // USD has cents - divide by 100
   const amount = cents / 100;
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -22,6 +31,7 @@ export function formatUSD(cents: number): string {
 }
 
 export function formatEUR(cents: number): string {
+  // EUR has cents - divide by 100
   const amount = cents / 100;
   return new Intl.NumberFormat('es-ES', {
     style: 'currency',
@@ -31,17 +41,12 @@ export function formatEUR(cents: number): string {
   }).format(amount);
 }
 
-export function centsToCLP(cents: number): string {
-  return new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: 'CLP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format((cents || 0) / 100);
-}
-
-// Format CLP integers (for pricing API which returns CLP integers, not cents)
-export function formatCLPInteger(clp: number): string {
+/**
+ * @deprecated Use formatCLP instead - name was misleading
+ * This is kept for backward compatibility but should be phased out
+ */
+export function centsToCLP(clp: number): string {
+  // CLP amounts are stored as full pesos, not cents
   return new Intl.NumberFormat('es-CL', {
     style: 'currency',
     currency: 'CLP',
@@ -50,22 +55,34 @@ export function formatCLPInteger(clp: number): string {
   }).format(clp || 0);
 }
 
+/**
+ * @deprecated Use formatCLP instead - this is now the standard behavior
+ * CLP amounts are always integers (full pesos)
+ */
+export function formatCLPInteger(clp: number): string {
+  return formatCLP(clp);
+}
+
 // Main price formatting function
-export function formatPrice({ cents, currency = 'CLP' }: PriceFormat): string {
+export function formatPrice({ clp, currency = 'CLP' }: PriceFormat): string {
   switch (currency) {
     case 'CLP':
-      return formatCLP(cents);
+      return formatCLP(clp);
     case 'USD':
-      return formatUSD(cents);
+      return formatUSD(clp); // If storing USD as cents
     case 'EUR':
-      return formatEUR(cents);
+      return formatEUR(clp); // If storing EUR as cents
     default:
-      // Fallback to USD format for unknown currencies
-      return formatUSD(cents);
+      // Fallback to CLP format for Chilean market
+      return formatCLP(clp);
   }
 }
 
-// Utility to parse cents from currency string (for form inputs, etc.)
+/**
+ * Utility to parse currency input from forms
+ * For CLP: Returns full peso amount (no conversion)
+ * For USD/EUR: Would convert to cents (multiply by 100)
+ */
 export function parseCurrency(value: string, currency: Currency = 'CLP'): number {
   // Remove currency symbols and formatting
   const cleaned = value.replace(/[^\d.,]/g, '');
@@ -75,23 +92,37 @@ export function parseCurrency(value: string, currency: Currency = 'CLP'): number
     return 0;
   }
 
-  // Convert to cents
-  return Math.round(number * 100);
+  switch (currency) {
+    case 'CLP':
+      // CLP has no cents - return as-is (full pesos)
+      return Math.round(number);
+    case 'USD':
+    case 'EUR':
+      // USD/EUR have cents - convert to cents
+      return Math.round(number * 100);
+    default:
+      return Math.round(number);
+  }
 }
 
-// Validate if price is reasonable (basic sanity check)
-export function isValidPrice(cents: number, currency: Currency = 'CLP'): boolean {
-  if (cents < 0) return false;
+/**
+ * Validate if price is reasonable (basic sanity check)
+ */
+export function isValidPrice(amount: number, currency: Currency = 'CLP'): boolean {
+  if (amount < 0) return false;
 
   switch (currency) {
     case 'CLP':
-      // CLP prices should be reasonable (not too small or too large)
-      return cents >= 100 && cents <= 100000000; // $1 to $1,000,000 CLP
+      // CLP prices stored as full pesos (not cents)
+      // Reasonable range: $1.000 CLP to $10.000.000 CLP
+      return amount >= 1000 && amount <= 10000000;
     case 'USD':
     case 'EUR':
-      return cents >= 1 && cents <= 1000000; // $0.01 to $10,000
+      // USD/EUR stored as cents
+      // Reasonable range: $0.01 to $10,000
+      return amount >= 1 && amount <= 1000000;
     default:
-      return cents >= 1;
+      return amount >= 1;
   }
 }
 

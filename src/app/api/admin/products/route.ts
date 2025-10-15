@@ -6,12 +6,14 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 
 const CreateProductSchema = z.object({
-  sportId: z.string().uuid(),
+  sport_ids: z.array(z.number().int().positive()),
+  category: z.string().min(1).max(255),
   name: z.string().min(1).max(255),
   slug: z.string().min(1).max(255),
-  priceCents: z.number().int().min(0),
+  price_clp: z.number().int().min(0),
+  status: z.enum(['draft', 'active', 'archived']).optional().default('draft'),
+  product_type_slug: z.string().min(1).max(255),
   description: z.string().optional(),
-  active: z.boolean().optional().default(true),
 });
 
 const UpdateProductSchema = CreateProductSchema.partial();
@@ -23,21 +25,7 @@ export async function GET() {
 
     const { data: products, error } = await supabase
       .from('products')
-      .select(`
-        id,
-        slug,
-        name,
-        description,
-        price_cents,
-        active,
-        created_at,
-        updated_at,
-        sports!inner (
-          id,
-          slug,
-          name
-        )
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -66,16 +54,15 @@ export async function POST(request: NextRequest) {
     const validatedData = CreateProductSchema.parse(body);
     const supabase = createSupabaseServer();
 
-    // Check if sport exists
-    const { data: sport, error: sportError } = await supabase
+    // Check if all sports exist
+    const { data: sports, error: sportsError } = await supabase
       .from('sports')
       .select('id')
-      .eq('id', validatedData.sportId)
-      .single();
+      .in('id', validatedData.sport_ids);
 
-    if (sportError || !sport) {
+    if (sportsError || !sports || sports.length !== validatedData.sport_ids.length) {
       return NextResponse.json(
-        { error: 'Sport not found' },
+        { error: 'One or more sports not found' },
         { status: 400 }
       );
     }
@@ -94,37 +81,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Create product with multiple sports
+    // Note: This assumes your products table has sport_ids as an array column
     const { data: product, error } = await supabase
       .from('products')
       .insert({
-        sport_id: validatedData.sportId,
+        sport_ids: validatedData.sport_ids,
+        category: validatedData.category,
         name: validatedData.name,
         slug: validatedData.slug,
-        price_cents: validatedData.priceCents,
+        price_clp: validatedData.price_clp,
+        status: validatedData.status,
+        product_type_slug: validatedData.product_type_slug,
         description: validatedData.description,
-        active: validatedData.active,
       })
-      .select(`
-        id,
-        slug,
-        name,
-        description,
-        price_cents,
-        active,
-        created_at,
-        updated_at,
-        sports!inner (
-          id,
-          slug,
-          name
-        )
-      `)
+      .select()
       .single();
 
     if (error) {
       logger.error('Error creating product:', error);
       return NextResponse.json(
-        { error: 'Failed to create product' },
+        { error: 'Failed to create product', details: error.message },
         { status: 500 }
       );
     }

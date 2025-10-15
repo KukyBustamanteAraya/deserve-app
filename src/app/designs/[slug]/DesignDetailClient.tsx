@@ -1,8 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useQuickDesignRequest } from '@/store/quick-design-request';
+import { createClient } from '@/lib/supabase/client';
+
+interface Team {
+  id: string;
+  name: string;
+  slug: string;
+  colors: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+  };
+}
 
 interface Design {
   id: string;
@@ -34,7 +47,7 @@ interface Mockup {
     id: number;
     name: string;
     slug: string;
-    price_cents: number;
+    price_clp: number;
     category: string;
   };
 }
@@ -62,14 +75,108 @@ export function DesignDetailClient({
   currentMockups,
 }: DesignDetailClientProps) {
   const router = useRouter();
+  const supabase = createClient();
   const [selectedSport, setSelectedSport] = useState(currentSport);
   const [selectedMockupIndex, setSelectedMockupIndex] = useState(0);
+
+  // Mounted state to prevent hydration errors
+  const [mounted, setMounted] = useState(false);
+
+  // Authentication and teams state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userTeams, setUserTeams] = useState<Team[]>([]);
+  const [localSelectedTeamId, setLocalSelectedTeamId] = useState<string>(''); // Empty string = no selection
+  const [isLoadingTeams, setIsLoadingTeams] = useState(true);
+
+  // Quick Design Request state
+  const {
+    teamName,
+    primaryColor,
+    secondaryColor,
+    accentColor,
+    setTeamName,
+    setPrimaryColor,
+    setSecondaryColor,
+    setAccentColor,
+    setDesignContext,
+    setSelectedTeamId,
+    canProceedToStep2,
+  } = useQuickDesignRequest();
+
+  // Set mounted state and check authentication
+  useEffect(() => {
+    setMounted(true);
+
+    const checkAuthAndFetchTeams = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+          setIsAuthenticated(true);
+
+          // Fetch user's teams
+          const { data: teams, error } = await supabase
+            .from('teams')
+            .select('id, name, slug, colors')
+            .eq('created_by', user.id)
+            .order('created_at', { ascending: false });
+
+          if (!error && teams) {
+            setUserTeams(teams);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking auth or fetching teams:', error);
+      } finally {
+        setIsLoadingTeams(false);
+      }
+    };
+
+    checkAuthAndFetchTeams();
+  }, []);
 
   // Get mockups for selected sport
   const currentMockupGroup = mockupsBySport.find(
     (group) => group.sport_id === selectedSport?.id
   );
   const mockups = currentMockupGroup?.mockups || [];
+
+  // Set design context when component mounts
+  useEffect(() => {
+    if (design && currentSport) {
+      setDesignContext({
+        designId: design.id,
+        designSlug: design.slug,
+        designName: design.name,
+        sportId: currentSport.id,
+        sportSlug: currentSport.slug,
+        sportName: currentSport.name,
+        mockups: mockups,
+      });
+    }
+  }, [design, currentSport, mockups]);
+
+  // When team selection changes, update the form data
+  useEffect(() => {
+    if (localSelectedTeamId && localSelectedTeamId !== 'new') {
+      const selectedTeam = userTeams.find(t => t.id === localSelectedTeamId);
+      if (selectedTeam) {
+        setTeamName(selectedTeam.name);
+        setPrimaryColor(selectedTeam.colors.primary || '#e21c21');
+        setSecondaryColor(selectedTeam.colors.secondary || '#ffffff');
+        setAccentColor(selectedTeam.colors.accent || '#000000');
+        setSelectedTeamId(localSelectedTeamId); // Store in Zustand
+      }
+    } else if (localSelectedTeamId === 'new') {
+      // Clear the form when "Create new team" is selected
+      setTeamName('');
+      setPrimaryColor('#e21c21');
+      setSecondaryColor('#ffffff');
+      setAccentColor('#000000');
+      setSelectedTeamId(null); // Clear from Zustand
+    }
+  }, [localSelectedTeamId, userTeams]);
+
   const selectedMockup = mockups[selectedMockupIndex];
 
   const handleSportChange = (sport: Sport) => {
@@ -79,11 +186,14 @@ export function DesignDetailClient({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-      {/* Left Column - Image */}
-      <div className="space-y-4">
+    <div className="max-w-2xl mx-auto">
+      {/* Design Image Section */}
+      <div className="space-y-4 md:space-y-4 fixed top-24 left-0 right-0 md:relative z-40 md:z-auto px-4 md:px-0 pt-2 md:pt-0 pb-2 md:pb-0">
         {/* Main Mockup Image */}
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 overflow-hidden aspect-square flex items-center justify-center">
+        <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl border border-gray-700 overflow-hidden aspect-square flex items-center justify-center shadow-2xl group">
+          {/* Glass shine effect */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+
           {selectedMockup ? (
             <img
               src={selectedMockup.mockup_url}
@@ -91,11 +201,11 @@ export function DesignDetailClient({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="text-gray-500 text-center p-12">
+            <div className="text-gray-400 text-center p-12">
               <svg className="w-24 h-24 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <p>No hay mockup disponible para este deporte</p>
+              <p className="text-gray-300">No hay mockup disponible para este deporte</p>
             </div>
           )}
         </div>
@@ -107,11 +217,12 @@ export function DesignDetailClient({
               <button
                 key={mockup.id}
                 onClick={() => setSelectedMockupIndex(index)}
-                className={`aspect-square rounded-lg border-2 overflow-hidden transition-all ${
+                className={`aspect-square rounded-lg border-2 overflow-hidden transition-all backdrop-blur-sm ${
                   index === selectedMockupIndex
-                    ? 'border-blue-500 ring-2 ring-blue-500/50'
-                    : 'border-gray-700 hover:border-gray-600'
+                    ? 'border-[#e21c21] ring-2 ring-[#e21c21]/50 shadow-lg shadow-[#e21c21]/20'
+                    : 'border-gray-700 hover:border-[#e21c21]/50 bg-gray-800/50'
                 }`}
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
               >
                 <img
                   src={mockup.mockup_url}
@@ -124,160 +235,153 @@ export function DesignDetailClient({
         )}
       </div>
 
-      {/* Right Column - Info */}
-      <div className="space-y-6">
-        {/* Design Header */}
-        <div>
-          {design.featured && (
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-yellow-500 text-gray-900 rounded-full text-sm font-bold mb-3">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-              </svg>
-              Destacado
-            </div>
-          )}
+      {/* Spacer for mobile fixed image */}
+      <div className="h-[calc(100vw-2rem)] md:h-0"></div>
 
-          <h1 className="text-4xl font-bold text-white mb-2">{design.name}</h1>
+      {/* Quick Design Request - Team Info */}
+      <div className="mt-2 md:mt-2">
+        <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-xl p-2.5 sm:p-3 shadow-2xl group">
+          {/* Glass shine effect */}
+          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
 
-          {design.designer_name && (
-            <p className="text-lg text-gray-400">
-              por <span className="text-blue-400 font-medium">{design.designer_name}</span>
-            </p>
-          )}
-        </div>
-
-        {/* Description */}
-        {design.description && (
-          <p className="text-gray-300 text-lg leading-relaxed">{design.description}</p>
-        )}
-
-        {/* Sport Switcher */}
-        {availableSports.length > 1 && (
-          <div>
-            <h3 className="text-sm font-semibold text-gray-400 uppercase mb-3">
-              Disponible en {availableSports.length} deportes
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {availableSports.map((sport) => (
-                <button
-                  key={sport.id}
-                  onClick={() => handleSportChange(sport)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                    selectedSport?.id === sport.id
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
-                  }`}
+          <div className="relative space-y-2 sm:space-y-2.5">
+            {/* Team Selection Dropdown (only for authenticated users with teams, after mount) */}
+            {mounted && !isLoadingTeams && isAuthenticated && userTeams.length > 0 && (
+              <div>
+                <label htmlFor="team-select" className="block text-xs sm:text-sm font-semibold text-gray-300 mb-0.5 sm:mb-1">
+                  ¿Para qué equipo? *
+                </label>
+                <select
+                  id="team-select"
+                  value={localSelectedTeamId}
+                  onChange={(e) => setLocalSelectedTeamId(e.target.value)}
+                  className="w-full px-2.5 py-1.5 sm:px-3 sm:py-2 text-sm bg-gray-900/50 border border-gray-600 rounded-lg text-white focus:border-[#e21c21] focus:ring-2 focus:ring-[#e21c21]/50 transition-all outline-none"
                 >
-                  {sport.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Features */}
-        <div className="grid grid-cols-2 gap-4">
-          {design.is_customizable && (
-            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-green-400 mb-1">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="font-semibold">Personalizable</span>
+                  <option value="" disabled>Selecciona un equipo...</option>
+                  <option value="new">Crear nuevo equipo</option>
+                  {userTeams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <p className="text-sm text-gray-400">Puedes agregar nombres y números</p>
-            </div>
-          )}
+            )}
 
-          {design.allows_recoloring && (
-            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-blue-400 mb-1">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                </svg>
-                <span className="font-semibold">Recoloreable</span>
+            {/* Team Name (only shown when not authenticated, has no teams, or explicitly creating new team) */}
+            {((!mounted || !isAuthenticated || userTeams.length === 0) || (mounted && isAuthenticated && userTeams.length > 0 && localSelectedTeamId === 'new')) && (
+              <div>
+                <label htmlFor="team-name" className="block text-xs sm:text-sm font-semibold text-gray-300 mb-0.5 sm:mb-1">
+                  Nombre del equipo *
+                </label>
+                <input
+                  id="team-name"
+                  type="text"
+                  value={teamName}
+                  onChange={(e) => setTeamName(e.target.value)}
+                  placeholder="Ej: Leones FC"
+                  className="w-full px-2.5 py-1.5 sm:px-3 sm:py-2 text-sm bg-gray-900/50 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-[#e21c21] focus:ring-2 focus:ring-[#e21c21]/50 transition-all outline-none"
+                />
               </div>
-              <p className="text-sm text-gray-400">Puedes cambiar los colores</p>
-            </div>
-          )}
-        </div>
+            )}
 
-        {/* Style Tags */}
-        {design.style_tags && design.style_tags.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold text-gray-400 uppercase mb-3">Estilo</h3>
-            <div className="flex flex-wrap gap-2">
-              {design.style_tags.map((tag, idx) => (
-                <span
-                  key={idx}
-                  className="px-3 py-1 text-sm rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/50"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Color Scheme */}
-        {design.color_scheme && design.color_scheme.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold text-gray-400 uppercase mb-3">Colores</h3>
-            <div className="flex flex-wrap gap-2">
-              {design.color_scheme.map((color, idx) => (
-                <span
-                  key={idx}
-                  className="px-3 py-1 text-sm rounded-full bg-gray-800 text-gray-300 border border-gray-700"
-                >
-                  {color}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Available Products */}
-        {currentMockupGroup && currentMockupGroup.products.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold text-gray-400 uppercase mb-3">
-              Productos disponibles para {selectedSport?.name}
-            </h3>
-            <div className="space-y-2">
-              {currentMockupGroup.products.map((product: any) => (
-                <div
-                  key={product.id}
-                  className="flex items-center justify-between bg-gray-800/50 border border-gray-700 rounded-lg p-4"
-                >
+            {/* Team Colors (only shown when not authenticated, has no teams, or explicitly creating new) */}
+            {((!mounted || !isAuthenticated || userTeams.length === 0) || (mounted && isAuthenticated && userTeams.length > 0 && localSelectedTeamId === 'new')) && (
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1 sm:mb-1.5">
+                  Colores del equipo *
+                </label>
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  {/* Primary Color */}
                   <div>
-                    <p className="font-semibold text-white">{product.name}</p>
-                    <p className="text-sm text-gray-400 capitalize">{product.category}</p>
+                    <label htmlFor="primary-color" className="block text-[10px] sm:text-xs text-gray-400 mb-1 sm:mb-2">
+                      Primario
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="primary-color"
+                        type="color"
+                        value={primaryColor}
+                        onChange={(e) => setPrimaryColor(e.target.value)}
+                        className="w-full h-10 sm:h-12 rounded-lg cursor-pointer border-2 border-gray-600 hover:border-[#e21c21] transition-all"
+                        style={{ backgroundColor: primaryColor }}
+                      />
+                      <div className="absolute inset-0 rounded-lg pointer-events-none border-2 border-white/10"></div>
+                    </div>
+                    <p className="text-[9px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 font-mono truncate">{primaryColor}</p>
                   </div>
-                  <p className="text-lg font-bold text-blue-400">
-                    ${product.price_cents.toLocaleString()} CLP
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* Action Buttons */}
-        <div className="flex gap-4 pt-4">
-          <button
-            className="flex-1 px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-lg transition-colors shadow-lg hover:shadow-blue-500/50"
-            onClick={() => {
-              // TODO: Implement "Add to Order" functionality
-              alert('Funcionalidad de "Agregar a pedido" próximamente!');
-            }}
-          >
-            Agregar a pedido
-          </button>
-          <Link
-            href={`/catalog/${selectedSport?.slug}`}
-            className="px-6 py-4 bg-gray-800 text-white rounded-lg hover:bg-gray-700 font-semibold transition-colors border border-gray-700"
-          >
-            Volver al catálogo
-          </Link>
+                  {/* Secondary Color */}
+                  <div>
+                    <label htmlFor="secondary-color" className="block text-[10px] sm:text-xs text-gray-400 mb-1 sm:mb-2">
+                      Secundario
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="secondary-color"
+                        type="color"
+                        value={secondaryColor}
+                        onChange={(e) => setSecondaryColor(e.target.value)}
+                        className="w-full h-10 sm:h-12 rounded-lg cursor-pointer border-2 border-gray-600 hover:border-[#e21c21] transition-all"
+                        style={{ backgroundColor: secondaryColor }}
+                      />
+                      <div className="absolute inset-0 rounded-lg pointer-events-none border-2 border-white/10"></div>
+                    </div>
+                    <p className="text-[9px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 font-mono truncate">{secondaryColor}</p>
+                  </div>
+
+                  {/* Accent Color */}
+                  <div>
+                    <label htmlFor="accent-color" className="block text-[10px] sm:text-xs text-gray-400 mb-1 sm:mb-2">
+                      Acento
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="accent-color"
+                        type="color"
+                        value={accentColor}
+                        onChange={(e) => setAccentColor(e.target.value)}
+                        className="w-full h-10 sm:h-12 rounded-lg cursor-pointer border-2 border-gray-600 hover:border-[#e21c21] transition-all"
+                        style={{ backgroundColor: accentColor }}
+                      />
+                      <div className="absolute inset-0 rounded-lg pointer-events-none border-2 border-white/10"></div>
+                    </div>
+                    <p className="text-[9px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 font-mono truncate">{accentColor}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Continue Button */}
+            <button
+              onClick={() => {
+                // If mounted and user selected an existing team, can continue
+                // Otherwise, need team name and colors filled
+                if (!mounted) return; // Don't allow click before mounted
+                const hasSelectedExistingTeam = isAuthenticated && userTeams.length > 0 && localSelectedTeamId && localSelectedTeamId !== 'new';
+                const canContinue = hasSelectedExistingTeam || canProceedToStep2();
+                if (canContinue) {
+                  router.push(`/designs/${design.slug}/request/organization`);
+                }
+              }}
+              disabled={!mounted || !((isAuthenticated && userTeams.length > 0 && localSelectedTeamId && localSelectedTeamId !== 'new') || canProceedToStep2())}
+              className={`relative w-full px-4 py-2.5 sm:px-6 sm:py-3 rounded-lg font-semibold text-sm sm:text-base transition-all shadow-lg overflow-hidden group ${
+                mounted && ((isAuthenticated && userTeams.length > 0 && localSelectedTeamId && localSelectedTeamId !== 'new') || canProceedToStep2())
+                  ? 'bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 text-white border border-[#e21c21]/50 shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 cursor-pointer'
+                  : 'bg-gray-700/50 text-gray-500 border border-gray-600 cursor-not-allowed'
+              }`}
+              style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+            >
+              {/* Glass shine effect - always render to avoid hydration mismatch */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+              <span className="relative flex items-center justify-center gap-1.5 sm:gap-2">
+                Continuar con el pedido
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

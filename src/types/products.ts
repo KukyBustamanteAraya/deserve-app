@@ -15,6 +15,7 @@ export interface Product {
   price_cents: number;                    // Custom price set per product
   status: ProductStatus;
   hero_path?: string;                     // DEPRECATED: Products display design mockups
+  icon_url?: string;                      // Product symbol/icon URL for selection grids
   tags: string[];
   created_by?: string;
   created_at: string;

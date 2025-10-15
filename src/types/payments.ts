@@ -26,13 +26,18 @@ export interface Order {
   payment_status: OrderPaymentStatus;
   currency: string;
 
-  // Pricing
-  subtotal_cents: number;
-  discount_cents: number;
-  tax_cents: number;
-  shipping_cents: number;
-  total_cents: number | null;
-  total_amount_cents: number;
+  // Order Identification (Multi-Product Support)
+  order_number: string | null; // Human-readable order ID (ORD-YYYYMMDD-XXXX)
+  can_modify: boolean; // Whether products can still be added to this order
+  locked_at: string | null; // When order was locked (shipped/in production)
+
+  // Pricing (Chilean Pesos - stored as full pesos, not cents)
+  subtotal_clp: number;
+  discount_clp: number;
+  tax_clp: number;
+  shipping_clp: number;
+  total_clp: number | null;
+  total_amount_clp: number;
 
   // Shipping
   shipping_name: string | null;
@@ -84,11 +89,13 @@ export interface OrderItem {
   product_name: string;
   collection: string | null;
   images: string[];
+  design_id: string | null; // Link to designs table
+  design_request_id: number | null; // Direct link to design_requests table
 
-  // Pricing
-  unit_price_cents: number;
+  // Pricing (Chilean Pesos - stored as full pesos, not cents)
+  unit_price_clp: number;
   quantity: number;
-  line_total_cents: number | null;
+  line_total_clp: number | null;
 
   // Player Assignment
   player_id: string | null;
@@ -113,8 +120,8 @@ export interface PaymentContribution {
   user_id: string;
   team_id: string | null;
 
-  // Amount
-  amount_cents: number;
+  // Amount (Chilean Pesos - stored as full pesos, not cents)
+  amount_clp: number;
   currency: string;
 
   // Status (two columns exist in DB - we prioritize payment_status)
@@ -142,8 +149,8 @@ export interface BulkPayment {
   id: string;
   user_id: string;
 
-  // Amount
-  total_amount_cents: number;
+  // Amount (Chilean Pesos - stored as full pesos, not cents)
+  total_amount_clp: number;
   currency: string;
 
   // Status
@@ -203,8 +210,8 @@ export interface PlayerInfoSubmission {
 export interface OrderWithDetails extends Order {
   items: OrderItem[];
   payment_contributions?: PaymentContribution[];
-  total_paid_cents?: number;
-  total_pending_cents?: number;
+  total_paid_clp?: number;
+  total_pending_clp?: number;
   payment_progress_percentage?: number;
 }
 
@@ -249,7 +256,7 @@ export interface CreateOrderFromDesignResponse {
 export interface CreateSplitPaymentRequest {
   orderId: string;
   userId: string;
-  amountCents?: number; // Optional - auto-calculated if not provided
+  amountClp?: number; // Optional - auto-calculated if not provided
 }
 
 export interface CreateSplitPaymentResponse {
@@ -270,7 +277,7 @@ export interface CreateBulkPaymentResponse {
   bulkPaymentId: string;
   initPoint: string; // Mercado Pago payment URL
   preferenceId: string;
-  totalAmountCents: number;
+  totalAmountClp: number;
 }
 
 /**
@@ -300,9 +307,9 @@ export interface TeamPaymentDashboard {
   };
   orders: OrderWithDetails[];
   totalOrdersCount: number;
-  totalAmountCents: number;
-  totalPaidCents: number;
-  totalPendingCents: number;
+  totalAmountClp: number;
+  totalPaidClp: number;
+  totalPendingClp: number;
   paymentMode: 'split' | 'bulk';
 }
 
@@ -318,7 +325,7 @@ export const createOrderFromDesignSchema = z.object({
 export const createSplitPaymentSchema = z.object({
   orderId: z.string().uuid(),
   userId: z.string().uuid(),
-  amountCents: z.number().int().positive().optional()
+  amountClp: z.number().int().positive().optional()
 });
 
 export const createBulkPaymentSchema = z.object({
@@ -421,23 +428,160 @@ export function getOrderPaymentStatusLabel(status: OrderPaymentStatus): string {
  * Calculate payment progress
  */
 export function calculatePaymentProgress(
-  totalCents: number,
-  paidCents: number
+  totalClp: number,
+  paidClp: number
 ): {
   percentage: number;
-  remainingCents: number;
+  remainingClp: number;
   isPaid: boolean;
   isPartial: boolean;
 } {
-  const percentage = totalCents > 0 ? Math.round((paidCents / totalCents) * 100) : 0;
-  const remainingCents = Math.max(0, totalCents - paidCents);
-  const isPaid = paidCents >= totalCents && totalCents > 0;
-  const isPartial = paidCents > 0 && paidCents < totalCents;
+  const percentage = totalClp > 0 ? Math.round((paidClp / totalClp) * 100) : 0;
+  const remainingClp = Math.max(0, totalClp - paidClp);
+  const isPaid = paidClp >= totalClp && totalClp > 0;
+  const isPartial = paidClp > 0 && paidClp < totalClp;
 
   return {
     percentage,
-    remainingCents,
+    remainingClp,
     isPaid,
     isPartial
   };
+}
+
+// ===================================================================
+// ORDER OVERVIEW & LIFECYCLE TYPES
+// ===================================================================
+
+/**
+ * Design Request Order Stage (lifecycle tracking)
+ */
+export type DesignRequestOrderStage =
+  | 'design_phase'      // Design is being created/reviewed
+  | 'pending_order'     // Approved, waiting to be added to order
+  | 'in_order'          // Added to an order
+  | 'order_locked';     // Order shipped/locked, no changes allowed
+
+/**
+ * Order Lifecycle Stage (high-level view)
+ */
+export type OrderLifecycleStage =
+  | 'design_review'     // Designs being created/approved
+  | 'order_assembly'    // Order created, products being added
+  | 'payment_pending'   // Waiting for payment
+  | 'in_production'     // Manufacturing
+  | 'quality_check'     // QC stage
+  | 'shipping'          // In transit
+  | 'delivered';        // Complete
+
+/**
+ * Order Overview (from database view with aggregations)
+ */
+export interface OrderOverview {
+  // Order Details
+  id: string;
+  order_number: string | null;
+  team_id: string | null;
+  status: OrderStatus;
+  payment_status: OrderPaymentStatus;
+  payment_mode: string | null;
+  total_clp: number | null;
+  can_modify: boolean;
+  locked_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+  shipped_at: string | null;
+  delivered_at: string | null;
+
+  // Aggregated Counts
+  item_count: number;           // Total individual items
+  product_count: number;        // Distinct products (design requests)
+  design_request_count: number; // Total design requests linked
+
+  // Team Info
+  team_name: string | null;
+  team_slug: string | null;
+  team_logo_url: string | null;
+}
+
+/**
+ * Multi-Product Order Group (for displaying multiple products in one order)
+ */
+export interface MultiProductOrderGroup {
+  order_number: string;
+  order_id: string;
+  team_id: string;
+  status: OrderStatus;
+  payment_status: OrderPaymentStatus;
+
+  // Products in this order
+  products: {
+    design_request_id: number;
+    product_name: string;
+    product_image: string | null;
+    item_count: number;
+    total_clp: number;
+  }[];
+
+  // Aggregated totals
+  total_products: number;
+  total_items: number;
+  total_clp: number;
+  total_paid_clp: number;
+
+  // Order state
+  can_modify: boolean;
+  locked_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+/**
+ * Design Request with Order Info (for tracking in Order Overview)
+ */
+export interface DesignRequestWithOrderInfo {
+  id: number;
+  team_id: string;
+  product_name: string | null;
+  product_slug: string | null;
+
+  // Design status
+  status: string;
+  approval_status: string;
+
+  // Order linkage
+  order_id: string | null;
+  order_stage: DesignRequestOrderStage;
+  order_number: string | null;
+
+  // Timestamps
+  created_at: string;
+  approved_at: string | null;
+
+  // Mockups
+  mockup_urls: string[];
+
+  // Colors
+  primary_color: string | null;
+  secondary_color: string | null;
+  accent_color: string | null;
+}
+
+/**
+ * Order Pipeline Card Data (for compact display)
+ */
+export interface OrderPipelineCardData {
+  order_number: string;
+  order_id: string;
+  stage: OrderLifecycleStage;
+  product_count: number;
+  total_items: number;
+  total_clp: number;
+  paid_clp: number;
+  payment_percentage: number;
+  can_add_products: boolean;
+  status: OrderStatus;
+  payment_status: OrderPaymentStatus;
+  created_at: string;
+  estimated_delivery: string | null;
 }

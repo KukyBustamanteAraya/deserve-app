@@ -2,7 +2,8 @@
 -- LIVE SUPABASE SCHEMA REFERENCE
 -- =============================================================================
 -- This is the SINGLE SOURCE OF TRUTH for the database schema.
--- Last updated: 2025-10-11 (Added payment_mode to team_settings & orders, opted_out to order_items)
+-- Last updated: 2025-10-14 (Renamed all _cents columns to _clp - Chilean Pesos have no cents!)
+-- Previous update: 2025-10-11 (Added payment_mode to team_settings & orders, opted_out to order_items)
 -- Updated by: User via Supabase SQL migrations
 --
 -- IMPORTANT:
@@ -100,9 +101,9 @@ CREATE TABLE public.products (
   name text NOT NULL,
   slug text NOT NULL UNIQUE,
   description text,
-  price_cents integer NOT NULL,                    -- Custom price per product (NOT from component_pricing)
-  base_price_cents integer,
-  retail_price_cents integer,
+  price_clp integer NOT NULL,                      -- Custom price per product in CLP (Chilean Pesos - full pesos, NOT cents!)
+  base_price_clp integer,                          -- Base price in CLP (Chilean Pesos - full pesos, NOT cents!)
+  retail_price_clp integer,                        -- Retail price in CLP (Chilean Pesos - full pesos, NOT cents!)
   product_type_slug text,                          -- e.g., "jersey", "shorts", "hoodie"
   hero_path text,                                  -- DEPRECATED: Products display design mockups, not own images
   status text NOT NULL DEFAULT 'draft'::text CHECK (status = ANY (ARRAY['draft'::text, 'active'::text, 'archived'::text])),
@@ -121,7 +122,8 @@ CREATE TABLE public.products (
 -- NOTES:
 -- - sport_id is DEPRECATED, use sport_ids instead
 -- - hero_path is DEPRECATED, products display design mockups
--- - price_cents is set per product, NOT inherited from component_pricing
+-- - price_clp is set per product, NOT inherited from component_pricing
+-- - IMPORTANT: CLP (Chilean Pesos) has NO CENTS! All amounts stored as full pesos (e.g., 40000 = $40.000 CLP)
 -- - A product can span multiple sports (e.g., Premium Jersey for Soccer, Basketball, Volleyball)
 -- - Query example: SELECT * FROM products WHERE 1 = ANY(sport_ids); -- Get all products for soccer (id=1)
 -- - REMOVED CONSTRAINT: products_active_needs_hero (2025-10-11) - Products display design mockups, not their own images
@@ -215,7 +217,7 @@ CREATE TABLE public.design_products (
 --   - design_id UUID REFERENCES designs(id)  (Reference to design ordered)
 
 -- =============================================================================
--- PAYMENT SETTINGS & ORDER MANAGEMENT (Updated: 2025-10-11)
+-- PAYMENT SETTINGS & ORDER MANAGEMENT (Updated: 2025-10-14)
 -- =============================================================================
 
 -- team_settings table - Added payment_mode column:
@@ -230,8 +232,9 @@ CREATE TABLE public.design_products (
 --   - Set when manager approves design and creates order
 --
 -- IMPORTANT - GENERATED COLUMNS:
---   - total_cents is GENERATED ALWAYS AS (((subtotal_cents - discount_cents) + tax_cents) + shipping_cents)
---   - Do NOT include total_cents in INSERT statements - database calculates it automatically
+--   - total_clp is GENERATED ALWAYS AS (((subtotal_clp - discount_clp) + tax_clp) + shipping_clp)
+--   - Do NOT include total_clp in INSERT statements - database calculates it automatically
+--   - All amounts in CLP (Chilean Pesos) - full pesos, NOT cents! (40000 = $40.000 CLP, NOT $400.00)
 
 -- order_items table - Added opt-out columns:
 --   - opted_out BOOLEAN DEFAULT false
@@ -240,8 +243,9 @@ CREATE TABLE public.design_products (
 --   - When player opts out, order total recalculates automatically
 --
 -- IMPORTANT - GENERATED COLUMNS:
---   - line_total_cents is GENERATED ALWAYS AS (unit_price_cents * quantity)
---   - Do NOT include line_total_cents in INSERT statements - database calculates it automatically
+--   - line_total_clp is GENERATED ALWAYS AS (unit_price_clp * quantity)
+--   - Do NOT include line_total_clp in INSERT statements - database calculates it automatically
+--   - All amounts in CLP (Chilean Pesos) - full pesos, NOT cents! (40000 = $40.000 CLP, NOT $400.00)
 
 -- Add other important tables from the full schema as needed...
 -- (Keeping this file focused on the most critical tables for now)

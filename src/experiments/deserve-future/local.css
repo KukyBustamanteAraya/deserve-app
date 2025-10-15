@@ -1,0 +1,125 @@
+/**
+ * Deserve Future UI - Page-Scoped Styles
+ * These styles are ONLY loaded by the experimental team dashboard page
+ * No global CSS pollution - import explicitly where needed
+ */
+
+:root {
+  --deserve-red: #e21c21;
+  --deserve-black: #0b0b0c;
+  --deserve-white: #ffffff;
+}
+
+/* Grid backdrop pattern */
+.df-grid {
+  background-image: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 1px
+    ),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(
+    70% 60% at 50% 0%,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.6) 60%,
+    rgba(0, 0, 0, 1) 100%
+  );
+  position: fixed;
+  inset: 0;
+  opacity: 0.25;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Noise texture overlay */
+.df-noise {
+  background-image: url("/noise.png"); /* Gracefully ignored if missing */
+  mix-blend-mode: overlay;
+  opacity: 0.03;
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Glass morphism utility */
+.df-glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: saturate(140%) blur(10px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+}
+
+/* Subtle border utility */
+.df-border {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  border-radius: 16px;
+}
+
+/* Red glow on hover */
+.df-glow {
+  transition: box-shadow 0.3s ease;
+}
+
+.df-glow:hover {
+  box-shadow: 0 0 24px rgba(226, 28, 33, 0.45);
+}
+
+/* Animated laser scanline effect */
+.df-scanline {
+  position: relative;
+}
+
+.df-scanline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 1px;
+  background: radial-gradient(
+    120% 120% at 0% 50%,
+    var(--deserve-red),
+    transparent 60%
+  );
+  opacity: 0.8;
+  animation: df-sweep 3s linear infinite;
+}
+
+@keyframes df-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  45% {
+    transform: translateX(120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .df-scanline::after {
+    animation: none;
+  }
+}
+
+/* Text glow utilities */
+.df-text-glow-red {
+  text-shadow: 0 0 20px rgba(226, 28, 33, 0.5);
+}
+
+.df-text-glow-white {
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+/* Card hover effects */
+.df-card-hover {
+  transition: all 0.3s ease;
+}
+
+.df-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(226, 28, 33, 0.2);
+}

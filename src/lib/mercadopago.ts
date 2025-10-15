@@ -97,13 +97,14 @@ export async function createPaymentPreference(
 
 /**
  * Helper: Create a split-pay preference for a single player's contribution
+ * @param amountClp - Amount in Chilean Pesos (full pesos, not cents)
  */
 export async function createSplitPayPreference({
   orderId,
   userId,
   userEmail,
   userName,
-  amountCents,
+  amountClp,
   orderDescription,
   externalReference,
 }: {
@@ -111,7 +112,7 @@ export async function createSplitPayPreference({
   userId: string;
   userEmail: string;
   userName?: string;
-  amountCents: number;
+  amountClp: number;
   orderDescription: string;
   externalReference: string;
 }) {
@@ -122,7 +123,7 @@ export async function createSplitPayPreference({
       {
         title: `${orderDescription} - Tu Parte`,
         quantity: 1,
-        unit_price: amountCents, // CLP already stored as full pesos (no division needed)
+        unit_price: amountClp, // CLP stored as full pesos - sent directly to MercadoPago
         currency_id: 'CLP',
         description: `Contribución individual para orden #${orderId}`,
       },
@@ -151,6 +152,7 @@ export async function createSplitPayPreference({
 
 /**
  * Helper: Create a bulk payment preference for a manager paying multiple orders
+ * @param orders - Array of orders with amountClp in Chilean Pesos (full pesos, not cents)
  */
 export async function createBulkPayPreference({
   bulkPaymentId,
@@ -164,7 +166,7 @@ export async function createBulkPayPreference({
   userId: string;
   userEmail: string;
   userName?: string;
-  orders: Array<{ id: string; description: string; amountCents: number }>;
+  orders: Array<{ id: string; description: string; amountClp: number }>;
   externalReference: string;
 }) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
@@ -172,7 +174,7 @@ export async function createBulkPayPreference({
   const items: PaymentItem[] = orders.map((order) => ({
     title: order.description,
     quantity: 1,
-    unit_price: order.amountCents, // CLP already stored as full pesos (no division needed)
+    unit_price: order.amountClp, // CLP stored as full pesos - sent directly to MercadoPago
     currency_id: 'CLP',
     description: `Orden completa #${order.id}`,
   }));
@@ -296,17 +298,22 @@ export function validateWebhookSignature(
 // =====================================================
 
 /**
- * Converts CLP cents to the major currency unit (pesos)
- * Mercado Pago expects amounts in the major unit
+ * @deprecated CLP does not have cents! Amounts are already stored as full pesos.
+ * This function is no longer needed and should not be used for CLP.
+ * For USD/EUR with cents subdivision, use appropriate conversion.
  */
 export function centsToMajorUnit(cents: number): number {
+  console.warn('[MercadoPago] DEPRECATED: centsToMajorUnit() should not be used for CLP. CLP amounts are already full pesos.');
   return cents / 100;
 }
 
 /**
- * Converts CLP pesos to cents for storage
+ * @deprecated CLP does not have cents! Amounts should be stored directly as full pesos.
+ * This function is no longer needed and should not be used for CLP.
+ * For USD/EUR with cents subdivision, use appropriate conversion.
  */
 export function majorUnitToCents(pesos: number): number {
+  console.warn('[MercadoPago] DEPRECATED: majorUnitToCents() should not be used for CLP. Store CLP amounts directly as full pesos.');
   return Math.round(pesos * 100);
 }
 

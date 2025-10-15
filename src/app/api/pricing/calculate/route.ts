@@ -114,7 +114,7 @@ async function getUnitPrice(
   // Fetch product to get product_type_slug
   const { data: product, error: productError } = await supabase
     .from('products')
-    .select('id, product_type_slug, price_cents, base_price_cents, retail_price_cents')
+    .select('id, product_type_slug, price_clp, base_price_clp, retail_price_clp')
     .eq('id', productId)
     .single();
 
@@ -128,18 +128,18 @@ async function getUnitPrice(
   if (product.product_type_slug) {
     const { data: componentPricing } = await supabase
       .from('component_pricing')
-      .select('base_price_cents')
+      .select('base_price_clp')
       .eq('component_type_slug', product.product_type_slug)
       .single();
 
     if (componentPricing) {
-      basePrice = componentPricing.base_price_cents;
+      basePrice = componentPricing.base_price_clp;
     }
   }
 
   // Fallback to product table if component pricing not found
   if (basePrice === 0) {
-    basePrice = product.retail_price_cents ?? product.price_cents ?? product.base_price_cents ?? 0;
+    basePrice = product.retail_price_clp ?? product.price_clp ?? product.base_price_clp ?? 0;
   }
 
   if (basePrice === 0) {

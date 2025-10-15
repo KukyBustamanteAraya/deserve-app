@@ -20,17 +20,17 @@ const supabase = createClient(
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { orderId, userId, amountCents } = body;
+    const { orderId, userId, amountClp } = body;
 
     // Validate inputs
-    if (!orderId || !userId || !amountCents) {
+    if (!orderId || !userId || !amountClp) {
       return NextResponse.json(
-        { error: 'Missing required fields: orderId, userId, amountCents' },
+        { error: 'Missing required fields: orderId, userId, amountClp' },
         { status: 400 }
       );
     }
 
-    if (amountCents <= 0) {
+    if (amountClp <= 0) {
       return NextResponse.json(
         { error: 'Amount must be greater than zero' },
         { status: 400 }
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     // Get order details
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, total_amount_cents, status, team_id')
+      .select('id, total_amount_clp, status, team_id')
       .eq('id', orderId)
       .single();
 
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
         order_id: orderId,
         user_id: userId,
         team_id: order.team_id,
-        amount_cents: amountCents,
+        amount_clp: amountClp,
         currency: 'CLP',
         status: 'pending',
         external_reference: externalReference,
@@ -135,7 +135,7 @@ export async function POST(request: Request) {
       userId,
       userEmail: userData.email,
       userName: userData.full_name || undefined,
-      amountCents,
+      amountClp,
       orderDescription: `Orden de Equipo #${orderId.slice(0, 8)}`,
       externalReference,
     });

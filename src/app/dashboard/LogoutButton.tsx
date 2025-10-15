@@ -23,9 +23,11 @@ export default function LogoutButton() {
     <button
       onClick={onLogout}
       disabled={pending}
-      className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      className="relative px-6 py-3 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg font-semibold transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
+      style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
     >
-      {pending ? 'Cerrando sesión...' : 'Cerrar Sesión'}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+      <span className="relative">{pending ? 'Cerrando sesión...' : 'Cerrar Sesión'}</span>
     </button>
   );
 }

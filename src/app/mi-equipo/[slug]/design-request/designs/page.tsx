@@ -17,30 +17,35 @@ interface Design {
   mockup_url?: string;
 }
 
+interface ProductDesigns {
+  productId: string;
+  productName: string;
+  productSlug: string;
+  designs: Design[];
+  selectedDesigns: Design[];
+  loading: boolean;
+}
+
 export default function DesignSelectionPage({ params }: { params: { slug: string } }) {
   const router = useRouter();
   const supabase = getBrowserClient();
   const {
-    teamColors,
     teamSlug,
-    selectedProductId,
-    selectedProductName,
-    selectedProductSlug,
-    selectedDesignId,
-    setDesign,
+    selectedProducts,
+    setProductDesigns,
   } = useTeamDesignRequest();
 
-  const [designs, setDesigns] = useState<Design[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [productDesignsMap, setProductDesignsMap] = useState<Record<string, ProductDesigns>>({});
   const [sportId, setSportId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [currentProductIndex, setCurrentProductIndex] = useState(0);
 
-  // Redirect if no product selected
+  // Redirect if no products selected
   useEffect(() => {
-    if (!selectedProductName) {
+    if (selectedProducts.length === 0) {
       router.push(`/mi-equipo/${params.slug}/design-request/new`);
     }
-  }, [selectedProductName, params.slug, router]);
+  }, [selectedProducts, params.slug, router]);
 
   // Validate team slug matches
   useEffect(() => {
@@ -49,12 +54,12 @@ export default function DesignSelectionPage({ params }: { params: { slug: string
     }
   }, [teamSlug, params.slug, router]);
 
-  // Load team sport and designs
+  // Load designs for all selected products
   useEffect(() => {
-    loadDesigns();
-  }, [params.slug, selectedProductSlug]);
+    loadAllDesigns();
+  }, [params.slug, selectedProducts]);
 
-  const loadDesigns = async () => {
+  const loadAllDesigns = async () => {
     try {
       // Get team sport
       const { data: teamData, error: teamError } = await supabase
@@ -66,19 +71,49 @@ export default function DesignSelectionPage({ params }: { params: { slug: string
       if (teamError) throw teamError;
       if (!teamData?.sport_id) {
         setError('Equipo no tiene deporte configurado');
-        setLoading(false);
         return;
       }
 
       setSportId(teamData.sport_id);
 
-      logger.info('[Design Selection] Searching for designs with:', {
-        sport_id: teamData.sport_id,
-        product_type_slug: selectedProductSlug || 'jersey',
+      // Initialize product designs map
+      const initialMap: Record<string, ProductDesigns> = {};
+      selectedProducts.forEach(product => {
+        initialMap[product.id] = {
+          productId: product.id,
+          productName: product.name,
+          productSlug: product.slug,
+          designs: [],
+          selectedDesigns: product.designs.map(d => ({
+            id: d.id,
+            name: d.name,
+            slug: '',
+            description: null,
+            style_tags: [],
+            featured: false
+          })),
+          loading: true,
+        };
+      });
+      setProductDesignsMap(initialMap);
+
+      // Load designs for each product
+      for (const product of selectedProducts) {
+        await loadDesignsForProduct(product.id, product.slug, teamData.sport_id);
+      }
+    } catch (err: any) {
+      logger.error('Error loading designs:', err);
+      setError(err.message || 'Error al cargar diseños');
+    }
+  };
+
+  const loadDesignsForProduct = async (productId: string, productSlug: string, sportId: number) => {
+    try {
+      logger.info('[Design Selection] Searching for designs:', {
+        sport_id: sportId,
+        product_type_slug: productSlug,
       });
 
-      // Get designs for this product type and sport
-      // Query design_mockups that match both product_type_slug and sport_id
       const { data: mockupsData, error: mockupsError } = await supabase
         .from('design_mockups')
         .select(`
@@ -95,8 +130,8 @@ export default function DesignSelectionPage({ params }: { params: { slug: string
             active
           )
         `)
-        .eq('sport_id', teamData.sport_id)
-        .eq('product_type_slug', selectedProductSlug || 'jersey')
+        .eq('sport_id', sportId)
+        .eq('product_type_slug', productSlug)
         .eq('design.active', true);
 
       if (mockupsError) {
@@ -107,13 +142,11 @@ export default function DesignSelectionPage({ params }: { params: { slug: string
       logger.info('[Design Selection] Found mockups:', mockupsData?.length || 0);
 
       // Transform data to unique designs with mockups
-      // Prioritize is_primary=true mockups if available
       const uniqueDesigns = new Map<string, Design>();
 
       mockupsData?.forEach((mockup: any) => {
         if (mockup.design) {
           const existing = uniqueDesigns.get(mockup.design.id);
-          // Add design if not exists, or replace with primary mockup if current is not primary
           if (!existing || (mockup.is_primary && !existing.mockup_url)) {
             uniqueDesigns.set(mockup.design.id, {
               id: mockup.design.id,
@@ -137,243 +170,277 @@ export default function DesignSelectionPage({ params }: { params: { slug: string
         return a.name.localeCompare(b.name);
       });
 
-      setDesigns(designsArray);
-      logger.info('[Design Selection] Loaded designs:', designsArray.length);
+      setProductDesignsMap(prev => ({
+        ...prev,
+        [productId]: {
+          ...prev[productId],
+          designs: designsArray,
+          loading: false,
+        },
+      }));
+
+      logger.info('[Design Selection] Loaded designs for product:', productId, designsArray.length);
     } catch (err: any) {
-      logger.error('Error loading designs:', err);
-      setError(err.message || 'Error al cargar diseños');
-    } finally {
-      setLoading(false);
+      logger.error('Error loading designs for product:', productId, err);
+      setProductDesignsMap(prev => ({
+        ...prev,
+        [productId]: {
+          ...prev[productId],
+          loading: false,
+        },
+      }));
     }
   };
 
-  const handleDesignSelect = (design: Design) => {
-    setDesign(design.id, design.name);
-    // Navigate to color customization
-    router.push(`/mi-equipo/${params.slug}/design-request/customize`);
+  const handleDesignToggle = (productId: string, design: Design) => {
+    setProductDesignsMap(prev => {
+      const productDesigns = prev[productId];
+      const isSelected = productDesigns.selectedDesigns.some(d => d.id === design.id);
+
+      let newSelectedDesigns;
+      if (isSelected) {
+        // Remove design
+        newSelectedDesigns = productDesigns.selectedDesigns.filter(d => d.id !== design.id);
+      } else {
+        // Add design (max 2)
+        if (productDesigns.selectedDesigns.length < 2) {
+          newSelectedDesigns = [...productDesigns.selectedDesigns, design];
+        } else {
+          // Already have 2 designs, don't add more
+          return prev;
+        }
+      }
+
+      return {
+        ...prev,
+        [productId]: {
+          ...productDesigns,
+          selectedDesigns: newSelectedDesigns,
+        },
+      };
+    });
   };
 
   const handleBack = () => {
     router.push(`/mi-equipo/${params.slug}/design-request/new`);
   };
 
-  const handleSkip = () => {
-    // Skip design selection and go to customize (custom design flow)
-    setDesign(null, null);
+  const handleContinue = () => {
+    // Save all selected designs to the store
+    Object.values(productDesignsMap).forEach(productDesign => {
+      setProductDesigns(
+        productDesign.productId,
+        productDesign.selectedDesigns.map(d => ({ id: d.id, name: d.name }))
+      );
+    });
     router.push(`/mi-equipo/${params.slug}/design-request/customize`);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando diseños...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Error</h1>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button
-            onClick={() => router.push(`/mi-equipo/${params.slug}/design-request/new`)}
-            className="text-blue-600 hover:text-blue-700 font-medium"
-          >
-            ← Volver
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!selectedProductName) {
+  if (selectedProducts.length === 0) {
     return null; // Will redirect
   }
 
+  const currentProduct = selectedProducts[currentProductIndex];
+  const currentProductDesigns = productDesignsMap[currentProduct?.id];
+  const allProductsLoaded = Object.values(productDesignsMap).every(pd => !pd.loading);
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
       {/* Header */}
-      <div
-        className="relative overflow-hidden"
-        style={{
-          background: `linear-gradient(135deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
-        }}
-      >
-        <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="relative overflow-hidden bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border-b border-gray-700">
+        <div className="max-w-5xl mx-auto px-6 py-4">
           <button
             onClick={() => router.push(`/mi-equipo/${params.slug}`)}
-            className="mb-4 text-white/90 hover:text-white font-medium flex items-center gap-2"
+            className="mb-3 text-gray-300 hover:text-white font-medium flex items-center gap-2 transition-colors text-sm"
           >
-            ← Volver al equipo
+            ← Volver
           </button>
 
           <div>
-            <div className="inline-block px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm text-white/90 mb-3">
-              🎨 Nueva Solicitud de Diseño
+            <div className="inline-block px-2 py-0.5 bg-white/10 backdrop-blur-sm rounded-full text-xs text-gray-400 mb-2">
+              Paso 2 de 7
             </div>
-            <h1 className="text-4xl font-bold text-white mb-2">Paso 2: Selecciona el Diseño</h1>
-            <p className="text-white/80 text-lg">{selectedProductName}</p>
+            <h1 className="text-2xl font-bold text-white mb-1">Selecciona los Diseños</h1>
+            <p className="text-gray-300 text-sm">
+              Elige hasta 2 diseños por producto
+            </p>
           </div>
         </div>
       </div>
 
       {/* Progress Bar */}
-      <div className="bg-white border-b">
-        <div className="max-w-5xl mx-auto px-6 py-4">
+      <div className="bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border-b border-gray-700">
+        <div className="max-w-5xl mx-auto px-6 py-2">
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 bg-blue-600 rounded-full"></div>
-            <div className="flex-1 h-2 bg-blue-600 rounded-full"></div>
-            <div className="flex-1 h-2 bg-gray-200 rounded-full"></div>
-            <div className="flex-1 h-2 bg-gray-200 rounded-full"></div>
-            <div className="flex-1 h-2 bg-gray-200 rounded-full"></div>
-            <div className="flex-1 h-2 bg-gray-200 rounded-full"></div>
-            <div className="flex-1 h-2 bg-gray-200 rounded-full"></div>
-          </div>
-          <div className="flex justify-between mt-2 text-xs text-gray-600">
-            <span>Producto</span>
-            <span className="font-semibold text-blue-600">Diseño</span>
-            <span>Colores</span>
-            <span>Detalles</span>
-            <span>Logo</span>
-            <span>Nombres</span>
-            <span>Revisar</span>
+            <div className="flex-1 h-1.5 bg-blue-600 rounded-full"></div>
+            <div className="flex-1 h-1.5 bg-blue-600 rounded-full"></div>
+            <div className="flex-1 h-1.5 bg-gray-700 rounded-full"></div>
+            <div className="flex-1 h-1.5 bg-gray-700 rounded-full"></div>
+            <div className="flex-1 h-1.5 bg-gray-700 rounded-full"></div>
+            <div className="flex-1 h-1.5 bg-gray-700 rounded-full"></div>
+            <div className="flex-1 h-1.5 bg-gray-700 rounded-full"></div>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        {designs.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <span className="text-6xl mb-4 block">🎨</span>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">No hay diseños disponibles</h2>
-            <p className="text-gray-600 mb-4">
-              No se encontraron diseños para {selectedProductName} en tu deporte
+      <div className="max-w-5xl mx-auto px-6 py-6">
+        {/* Product Tabs */}
+        {selectedProducts.length > 1 && (
+          <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+            {selectedProducts.map((product, index) => {
+              const productDesigns = productDesignsMap[product.id];
+              const selectedCount = productDesigns?.selectedDesigns.length || 0;
+              return (
+                <button
+                  key={product.id}
+                  onClick={() => setCurrentProductIndex(index)}
+                  className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    currentProductIndex === index
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  {product.name}
+                  {selectedCount > 0 && (
+                    <span className="ml-2 text-xs">({selectedCount})</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Current Product Designs */}
+        {!currentProductDesigns || currentProductDesigns.loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-300">Cargando diseños...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-sm p-6 text-center">
+            <h2 className="text-xl font-bold text-white mb-2">Error</h2>
+            <p className="text-gray-300 mb-4">{error}</p>
+            <button
+              onClick={handleBack}
+              className="text-blue-400 hover:text-blue-300 font-medium"
+            >
+              ← Volver
+            </button>
+          </div>
+        ) : currentProductDesigns.designs.length === 0 ? (
+          <div className="bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-sm p-6 text-center">
+            <span className="text-5xl mb-4 block">🎨</span>
+            <h2 className="text-xl font-bold text-white mb-2">No hay diseños disponibles</h2>
+            <p className="text-gray-300 mb-4 text-sm">
+              No se encontraron diseños para {currentProductDesigns.productName}
             </p>
-            {sportId && (
-              <p className="text-sm text-gray-500 mb-6">
-                Buscando diseños para: Sport ID {sportId}, Producto: {selectedProductSlug}
-              </p>
-            )}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6 text-left max-w-md mx-auto">
-              <p className="text-sm text-gray-700 mb-2">
-                <strong>¿Qué significa esto?</strong>
-              </p>
-              <p className="text-sm text-gray-600">
-                No hay diseños pre-creados en nuestra galería para esta combinación. Puedes continuar con un diseño completamente personalizado y nuestro equipo lo creará desde cero según tus especificaciones.
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6 text-left max-w-md mx-auto">
+              <p className="text-sm text-gray-300">
+                Puedes continuar sin seleccionar diseños para este producto.
               </p>
             </div>
-            <button
-              onClick={handleSkip}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-            >
-              ✨ Continuar con Diseño Personalizado
-            </button>
           </div>
         ) : (
           <>
-            <div className="mb-6">
-              <p className="text-gray-600">
-                Selecciona un diseño de nuestra colección o solicita un diseño completamente personalizado
+            {/* Info Banner */}
+            <div className="mb-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+              <p className="text-sm text-gray-300">
+                {currentProductDesigns.productName}: Selecciona hasta 2 diseños que te gusten ({currentProductDesigns.selectedDesigns.length}/2 seleccionados)
               </p>
             </div>
 
             {/* Design Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {designs.map((design) => (
-                <button
-                  key={design.id}
-                  onClick={() => handleDesignSelect(design)}
-                  className={`bg-white rounded-lg shadow-sm overflow-hidden text-left transition-all hover:shadow-lg hover:scale-105 border-2 ${
-                    selectedDesignId === design.id
-                      ? 'border-blue-500 ring-2 ring-blue-500/50'
-                      : 'border-transparent hover:border-blue-300'
-                  }`}
-                >
-                  {/* Design Image */}
-                  <div className="relative h-64 bg-gray-100">
-                    {design.mockup_url ? (
-                      <Image
-                        src={design.mockup_url}
-                        alt={design.name}
-                        fill
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="flex items-center justify-center h-full">
-                        <span className="text-6xl">👕</span>
-                      </div>
-                    )}
-                    {design.featured && (
-                      <div className="absolute top-3 right-3 px-3 py-1 bg-yellow-400 text-yellow-900 rounded-full text-xs font-bold">
-                        ⭐ Destacado
-                      </div>
-                    )}
-                    {selectedDesignId === design.id && (
-                      <div className="absolute top-3 left-3 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
+            <div className="grid grid-cols-4 gap-3 mb-6">
+              {currentProductDesigns.designs.map((design) => {
+                const isSelected = currentProductDesigns.selectedDesigns.some(d => d.id === design.id);
+                const canSelect = currentProductDesigns.selectedDesigns.length < 2 || isSelected;
 
-                  {/* Design Info */}
-                  <div className="p-4">
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">{design.name}</h3>
-                    {design.description && (
-                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">{design.description}</p>
-                    )}
-                    {design.style_tags && design.style_tags.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {design.style_tags.slice(0, 3).map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {/* Custom Design Option */}
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6 border-2 border-purple-300">
-              <div className="flex items-start gap-4">
-                <span className="text-4xl">✨</span>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">¿Tienes un diseño en mente?</h3>
-                  <p className="text-gray-700 mb-4">
-                    Si ninguno de estos diseños te convence, puedes solicitar un diseño completamente personalizado. Nuestro equipo de diseño lo creará desde cero según tus especificaciones.
-                  </p>
+                return (
                   <button
-                    onClick={handleSkip}
-                    className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+                    key={design.id}
+                    onClick={() => handleDesignToggle(currentProduct.id, design)}
+                    disabled={!canSelect}
+                    className={`relative group bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-sm overflow-hidden transition-all hover:shadow-lg hover:scale-[1.02] border-2 ${
+                      isSelected
+                        ? 'border-blue-500 ring-2 ring-blue-500/50'
+                        : canSelect
+                        ? 'border-gray-700 hover:border-gray-600'
+                        : 'border-gray-700 opacity-50 cursor-not-allowed'
+                    }`}
                   >
-                    Solicitar Diseño Personalizado
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                    {/* Design Image */}
+                    <div className="relative h-40 bg-gray-900">
+                      {design.mockup_url ? (
+                        <Image
+                          src={design.mockup_url}
+                          alt={design.name}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <span className="text-4xl">👕</span>
+                        </div>
+                      )}
+                      {design.featured && (
+                        <div className="absolute top-2 right-2 px-2 py-0.5 bg-yellow-400 text-yellow-900 rounded-full text-xs font-bold">
+                          ⭐
+                        </div>
+                      )}
+                      {isSelected && (
+                        <div className="absolute top-2 left-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Design Info */}
+                    <div className="p-3 relative">
+                      <h3 className="text-sm font-bold text-white mb-2 line-clamp-2 text-center">{design.name}</h3>
+                      {design.style_tags && design.style_tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 justify-center">
+                          {design.style_tags.slice(0, 2).map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-2 py-0.5 bg-gray-700 text-gray-300 rounded text-xs"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </button>
-                </div>
-              </div>
+                );
+              })}
             </div>
           </>
         )}
 
         {/* Navigation Buttons */}
-        <div className="mt-8 flex items-center justify-between gap-4">
+        <div className="mt-6 flex items-center justify-between gap-4">
           <button
             onClick={handleBack}
-            className="px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+            className="px-4 py-2 text-sm bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md text-gray-200 border border-gray-700 rounded-lg hover:bg-gray-800 font-medium transition-colors"
           >
             ← Volver
+          </button>
+          <button
+            onClick={handleContinue}
+            disabled={!allProductsLoaded}
+            className={`px-6 py-2.5 text-sm rounded-lg font-medium transition-colors ${
+              allProductsLoaded
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            Continuar →
           </button>
         </div>
       </div>

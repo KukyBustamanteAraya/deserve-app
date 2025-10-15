@@ -41,9 +41,11 @@ export function DeleteButton({ productId, productName }: DeleteButtonProps) {
     <button
       onClick={handleDelete}
       disabled={isDeleting}
-      className="text-red-600 hover:text-red-800 text-sm disabled:opacity-50 disabled:cursor-not-allowed ml-3"
+      className="relative px-4 py-2 bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 backdrop-blur-md text-red-400 hover:text-red-300 rounded-lg border border-gray-700/50 hover:border-red-500/50 transition-all overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
+      style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
     >
-      {isDeleting ? 'Deleting...' : 'Delete'}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+      <span className="relative text-sm font-semibold">{isDeleting ? 'Deleting...' : 'Delete'}</span>
     </button>
   );
 }

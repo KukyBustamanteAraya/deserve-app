@@ -90,8 +90,9 @@ export function PaymentStatusTracker({ orderId, totalAmountCents, teamId }: Paym
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg p-4 border">
-        <p className="text-sm text-gray-600">Cargando estado de pagos...</p>
+      <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg p-4 border border-gray-700 overflow-hidden group">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+        <p className="text-sm text-gray-300 relative">Cargando estado de pagos...</p>
       </div>
     );
   }
@@ -101,21 +102,22 @@ export function PaymentStatusTracker({ orderId, totalAmountCents, teamId }: Paym
   }
 
   return (
-    <div className="bg-white rounded-lg p-6 border-2 border-gray-200">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-gray-900">Estado de Pagos</h3>
-        <span className="text-sm font-semibold text-gray-600">
+    <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg p-6 border border-gray-700 overflow-hidden group">
+      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+      <div className="flex items-center justify-between mb-4 relative">
+        <h3 className="text-lg font-bold text-white">Estado de Pagos</h3>
+        <span className="text-sm font-semibold text-gray-300">
           {paidCount} / {totalCount} pagados
         </span>
       </div>
 
       {/* Progress Bar */}
-      <div className="mb-6">
+      <div className="mb-6 relative">
         <div className="flex items-center justify-between text-sm mb-2">
-          <span className="text-gray-600">Progreso</span>
-          <span className="font-semibold text-gray-900">{Math.round(progress)}%</span>
+          <span className="text-gray-300">Progreso</span>
+          <span className="font-semibold text-white">{Math.round(progress)}%</span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-3">
+        <div className="w-full bg-gray-700 rounded-full h-3">
           <div
             className={`h-3 rounded-full transition-all duration-500 ${
               progress >= 100 ? 'bg-green-500' : 'bg-blue-500'
@@ -123,28 +125,28 @@ export function PaymentStatusTracker({ orderId, totalAmountCents, teamId }: Paym
             style={{ width: `${Math.min(progress, 100)}%` }}
           />
         </div>
-        <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
+        <div className="flex items-center justify-between text-xs text-gray-400 mt-1">
           <span>{formatCLP((progress / 100) * totalAmountCents)}</span>
           <span>{formatCLP(totalAmountCents)}</span>
         </div>
       </div>
 
       {/* Contributors List */}
-      <div className="space-y-2">
+      <div className="space-y-2 relative">
         {contributions.map((contribution, index) => (
           <div
             key={index}
-            className={`flex items-center justify-between p-3 rounded-lg border-2 ${
+            className={`flex items-center justify-between p-3 rounded-lg border ${
               contribution.payment_status === 'paid'
-                ? 'bg-green-50 border-green-200'
-                : 'bg-gray-50 border-gray-200'
+                ? 'bg-green-500/10 border-green-500/30'
+                : 'bg-gray-800/50 border-gray-700'
             }`}
           >
             <div className="flex items-center gap-3">
               {/* Avatar */}
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
-                  contribution.payment_status === 'paid' ? 'bg-green-500' : 'bg-gray-400'
+                  contribution.payment_status === 'paid' ? 'bg-green-500' : 'bg-gray-600'
                 }`}
               >
                 {contribution.profiles?.full_name?.[0] || contribution.profiles?.email?.[0] || '?'}
@@ -152,10 +154,10 @@ export function PaymentStatusTracker({ orderId, totalAmountCents, teamId }: Paym
 
               {/* Name & Email */}
               <div>
-                <p className="font-medium text-gray-900">
+                <p className="font-medium text-white">
                   {contribution.profiles?.full_name || contribution.profiles?.email?.split('@')[0] || 'Miembro'}
                 </p>
-                <p className="text-xs text-gray-600">{formatCLP(contribution.amount_cents)}</p>
+                <p className="text-xs text-gray-300">{formatCLP(contribution.amount_cents)}</p>
               </div>
             </div>
 
@@ -163,22 +165,22 @@ export function PaymentStatusTracker({ orderId, totalAmountCents, teamId }: Paym
             <div className="flex items-center gap-2">
               {contribution.payment_status === 'paid' ? (
                 <>
-                  <span className="text-xs text-green-700 font-medium">Pagado</span>
+                  <span className="text-xs text-green-400 font-medium">Pagado</span>
                   <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-sm">
                     ✓
                   </div>
                 </>
               ) : contribution.payment_status === 'failed' ? (
                 <>
-                  <span className="text-xs text-red-700 font-medium">Fallido</span>
+                  <span className="text-xs text-red-400 font-medium">Fallido</span>
                   <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-sm">
                     ✕
                   </div>
                 </>
               ) : (
                 <>
-                  <span className="text-xs text-gray-600 font-medium">Pendiente</span>
-                  <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-white text-sm">
+                  <span className="text-xs text-gray-400 font-medium">Pendiente</span>
+                  <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center text-white text-sm">
                     ⏱
                   </div>
                 </>
@@ -190,8 +192,8 @@ export function PaymentStatusTracker({ orderId, totalAmountCents, teamId }: Paym
 
       {/* Summary */}
       {progress >= 100 && (
-        <div className="mt-4 pt-4 border-t border-green-200 bg-green-50 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-green-800">
+        <div className="mt-4 pt-4 border-t border-green-500/30 bg-green-500/10 rounded-lg p-3 relative">
+          <div className="flex items-center gap-2 text-green-400">
             <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-sm">
               ✓
             </div>

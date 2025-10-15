@@ -53,7 +53,7 @@ export async function GET(
           id,
           name,
           slug,
-          price_cents,
+          price_clp,
           category
         )
       `)

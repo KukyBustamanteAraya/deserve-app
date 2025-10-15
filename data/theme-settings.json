@@ -1,0 +1,22 @@
+{
+  "logo": {
+    "mode": "logo",
+    "primaryLogoUrl": "/uploads/theme/primaryLogo-1760398848608.png",
+    "secondaryLogoUrl": null
+  },
+  "banners": {
+    "banner1Url": "/uploads/theme/banner1-1760403259475.png",
+    "banner2Url": "/uploads/theme/banner2-1760440175948.png",
+    "banner3Url": "/uploads/theme/banner3-1760440074147.png"
+  },
+  "sportIcons": {
+    "futbolIconUrl": "/uploads/theme/futbolIcon-1760524621284.png",
+    "basquetbolIconUrl": "/uploads/theme/basquetbolIcon-1760527284443.png",
+    "voleibolIconUrl": "/uploads/theme/voleibolIcon-1760528488008.png",
+    "rugbyIconUrl": "/uploads/theme/rugbyIcon-1760529404288.png",
+    "hockeyIconUrl": null,
+    "tenisIconUrl": null,
+    "handballIconUrl": null,
+    "beisbolIconUrl": null
+  }
+}
