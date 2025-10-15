@@ -217,6 +217,11 @@ export default function MinimalTeamsPage() {
       if (teamError) throw teamError;
 
       console.log('[Team Creation] Team created successfully:', newTeam.id, 'Name:', newTeam.name);
+      console.log('[Team Creation] ⚠️ IMPORTANT - Check team_type value returned from DB:', newTeam.team_type);
+
+      if (newTeam.team_type !== dbTeamType) {
+        console.error('[Team Creation] 🚨 DATABASE MISMATCH! We sent:', dbTeamType, 'but DB returned:', newTeam.team_type);
+      }
 
       // Add creator as owner member
       console.log('[Team Creation] Creating owner membership for user:', user.id, 'team:', newTeam.id);

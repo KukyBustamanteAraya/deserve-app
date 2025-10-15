@@ -329,6 +329,20 @@ export default function MinimalTeamPage({ params }: { params: { slug: string } }
           .single();
 
         if (teamError) throw teamError;
+
+        console.log('[Team Page] ⚠️ TEAM DATA LOADED - Checking team_type value:', teamData.team_type);
+        console.log('[Team Page] Full team object:', teamData);
+
+        if (!teamData.team_type) {
+          console.error('[Team Page] 🚨 WARNING: team_type is NULL or UNDEFINED in database!');
+        } else if (teamData.team_type === 'institution') {
+          console.warn('[Team Page] ⚠️ Team is marked as INSTITUTION in database');
+        } else if (teamData.team_type === 'single_team') {
+          console.log('[Team Page] ✅ Team is correctly marked as SINGLE_TEAM');
+        } else {
+          console.error('[Team Page] 🚨 UNEXPECTED team_type value:', teamData.team_type);
+        }
+
         setTeam(teamData);
 
         // Get team settings (colors and logo)
