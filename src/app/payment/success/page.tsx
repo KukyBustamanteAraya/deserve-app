@@ -23,76 +23,169 @@ export default function PaymentSuccessPage() {
   const status = searchParams.get('status');
 
   useEffect(() => {
-    const verify = async () => {
+    let pollInterval: NodeJS.Timeout | null = null;
+    let pollAttempts = 0;
+    const MAX_POLL_ATTEMPTS = 20; // 20 attempts * 3 seconds = 60 seconds max
+    const POLL_INTERVAL_MS = 3000; // Poll every 3 seconds
+
+    const checkPaymentStatus = async () => {
       try {
-        // If we have external reference, fetch the payment details
-        if (externalRef) {
-          const response = await fetch(`/api/payment-contributions/${externalRef}`);
-          if (response.ok) {
-            const data = await response.json();
-            setPaymentInfo(data);
-          }
+        if (!externalRef) {
+          setError('Referencia de pago no encontrada');
+          setVerifying(false);
+          return;
         }
 
-        // Wait a moment to show success message
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        setVerifying(false);
+        const response = await fetch(`/api/payment-contributions/${externalRef}`);
 
-        // Auto-redirect after 3 seconds
-        setTimeout(() => {
-          setRedirecting(true);
-          if (paymentInfo?.teamSlug) {
-            router.push(`/mi-equipo/${paymentInfo.teamSlug}`);
-          } else {
-            router.push('/mi-equipo');
+        if (!response.ok) {
+          throw new Error('Error al obtener información del pago');
+        }
+
+        const data = await response.json();
+        setPaymentInfo(data);
+
+        // Check if payment is approved
+        if (data.paymentStatus === 'approved') {
+          // Payment confirmed! Clear polling and redirect
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
           }
-        }, 3000);
-      } catch (err) {
-        setError('Error al verificar el pago');
+
+          setVerifying(false);
+
+          // Redirect to team payments page after brief delay
+          setTimeout(() => {
+            setRedirecting(true);
+            if (data.teamSlug) {
+              router.push(`/mi-equipo/${data.teamSlug}/payments`);
+            } else {
+              router.push('/mi-equipo');
+            }
+          }, 2000);
+
+          return true; // Payment approved
+        }
+
+        pollAttempts++;
+
+        // Check if we've exceeded max attempts
+        if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+          setVerifying(false);
+          setError(
+            'El pago está siendo procesado. Por favor, verifica el estado en tu equipo en unos minutos.'
+          );
+
+          // Still redirect after timeout, but to payments page
+          setTimeout(() => {
+            if (data.teamSlug) {
+              router.push(`/mi-equipo/${data.teamSlug}/payments`);
+            } else {
+              router.push('/mi-equipo');
+            }
+          }, 5000);
+
+          return false;
+        }
+
+        return false; // Keep polling
+      } catch (err: any) {
+        console.error('Error checking payment status:', err);
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
+        setError(err.message || 'Error al verificar el pago');
         setVerifying(false);
+        return false;
       }
     };
 
-    verify();
-  }, [paymentId, externalRef, router, paymentInfo?.teamSlug]);
+    const startPolling = async () => {
+      // Initial check
+      const approved = await checkPaymentStatus();
+
+      if (approved) {
+        return; // Already approved, no need to poll
+      }
+
+      setVerifying(false); // Show the polling UI
+
+      // Start polling interval
+      pollInterval = setInterval(async () => {
+        await checkPaymentStatus();
+      }, POLL_INTERVAL_MS);
+    };
+
+    startPolling();
+
+    // Cleanup on unmount
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [externalRef, router]);
 
   if (verifying) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-green-600 mb-4" />
-          <p className="text-gray-600 text-lg">Verificando tu pago...</p>
+          <p className="text-gray-600 text-lg font-semibold">Verificando tu pago...</p>
+          <p className="text-gray-500 text-sm mt-2">Esperando confirmación de Mercado Pago</p>
         </div>
       </div>
     );
   }
 
   if (error) {
+    const isTimeoutError = error.includes('siendo procesado');
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg
-              className="w-8 h-8 text-red-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+          <div className={`w-16 h-16 ${isTimeoutError ? 'bg-yellow-100' : 'bg-red-100'} rounded-full flex items-center justify-center mx-auto mb-4`}>
+            {isTimeoutError ? (
+              <svg className="w-8 h-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg
+                className="w-8 h-8 text-red-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            )}
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Error</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            {isTimeoutError ? 'Procesando Pago' : 'Error'}
+          </h1>
           <p className="text-gray-600 mb-6">{error}</p>
           <button
-            onClick={() => router.push('/mi-equipo')}
-            className="px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+            onClick={() => {
+              if (paymentInfo?.teamSlug) {
+                router.push(`/mi-equipo/${paymentInfo.teamSlug}/payments`);
+              } else {
+                router.push('/mi-equipo');
+              }
+            }}
+            className={`px-6 py-3 ${isTimeoutError ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-gray-900 hover:bg-gray-800'} text-white rounded-lg transition-colors`}
           >
-            Volver al inicio
+            {isTimeoutError ? 'Ver Estado del Pago' : 'Volver al inicio'}
           </button>
         </div>
       </div>
@@ -126,14 +219,14 @@ export default function PaymentSuccessPage() {
           <button
             onClick={() => {
               if (paymentInfo?.teamSlug) {
-                router.push(`/mi-equipo/${paymentInfo.teamSlug}`);
+                router.push(`/mi-equipo/${paymentInfo.teamSlug}/payments`);
               } else {
                 router.push('/mi-equipo');
               }
             }}
             className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
           >
-            Ir a Mi Equipo
+            Ver Mis Pagos
           </button>
         ) : (
           <div className="flex items-center justify-center gap-2 text-green-600">
