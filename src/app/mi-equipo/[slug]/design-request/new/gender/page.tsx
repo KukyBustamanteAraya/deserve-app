@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getBrowserClient } from '@/lib/supabase/client';
 import { useDesignRequestWizard, type GenderCategory } from '@/store/design-request-wizard';
 import { WizardLayout } from '@/components/institution/design-request/WizardLayout';
 
@@ -12,6 +13,7 @@ export default function GenderSelectionPage({ params }: { params: { slug: string
   const [selectedGender, setSelectedGender] = useState<GenderCategory | null>(gender_category);
   const [sameDesign, setSameDesign] = useState<boolean>(both_config?.same_design ?? true);
   const [sameColors, setSameColors] = useState<boolean>(both_config?.same_colors ?? true);
+  const [teamType, setTeamType] = useState<'single_team' | 'institution' | null>(null);
 
   useEffect(() => {
     // Initialize from store if available
@@ -23,6 +25,24 @@ export default function GenderSelectionPage({ params }: { params: { slug: string
       setSameColors(both_config.same_colors);
     }
   }, []);
+
+  useEffect(() => {
+    // Load team type to determine back button behavior
+    async function loadTeamType() {
+      const supabase = getBrowserClient();
+      const { data: team } = await supabase
+        .from('teams')
+        .select('team_type')
+        .eq('slug', params.slug)
+        .single();
+
+      if (team) {
+        setTeamType(team.team_type);
+      }
+    }
+
+    loadTeamType();
+  }, [params.slug]);
 
   const handleGenderSelect = (gender: GenderCategory) => {
     setSelectedGender(gender);
@@ -62,13 +82,23 @@ export default function GenderSelectionPage({ params }: { params: { slug: string
     },
   ];
 
+  const handleBack = () => {
+    if (teamType === 'institution') {
+      // Institution: go back to teams selection
+      router.push(`/mi-equipo/${params.slug}/design-request/new/teams`);
+    } else {
+      // Single team: go back to team dashboard (this is the first step)
+      router.push(`/mi-equipo/${params.slug}`);
+    }
+  };
+
   return (
     <WizardLayout
       step={2}
       totalSteps={7}
       title="¿Para quién es este uniforme?"
       subtitle="Esto nos ayudará a mostrarte los productos y tallas correctas"
-      onBack={() => router.push(`/mi-equipo/${params.slug}/design-request/new/teams`)}
+      onBack={handleBack}
       onContinue={handleContinue}
       canContinue={selectedGender !== null}
     >
