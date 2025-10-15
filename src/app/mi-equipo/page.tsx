@@ -143,6 +143,12 @@ export default function MinimalTeamsPage() {
     e.preventDefault();
 
     // Validate based on team type
+    if (!teamType) {
+      alert('Error: Tipo de equipo no seleccionado. Por favor intenta de nuevo.');
+      console.error('[Team Creation] teamType is null or undefined:', teamType);
+      return;
+    }
+
     if (!teamName.trim()) {
       alert('Por favor ingresa el nombre del equipo');
       return;
@@ -182,6 +188,13 @@ export default function MinimalTeamsPage() {
       // Map UI team types to database enum values
       const dbTeamType = teamType === 'single' ? 'single_team' : 'institution';
 
+      console.log('[Team Creation] Creating team with:', {
+        teamType: teamType,
+        dbTeamType: dbTeamType,
+        sportId: teamSportId,
+        sportsArray: sportsArray
+      });
+
       // Create team - USE sport_id (foreign key)
       const { data: newTeam, error: teamError } = await supabase
         .from('teams')
@@ -198,6 +211,8 @@ export default function MinimalTeamsPage() {
         })
         .select()
         .single();
+
+      console.log('[Team Creation] Team created, result:', newTeam, 'Error:', teamError);
 
       if (teamError) throw teamError;
 
@@ -462,6 +477,7 @@ export default function MinimalTeamsPage() {
 
                 <button
                   onClick={() => {
+                    console.log('[Team Creation] User clicked "Equipo Único" - Setting teamType to: single');
                     setTeamType('single');
                     setModalStep('details');
                   }}
@@ -486,6 +502,7 @@ export default function MinimalTeamsPage() {
 
                 <button
                   onClick={() => {
+                    console.log('[Team Creation] User clicked "Organización" - Setting teamType to: organization');
                     setTeamType('organization');
                     setModalStep('details');
                   }}
