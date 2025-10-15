@@ -667,7 +667,13 @@ export default function MinimalTeamPage({ params }: { params: { slug: string } }
   }
 
   // Render organization dashboard
+  console.log('[Team Page] 🎨 RENDER DECISION - team.team_type value:', team.team_type);
+  console.log('[Team Page] 🎨 Type of team.team_type:', typeof team.team_type);
+  console.log('[Team Page] 🎨 Checking: team.team_type === "institution"?', team.team_type === 'institution');
+  console.log('[Team Page] 🎨 Checking: team.team_type === "single_team"?', team.team_type === 'single_team');
+
   if (team.team_type === 'institution') {
+    console.log('[Team Page] 📊 RENDERING INSTITUTION DASHBOARD');
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
         {/* Organization Header Banner */}
@@ -1067,6 +1073,7 @@ export default function MinimalTeamPage({ params }: { params: { slug: string } }
   }
 
   // Render single team dashboard
+  console.log('[Team Page] 👥 RENDERING SINGLE TEAM DASHBOARD');
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
       {/* Team Header Banner */}
