@@ -1,3 +1,4 @@
+// Institution orders API - fetches orders and design requests
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
@@ -58,7 +59,6 @@ export async function GET(
           quantity,
           unit_price_clp,
           line_total_clp,
-          size,
           opted_out
         )
       `)
@@ -88,6 +88,79 @@ export async function GET(
       );
     }
 
+    // Fetch design requests for this institution
+    const { data: designRequests, error: designRequestsError } = await supabase
+      .from('design_requests')
+      .select(`
+        id,
+        status,
+        created_at,
+        updated_at,
+        sub_team_id,
+        design_id,
+        primary_color,
+        secondary_color,
+        accent_color,
+        feedback,
+        sport_slug,
+        sub_team:sub_team_id(id, name, slug, sport_id)
+      `)
+      .eq('team_id', institution.id)
+      .in('status', ['pending', 'in_review', 'changes_requested', 'approved'])
+      .order('created_at', { ascending: false });
+
+    if (designRequestsError) {
+      logger.error('Error fetching design requests:', designRequestsError);
+    }
+
+    // Fetch sport names for design requests
+    const sportSlugs = [...new Set((designRequests || []).map(dr => dr.sport_slug).filter(Boolean))];
+    let sportsData: any[] = [];
+
+    if (sportSlugs.length > 0) {
+      const { data } = await supabase
+        .from('sports')
+        .select('slug, name')
+        .in('slug', sportSlugs);
+      sportsData = data || [];
+    }
+
+    const sportMap = (sportsData || []).reduce((acc, sport) => {
+      acc[sport.slug] = sport.name;
+      return acc;
+    }, {} as Record<string, string>);
+
+    // Map design requests to order-like format
+    const designRequestsAsOrders = (designRequests || []).map(dr => ({
+      id: `design-request-${dr.id}`,
+      orderNumber: `DR-${dr.id}`,
+      teamName: dr.sub_team?.name || 'Sin equipo',
+      teamSlug: dr.sub_team?.slug || '',
+      sport: sportMap[dr.sport_slug] || dr.sport_slug || 'Desconocido',
+      items: 0,
+      totalCents: 0,
+      paidCents: 0,
+      status: `design_${dr.status}`, // Prefix to differentiate from order statuses
+      date: dr.created_at,
+      team_id: institution.id,
+      sub_team_id: dr.sub_team_id,
+      sub_team: dr.sub_team,
+      created_at: dr.created_at,
+      updated_at: dr.updated_at,
+      total_clp: 0, // No price yet
+      order_items: [],
+      is_design_request: true,
+      design_request_id: dr.id,
+      design_request_data: {
+        design_id: dr.design_id,
+        primary_color: dr.primary_color,
+        secondary_color: dr.secondary_color,
+        accent_color: dr.accent_color,
+        feedback: dr.feedback,
+        sport_slug: dr.sport_slug,
+      }
+    }));
+
     // Get total count for pagination
     let countQuery = supabase
       .from('orders')
@@ -109,8 +182,14 @@ export async function GET(
       logger.error('Error counting orders:', countError);
     }
 
+    // Combine orders and design requests
+    const allOrders = [...(orders || []), ...designRequestsAsOrders];
+
+    // Sort by created_at (most recent first)
+    allOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
     // Group orders by order_number
-    const groupedOrders = (orders || []).reduce((groups, order) => {
+    const groupedOrders = allOrders.reduce((groups, order) => {
       const key = order.order_number || order.id;
       if (!groups[key]) {
         groups[key] = [];
@@ -120,9 +199,9 @@ export async function GET(
     }, {} as Record<string, any[]>);
 
     return NextResponse.json({
-      orders: orders || [],
+      orders: allOrders,
       grouped_orders: groupedOrders,
-      total: count || 0,
+      total: (count || 0) + (designRequests?.length || 0),
       limit,
       offset,
     });

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getBrowserClient } from '@/lib/supabase/client';
 import { useDesignRequestWizard } from '@/store/design-request-wizard';
 import { WizardLayout } from '@/components/institution/design-request/WizardLayout';
 
@@ -19,6 +20,25 @@ export default function QuantitiesPage({ params }: { params: { slug: string } })
     male?: Record<string, number>;
     female?: Record<string, number>;
   }>({});
+  const [teamType, setTeamType] = useState<'single_team' | 'institution' | null>(null);
+
+  useEffect(() => {
+    // Load team type
+    async function loadTeamType() {
+      const supabase = getBrowserClient();
+      const { data: team } = await supabase
+        .from('teams')
+        .select('team_type')
+        .eq('slug', params.slug)
+        .single();
+
+      if (team) {
+        setTeamType(team.team_type);
+      }
+    }
+
+    loadTeamType();
+  }, [params.slug]);
 
   useEffect(() => {
     // Initialize quantity data structure
@@ -108,10 +128,14 @@ export default function QuantitiesPage({ params }: { params: { slug: string } })
 
   const totals = getGrandTotal();
 
+  // Adjust step numbers for single teams (skip teams step)
+  const currentStep = teamType === 'single_team' ? 4 : 5;
+  const totalWizardSteps = teamType === 'single_team' ? 6 : 7;
+
   return (
     <WizardLayout
-      step={5}
-      totalSteps={6}
+      step={currentStep}
+      totalSteps={totalWizardSteps}
       title={`Cantidades estimadas para ${sport_name}`}
       subtitle="Opcional - Danos una estimación aproximada de las cantidades que necesitas"
       onBack={() => router.push(`/mi-equipo/${params.slug}/design-request/new/colors`)}

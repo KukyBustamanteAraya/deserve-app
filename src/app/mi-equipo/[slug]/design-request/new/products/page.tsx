@@ -21,6 +21,25 @@ export default function ProductsSelectionPage({ params }: { params: { slug: stri
   const [products, setProducts] = useState<ProductType[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [teamType, setTeamType] = useState<'single_team' | 'institution' | null>(null);
+
+  useEffect(() => {
+    // Load team type
+    async function loadTeamType() {
+      const supabase = getBrowserClient();
+      const { data: team } = await supabase
+        .from('teams')
+        .select('team_type')
+        .eq('slug', params.slug)
+        .single();
+
+      if (team) {
+        setTeamType(team.team_type);
+      }
+    }
+
+    loadTeamType();
+  }, [params.slug]);
 
   useEffect(() => {
     // Redirect to team selection if wizard state is incomplete
@@ -153,10 +172,19 @@ export default function ProductsSelectionPage({ params }: { params: { slug: stri
     return groups;
   }, {} as Record<string, ProductType[]>);
 
+  // Adjust step numbers for single teams (skip teams step)
+  const currentStep = teamType === 'single_team' ? 2 : 3;
+  const totalWizardSteps = teamType === 'single_team' ? 6 : 7;
+
+  const handleBack = () => {
+    // Always go back to gender step
+    router.push(`/mi-equipo/${params.slug}/design-request/new/gender`);
+  };
+
   return (
     <WizardLayout
-      step={2}
-      totalSteps={6}
+      step={currentStep}
+      totalSteps={totalWizardSteps}
       title={`¿Qué productos necesitas para ${sport_name}?`}
       subtitle={
         gender_category === 'both'
@@ -165,7 +193,7 @@ export default function ProductsSelectionPage({ params }: { params: { slug: stri
           ? 'Productos para hombres'
           : 'Productos para mujeres'
       }
-      onBack={() => router.push(`/mi-equipo/${params.slug}/design-request/new/teams`)}
+      onBack={handleBack}
       onContinue={handleContinue}
       canContinue={selectedProductIds.size > 0}
     >

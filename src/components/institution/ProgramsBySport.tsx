@@ -5,18 +5,36 @@ import { useRouter } from 'next/navigation';
 import type { InstitutionProgram } from '@/lib/mockData/institutionData';
 import { CreateTeamModal } from './CreateTeamModal';
 
+interface DesignRequest {
+  id: string | number;
+  sub_team_id: string;
+  status: string;
+  created_at: string;
+}
+
 interface ProgramsBySportProps {
   programs: InstitutionProgram[];
   institutionSlug: string;
+  designRequests?: DesignRequest[];
   onRefresh?: () => void;
   onAddProgram?: () => void;
 }
 
-export function ProgramsBySport({ programs, institutionSlug, onRefresh, onAddProgram }: ProgramsBySportProps) {
+export function ProgramsBySport({ programs, institutionSlug, designRequests = [], onRefresh, onAddProgram }: ProgramsBySportProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(0);
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [selectedSport, setSelectedSport] = useState<{ id: number; name: string } | null>(null);
+
+  // Helper function to check if a sub-team has active design requests
+  const hasActiveDesignRequest = (teamId: string) => {
+    return designRequests.some(dr => dr.sub_team_id === teamId);
+  };
+
+  // Helper function to check if a program (sport) has any active design requests
+  const programHasDesignRequests = (program: InstitutionProgram) => {
+    return program.teams.some(team => hasActiveDesignRequest(team.id));
+  };
 
   // Get gender symbol SVG
   const getGenderSymbol = (genderCategory: string) => {
@@ -101,24 +119,33 @@ export function ProgramsBySport({ programs, institutionSlug, onRefresh, onAddPro
 
         {/* Sport Tabs */}
         <div className="grid grid-cols-4 gap-2 mb-6 border-b border-gray-700 pb-4">
-          {programs.map((program, index) => (
-            <button
-              key={program.sportSlug}
-              onClick={() => setActiveTab(index)}
-              className={`relative px-3 py-2 rounded-lg text-sm font-medium transition-all overflow-hidden group/tab ${
-                activeTab === index
-                  ? 'bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 text-white border border-[#e21c21]/50 shadow-lg shadow-[#e21c21]/30'
-                  : 'bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 text-gray-300 border border-gray-700 hover:border-gray-600'
-              }`}
-              style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/tab:opacity-100 transition-opacity pointer-events-none"></div>
-              <div className="relative flex items-center justify-center gap-1.5">
-                <span>{program.sport}</span>
-                <span className="text-xs opacity-75">({program.teams.length})</span>
-              </div>
-            </button>
-          ))}
+          {programs.map((program, index) => {
+            const hasDesignRequests = programHasDesignRequests(program);
+            return (
+              <button
+                key={program.sportSlug}
+                onClick={() => setActiveTab(index)}
+                className={`relative px-3 py-2 rounded-lg text-sm font-medium transition-all overflow-hidden group/tab ${
+                  activeTab === index
+                    ? 'bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 text-white border border-[#e21c21]/50 shadow-lg shadow-[#e21c21]/30'
+                    : 'bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 text-gray-300 border border-gray-700 hover:border-gray-600'
+                }`}
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/tab:opacity-100 transition-opacity pointer-events-none"></div>
+                <div className="relative flex items-center justify-center gap-1.5">
+                  <span>{program.sport}</span>
+                  <span className="text-xs opacity-75">({program.teams.length})</span>
+                  {hasDesignRequests && (
+                    <span className="flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-yellow-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
 
           {/* Add Program Button */}
           <button
@@ -148,31 +175,43 @@ export function ProgramsBySport({ programs, institutionSlug, onRefresh, onAddPro
             {/* Team Cards */}
             {activeProgram.teams.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {activeProgram.teams.map((team) => (
-                <button
-                  key={team.id}
-                  onClick={() => router.push(`/mi-equipo/${institutionSlug}/team/${team.slug}`)}
-                  className="relative bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 rounded-lg p-3 text-left transition-all border border-gray-700 hover:border-[#e21c21]/50 overflow-hidden group/card"
-                  style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity pointer-events-none"></div>
+                {activeProgram.teams.map((team) => {
+                  const teamHasDesignRequest = hasActiveDesignRequest(team.id);
+                  return (
+                    <button
+                      key={team.id}
+                      onClick={() => router.push(`/mi-equipo/${institutionSlug}/team/${team.slug}`)}
+                      className="relative bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 rounded-lg p-3 text-left transition-all border border-gray-700 hover:border-[#e21c21]/50 overflow-hidden group/card"
+                      style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity pointer-events-none"></div>
 
-                  <div className="relative flex items-center gap-3">
-                    {/* Team Info */}
-                    <div className="flex-1 min-w-0">
-                      {/* Team Header */}
-                      <div className="mb-2">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <h4 className="font-semibold text-white text-sm">{team.name}</h4>
-                          {/* Gender Badge */}
-                          <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded ${getGenderColor(team.gender_category || 'male')} bg-gray-800/50 border border-current/30`} title={getGenderLabel(team.gender_category || 'male')}>
-                            {getGenderSymbol(team.gender_category || 'male')}
+                      <div className="relative flex items-center gap-3">
+                        {/* Team Info */}
+                        <div className="flex-1 min-w-0">
+                          {/* Team Header */}
+                          <div className="mb-2">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <h4 className="font-semibold text-white text-sm">{team.name}</h4>
+                              {/* Gender Badge */}
+                              <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded ${getGenderColor(team.gender_category || 'male')} bg-gray-800/50 border border-current/30`} title={getGenderLabel(team.gender_category || 'male')}>
+                                {getGenderSymbol(team.gender_category || 'male')}
+                              </div>
+                            </div>
+                            {/* Design Request Badge */}
+                            {teamHasDesignRequest && (
+                              <div className="inline-flex items-center gap-1.5 px-2 py-1 mb-1 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs text-yellow-400">
+                                <span className="flex h-1.5 w-1.5">
+                                  <span className="animate-ping absolute inline-flex h-1.5 w-1.5 rounded-full bg-yellow-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-500"></span>
+                                </span>
+                                <span className="font-medium">Diseño Pendiente</span>
+                              </div>
+                            )}
+                            <p className="text-xs text-gray-400">
+                              Entrenador: {team.coach}
+                            </p>
                           </div>
-                        </div>
-                        <p className="text-xs text-gray-400">
-                          Entrenador: {team.coach}
-                        </p>
-                      </div>
 
                       {/* Team Stats */}
                       <div className="flex items-center gap-3 text-xs">
@@ -204,10 +243,11 @@ export function ProgramsBySport({ programs, institutionSlug, onRefresh, onAddPro
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
               </div>
             )}
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getBrowserClient } from '@/lib/supabase/client';
 import { useDesignRequestWizard } from '@/store/design-request-wizard';
 import { WizardLayout } from '@/components/institution/design-request/WizardLayout';
 
@@ -18,6 +19,7 @@ export default function ColorsCustomizationPage({ params }: { params: { slug: st
   } = useDesignRequestWizard();
 
   const [teamColors, setTeamColors] = useState<{ primary: string; secondary: string; accent?: string } | null>(null);
+  const [teamType, setTeamType] = useState<'single_team' | 'institution' | null>(null);
 
   // Home colors (Local)
   const [homeColors, setHomeColors] = useState({
@@ -35,6 +37,24 @@ export default function ColorsCustomizationPage({ params }: { params: { slug: st
 
   // Which designs to create: 'local', 'visit', or 'both'
   const [selectedDesigns, setSelectedDesigns] = useState<'local' | 'visit' | 'both'>('both');
+
+  useEffect(() => {
+    // Load team type
+    async function loadTeamType() {
+      const supabase = getBrowserClient();
+      const { data: team } = await supabase
+        .from('teams')
+        .select('team_type')
+        .eq('slug', params.slug)
+        .single();
+
+      if (team) {
+        setTeamType(team.team_type);
+      }
+    }
+
+    loadTeamType();
+  }, [params.slug]);
 
   useEffect(() => {
     loadTeamColors();
@@ -182,10 +202,14 @@ export default function ColorsCustomizationPage({ params }: { params: { slug: st
     router.push(`/mi-equipo/${params.slug}/design-request/new/quantities`);
   };
 
+  // Adjust step numbers for single teams (skip teams step)
+  const currentStep = teamType === 'single_team' ? 3 : 4;
+  const totalWizardSteps = teamType === 'single_team' ? 6 : 7;
+
   return (
     <WizardLayout
-      step={4}
-      totalSteps={6}
+      step={currentStep}
+      totalSteps={totalWizardSteps}
       title={`Personaliza los colores para ${sport_name}`}
       subtitle="Define los colores de local y visita"
       onBack={() => router.push(`/mi-equipo/${params.slug}/design-request/new/designs`)}

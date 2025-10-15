@@ -21,6 +21,7 @@ export default function ReviewAndSubmitPage({ params }: { params: { slug: string
     productDesigns,
     colorCustomization,
     quantities,
+    institutionId,
     institutionSlug,
     resetWizard,
   } = useDesignRequestWizard();
@@ -71,19 +72,28 @@ export default function ReviewAndSubmitPage({ params }: { params: { slug: string
       // Create design request for each team
       const requests = [];
       for (const team of selectedTeams) {
+        // For institutions: team_id = institution ID, sub_team_id = sub-team ID
+        // For single teams: team_id = team ID, sub_team_id = null
+        const insertData: any = {
+          team_id: institutionId || team.id, // Use institutionId if available, otherwise team.id
+          requested_by: user.id,
+          brief: brief,
+          status: 'pending',
+          sport_slug: sport_name?.toLowerCase().replace(/\s+/g, '-'),
+          selected_apparel: selectedApparel,
+          primary_color: homeColors.primary,
+          secondary_color: homeColors.secondary,
+          accent_color: homeColors.accent,
+        };
+
+        // Only set sub_team_id for institutions
+        if (institutionId) {
+          insertData.sub_team_id = team.id;
+        }
+
         const { data: designRequest, error: requestError } = await supabase
           .from('design_requests')
-          .insert({
-            team_id: team.id,
-            requested_by: user.id,
-            brief: brief,
-            status: 'pending',
-            sport_slug: sport_name?.toLowerCase().replace(/\s+/g, '-'),
-            selected_apparel: selectedApparel,
-            primary_color: homeColors.primary,
-            secondary_color: homeColors.secondary,
-            accent_color: homeColors.accent,
-          })
+          .insert(insertData)
           .select()
           .single();
 

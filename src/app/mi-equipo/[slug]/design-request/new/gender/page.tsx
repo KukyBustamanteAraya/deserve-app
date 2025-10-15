@@ -92,10 +92,14 @@ export default function GenderSelectionPage({ params }: { params: { slug: string
     }
   };
 
+  // Adjust step numbers for single teams (skip teams step)
+  const currentStep = teamType === 'single_team' ? 1 : 2;
+  const totalWizardSteps = teamType === 'single_team' ? 6 : 7;
+
   return (
     <WizardLayout
-      step={2}
-      totalSteps={7}
+      step={currentStep}
+      totalSteps={totalWizardSteps}
       title="¿Para quién es este uniforme?"
       subtitle="Esto nos ayudará a mostrarte los productos y tallas correctas"
       onBack={handleBack}

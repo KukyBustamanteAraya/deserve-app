@@ -155,6 +155,7 @@ export default function MinimalTeamPage({ params }: { params: { slug: string } }
   const [institutionOrders, setInstitutionOrders] = useState<any[]>([]);
   const [institutionPrograms, setInstitutionPrograms] = useState<any[]>([]);
   const [institutionActivity, setInstitutionActivity] = useState<any[]>([]);
+  const [institutionDesignRequests, setInstitutionDesignRequests] = useState<any[]>([]);
   const [institutionLoading, setInstitutionLoading] = useState(false);
   const [showAddProgramModal, setShowAddProgramModal] = useState(false);
 
@@ -454,6 +455,7 @@ export default function MinimalTeamPage({ params }: { params: { slug: string } }
             if (overviewRes.ok) {
               const overviewData = await overviewRes.json();
               setInstitutionStats(overviewData.stats);
+              setInstitutionDesignRequests(overviewData.design_requests || []);
 
               // Get selected sports from team data (teams.sports array contains sport slugs)
               const selectedSportSlugs = teamData.sports || [];
@@ -906,6 +908,7 @@ export default function MinimalTeamPage({ params }: { params: { slug: string } }
           <ProgramsBySport
             programs={institutionPrograms}
             institutionSlug={params.slug}
+            designRequests={institutionDesignRequests}
             onAddProgram={() => setShowAddProgramModal(true)}
             onRefresh={async () => {
               // Reload institution programs
@@ -973,6 +976,7 @@ export default function MinimalTeamPage({ params }: { params: { slug: string } }
 
                   setInstitutionPrograms(programsGroupedBySport);
                   setInstitutionStats(overviewData.stats);
+                  setInstitutionDesignRequests(overviewData.design_requests || []);
                 }
               } catch (err) {
                 console.error('Error reloading institution programs:', err);

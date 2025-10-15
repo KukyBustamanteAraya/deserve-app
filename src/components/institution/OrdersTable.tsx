@@ -18,6 +18,23 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const getStatusColor = (status: string) => {
+    // Design request statuses
+    if (status.startsWith('design_')) {
+      switch (status) {
+        case 'design_pending':
+          return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50';
+        case 'design_in_review':
+          return 'bg-blue-500/20 text-blue-400 border-blue-500/50';
+        case 'design_changes_requested':
+          return 'bg-orange-500/20 text-orange-400 border-orange-500/50';
+        case 'design_approved':
+          return 'bg-green-500/20 text-green-400 border-green-500/50';
+        default:
+          return 'bg-purple-500/20 text-purple-400 border-purple-500/50';
+      }
+    }
+
+    // Order statuses
     switch (status) {
       case 'paid':
         return 'bg-green-500/20 text-green-400 border-green-500/50';
@@ -33,6 +50,23 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
   };
 
   const getStatusText = (status: string) => {
+    // Design request statuses
+    if (status.startsWith('design_')) {
+      switch (status) {
+        case 'design_pending':
+          return 'Diseño Pendiente';
+        case 'design_in_review':
+          return 'En Revisión';
+        case 'design_changes_requested':
+          return 'Cambios Solicitados';
+        case 'design_approved':
+          return 'Diseño Aprobado';
+        default:
+          return status.replace('design_', '');
+      }
+    }
+
+    // Order statuses
     switch (status) {
       case 'paid':
         return 'Pagado';
@@ -176,13 +210,28 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
                     const isFirstInGroup = idx === 0;
                     const isLastInGroup = idx === groupOrders.length - 1;
 
+                    // Check if this is a design request
+                    const isDesignRequest = (order as any).is_design_request;
+                    const handleRowClick = () => {
+                      if (isDesignRequest) {
+                        // Navigate to design request detail page (or could open a modal)
+                        const designRequestId = (order as any).design_request_id;
+                        // For now, we'll just log it - you may want to create a design request detail page
+                        console.log('Clicked design request:', designRequestId);
+                        // TODO: Navigate to design request detail or open modal
+                        // router.push(`/mi-equipo/${institutionSlug}/design-requests/${designRequestId}`);
+                      } else {
+                        router.push(`/mi-equipo/${institutionSlug}/orders/${order.id}`);
+                      }
+                    };
+
                     return (
                       <tr
                         key={order.id}
-                        onClick={() => router.push(`/mi-equipo/${institutionSlug}/orders/${order.id}`)}
+                        onClick={handleRowClick}
                         className={`border-b border-gray-700/50 hover:bg-gray-800/30 cursor-pointer transition-colors group/row ${
                           isMultiTeam ? 'bg-gray-900/20' : ''
-                        } ${isLastInGroup && isMultiTeam ? '' : ''}`}
+                        } ${isLastInGroup && isMultiTeam ? '' : ''} ${isDesignRequest ? 'bg-blue-900/10' : ''}`}
                       >
                         <td className="px-4 py-3">
                           <span className="text-sm text-gray-300">{order.teamName}</span>
@@ -191,32 +240,44 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
                           <span className="text-sm text-gray-400">{order.sport}</span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <span className="text-sm text-gray-300">{order.items}</span>
+                          <span className="text-sm text-gray-300">
+                            {isDesignRequest ? (
+                              <span className="text-gray-500 italic">-</span>
+                            ) : (
+                              order.items
+                            )}
+                          </span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="flex flex-col items-end gap-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-white">
-                                ${(order.totalCents / 100).toLocaleString('es-CL')}
-                              </span>
+                          {isDesignRequest ? (
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-sm text-gray-500 italic">Pendiente cotización</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-green-400">
-                                ${((order.paidCents || order.totalCents) / 100).toLocaleString('es-CL')}
-                              </span>
-                              {order.paidCents && order.paidCents < order.totalCents && (
-                                <>
-                                  <div className="w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-gradient-to-r from-yellow-500 to-green-500"
-                                      style={{ width: `${paymentPercentage}%` }}
-                                    ></div>
-                                  </div>
-                                  <span className="text-xs text-gray-500">{paymentPercentage}%</span>
-                                </>
-                              )}
+                          ) : (
+                            <div className="flex flex-col items-end gap-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-white">
+                                  ${(order.totalCents / 100).toLocaleString('es-CL')}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-green-400">
+                                  ${((order.paidCents || order.totalCents) / 100).toLocaleString('es-CL')}
+                                </span>
+                                {order.paidCents && order.paidCents < order.totalCents && (
+                                  <>
+                                    <div className="w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-gradient-to-r from-yellow-500 to-green-500"
+                                        style={{ width: `${paymentPercentage}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="text-xs text-gray-500">{paymentPercentage}%</span>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span

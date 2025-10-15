@@ -82,6 +82,38 @@ export async function GET(
       logger.error('Error counting orders:', ordersError);
     }
 
+    // Fetch pending design requests count
+    const { count: pendingApprovalsCount, error: designRequestsCountError } = await supabase
+      .from('design_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('team_id', institution.id)
+      .in('status', ['pending', 'in_review', 'changes_requested', 'approved']);
+
+    if (designRequestsCountError) {
+      logger.error('Error counting design requests:', designRequestsCountError);
+    }
+
+    // Fetch active design requests with sub-team info for indicators
+    const { data: designRequests, error: designRequestsError } = await supabase
+      .from('design_requests')
+      .select(`
+        id,
+        status,
+        created_at,
+        sub_team_id,
+        design_id,
+        primary_color,
+        secondary_color,
+        accent_color
+      `)
+      .eq('team_id', institution.id)
+      .in('status', ['pending', 'in_review', 'changes_requested', 'approved'])
+      .order('created_at', { ascending: false });
+
+    if (designRequestsError) {
+      logger.error('Error fetching design requests:', designRequestsError);
+    }
+
     // Fetch institution settings
     const { data: settings, error: settingsError } = await supabase
       .from('team_settings')
@@ -93,7 +125,7 @@ export async function GET(
       logger.error('Error fetching settings:', settingsError);
     }
 
-    // Return overview data
+    // Return overview data (using camelCase to match frontend InstitutionStats interface)
     return NextResponse.json({
       institution: {
         id: institution.id,
@@ -109,11 +141,18 @@ export async function GET(
         institution_role: membership.institution_role,
       },
       stats: {
-        total_members: membersCount || 0,
-        total_programs: (subTeams || []).length,
-        active_orders: activeOrdersCount || 0,
+        totalMembers: membersCount || 0,
+        totalAthletes: membersCount || 0, // Same as totalMembers
+        totalPrograms: (subTeams || []).length,
+        totalSports: (subTeams || []).length, // Same as totalPrograms
+        activeOrders: activeOrdersCount || 0,
+        pendingApprovals: pendingApprovalsCount || 0,
+        incompleteOrders: 0, // TODO: Implement when we have this logic
+        paymentCollected: 0, // TODO: Implement when we have payment tracking
+        paymentTotal: 0, // TODO: Implement when we have payment tracking
       },
       programs: subTeams || [],
+      design_requests: designRequests || [],
       settings: settings || null,
     });
 
