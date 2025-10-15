@@ -44,6 +44,7 @@ export default function DesignsSelectionPage({ params }: { params: { slug: strin
   const [designs, setDesigns] = useState<DesignWithMockups[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDesignsByProduct, setSelectedDesignsByProduct] = useState<Record<string, string>>({});
+  const [teamType, setTeamType] = useState<'single_team' | 'institution' | null>(null);
 
   // Map product categories to product_type_slug
   const categoryToProductTypeSlug = (category: string): string => {
@@ -70,6 +71,22 @@ export default function DesignsSelectionPage({ params }: { params: { slug: strin
   };
 
   useEffect(() => {
+    // Load team type
+    async function loadTeamType() {
+      const supabase = getBrowserClient();
+      const { data: team } = await supabase
+        .from('teams')
+        .select('team_type')
+        .eq('slug', params.slug)
+        .single();
+
+      if (team) {
+        setTeamType(team.team_type);
+      }
+    }
+
+    loadTeamType();
+
     // Redirect if no products selected
     const products = gender_category === 'male'
       ? selectedProducts.male || []
@@ -94,7 +111,7 @@ export default function DesignsSelectionPage({ params }: { params: { slug: strin
       });
       setSelectedDesignsByProduct(initial);
     }
-  }, []);
+  }, [params.slug]);
 
   const loadDesigns = async () => {
     try {
@@ -247,10 +264,14 @@ export default function DesignsSelectionPage({ params }: { params: { slug: strin
     return nameMap[productTypeSlug] || productTypeSlug;
   };
 
+  // Adjust step numbers: single teams at designs (2/5), institutions at designs (3/6)
+  const currentStep = teamType === 'single_team' ? 2 : 3;
+  const totalWizardSteps = teamType === 'single_team' ? 5 : 6;
+
   return (
     <WizardLayout
-      step={3}
-      totalSteps={6}
+      step={currentStep}
+      totalSteps={totalWizardSteps}
       title={`Selecciona los diseños para ${sport_name}`}
       subtitle={
         gender_category === 'both' && both_config?.same_design

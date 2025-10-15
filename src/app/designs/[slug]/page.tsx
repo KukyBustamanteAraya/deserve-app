@@ -3,6 +3,7 @@
 import { notFound } from 'next/navigation';
 import { DesignDetailClient } from './DesignDetailClient';
 import { logger } from '@/lib/logger';
+import { createSupabaseServer } from '@/lib/supabase/server-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,24 +18,146 @@ interface PageProps {
 
 async function getDesignData(slug: string, sportSlug?: string) {
   try {
-    const queryString = sportSlug ? `?sport=${sportSlug}` : '';
-    const url = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/designs/${slug}${queryString}`;
+    const supabase = createSupabaseServer();
 
-    const response = await fetch(url, { cache: 'no-store' });
+    // 1. Get design by slug
+    const { data: design, error: designError } = await supabase
+      .from('designs')
+      .select('*')
+      .eq('slug', slug)
+      .eq('active', true)
+      .single();
 
-    if (!response.ok) {
-      logger.error(`Design detail API error: ${response.status}`);
+    if (designError || !design) {
+      logger.error('Design not found:', slug);
       return null;
     }
 
-    const result = await response.json();
+    // 2. Get all mockups for this design across all sports
+    const { data: mockups, error: mockupsError } = await supabase
+      .from('design_mockups')
+      .select(`
+        id,
+        sport_id,
+        product_id,
+        product_type_slug,
+        mockup_url,
+        view_angle,
+        is_primary,
+        sort_order,
+        sports:sport_id (
+          id,
+          slug,
+          name
+        ),
+        products:product_id (
+          id,
+          name,
+          slug,
+          price_clp,
+          category
+        )
+      `)
+      .eq('design_id', design.id)
+      .order('sport_id', { ascending: true })
+      .order('sort_order', { ascending: true });
 
-    if (!result.success) {
-      logger.error('Design detail API returned error:', result.error);
+    if (mockupsError) {
+      logger.error('Error fetching mockups:', mockupsError);
       return null;
     }
 
-    return result.data;
+    // 3. Organize mockups by sport
+    const mockupsBySport = new Map();
+    const availableSports = new Set();
+    const availableProducts = new Map(); // Map<sport_id, Product[]>
+
+    (mockups || []).forEach((mockup: any) => {
+      const sportId = mockup.sport_id;
+      const sportData = mockup.sports;
+
+      if (!sportData) return;
+
+      availableSports.add(JSON.stringify(sportData));
+
+      // Add mockup to sport group
+      if (!mockupsBySport.has(sportId)) {
+        mockupsBySport.set(sportId, []);
+      }
+      mockupsBySport.get(sportId).push({
+        id: mockup.id,
+        mockup_url: mockup.mockup_url,
+        view_angle: mockup.view_angle,
+        is_primary: mockup.is_primary,
+        sort_order: mockup.sort_order,
+        product_id: mockup.product_id,
+        product: mockup.products,
+      });
+
+      // Track available products per sport
+      if (mockup.products) {
+        if (!availableProducts.has(sportId)) {
+          availableProducts.set(sportId, []);
+        }
+        const products = availableProducts.get(sportId);
+        if (!products.find((p: any) => p.id === mockup.products.id)) {
+          products.push(mockup.products);
+        }
+      }
+    });
+
+    // Convert sets/maps to arrays
+    const sportsArray = Array.from(availableSports).map(s => JSON.parse(s));
+
+    const mockupsGrouped = Array.from(mockupsBySport.entries()).map(([sportId, mockups]) => {
+      const sport = sportsArray.find(s => s.id === sportId);
+      return {
+        sport_id: sportId,
+        sport,
+        mockups,
+        products: availableProducts.get(sportId) || [],
+      };
+    });
+
+    // 4. If sport filter is provided, filter mockups
+    let filteredMockups = mockupsGrouped;
+    let currentSport = null;
+
+    if (sportSlug) {
+      const selectedSport = sportsArray.find(s => s.slug === sportSlug);
+      if (selectedSport) {
+        filteredMockups = mockupsGrouped.filter(g => g.sport_id === selectedSport.id);
+        currentSport = selectedSport;
+      }
+    } else {
+      // Default to first available sport
+      currentSport = sportsArray[0] || null;
+      if (currentSport) {
+        filteredMockups = mockupsGrouped.filter(g => g.sport_id === currentSport.id);
+      }
+    }
+
+    // 5. Return design with mockups
+    return {
+      design: {
+        id: design.id,
+        slug: design.slug,
+        name: design.name,
+        description: design.description,
+        designer_name: design.designer_name,
+        style_tags: design.style_tags || [],
+        color_scheme: design.color_scheme || [],
+        is_customizable: design.is_customizable,
+        allows_recoloring: design.allows_recoloring,
+        featured: design.featured,
+      },
+      current_sport: currentSport,
+      available_sports: sportsArray,
+      mockups_by_sport: mockupsGrouped,
+      current_mockups: filteredMockups,
+      total_sports: sportsArray.length,
+    };
+
   } catch (error) {
     logger.error('Error fetching design data:', error);
     return null;

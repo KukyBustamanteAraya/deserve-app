@@ -11,9 +11,10 @@ export interface Team {
   player_count?: number;
   isNew: boolean; // Flag to know if we need to create it
   colors?: {
-    primary: string;
-    secondary: string;
-    tertiary?: string;
+    primary?: string;
+    secondary?: string;
+    tertiary?: string; // Backwards compatibility
+    accent?: string;   // Preferred name for third color
   };
 }
 

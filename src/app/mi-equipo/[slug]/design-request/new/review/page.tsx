@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { useDesignRequestWizard } from '@/store/design-request-wizard';
@@ -10,6 +10,7 @@ export default function ReviewAndSubmitPage({ params }: { params: { slug: string
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [teamType, setTeamType] = useState<'single_team' | 'institution' | null>(null);
 
   const {
     sport_id,
@@ -25,6 +26,24 @@ export default function ReviewAndSubmitPage({ params }: { params: { slug: string
     institutionSlug,
     resetWizard,
   } = useDesignRequestWizard();
+
+  // Load team type on mount
+  useEffect(() => {
+    async function loadTeamType() {
+      const supabase = getBrowserClient();
+      const { data: team } = await supabase
+        .from('teams')
+        .select('team_type')
+        .eq('slug', params.slug)
+        .single();
+
+      if (team) {
+        setTeamType(team.team_type);
+      }
+    }
+
+    loadTeamType();
+  }, [params.slug]);
 
   const handleSubmit = async () => {
     try {
@@ -68,6 +87,42 @@ export default function ReviewAndSubmitPage({ params }: { params: { slug: string
 
       // Extract colors for quick access
       const homeColors = colorCustomization.male?.home_colors || { primary: '#FFFFFF', secondary: '#FFFFFF', accent: '#FFFFFF' };
+
+      // Prepare team colors object for database
+      // Note: Database uses 'accent', but we support reading 'tertiary' for backwards compatibility
+      const teamColorsObject = {
+        primary: homeColors.primary,
+        secondary: homeColors.secondary,
+        accent: homeColors.accent,
+        tertiary: homeColors.accent, // Also save as tertiary for backwards compatibility
+      };
+
+      // Update team colors in database BEFORE creating design requests
+      if (institutionId) {
+        // For institutions: update each sub-team's colors
+        for (const team of selectedTeams) {
+          const { error: colorUpdateError } = await supabase
+            .from('institution_sub_teams')
+            .update({ colors: teamColorsObject })
+            .eq('id', team.id);
+
+          if (colorUpdateError) {
+            console.error('Error updating sub-team colors:', colorUpdateError);
+            // Don't throw - continue with request creation
+          }
+        }
+      } else {
+        // For single teams: update the team's colors
+        const { error: colorUpdateError } = await supabase
+          .from('teams')
+          .update({ colors: teamColorsObject })
+          .eq('slug', params.slug);
+
+        if (colorUpdateError) {
+          console.error('Error updating team colors:', colorUpdateError);
+          // Don't throw - continue with request creation
+        }
+      }
 
       // Create design request for each team
       const requests = [];
@@ -264,10 +319,14 @@ export default function ReviewAndSubmitPage({ params }: { params: { slug: string
 
   const totals = getTotalQuantities();
 
+  // Adjust step numbers: single teams at review (5/5), institutions at review (6/6)
+  const currentStep = teamType === 'single_team' ? 5 : 6;
+  const totalWizardSteps = teamType === 'single_team' ? 5 : 6;
+
   return (
     <WizardLayout
-      step={6}
-      totalSteps={6}
+      step={currentStep}
+      totalSteps={totalWizardSteps}
       title="Revisa tu solicitud"
       subtitle="Verifica la información antes de enviar"
       onBack={() => router.push(`/mi-equipo/${params.slug}/design-request/new/quantities`)}

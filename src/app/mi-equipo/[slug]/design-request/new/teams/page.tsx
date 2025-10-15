@@ -20,6 +20,11 @@ interface ExistingTeam {
   sport_id: number;
   sport_name: string;
   sport_slug: string;
+  colors?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+  };
 }
 
 export default function TeamsSelectionPage({ params }: { params: { slug: string } }) {
@@ -97,6 +102,7 @@ export default function TeamsSelectionPage({ params }: { params: { slug: string 
           head_coach_user_id,
           gender_category,
           sport_id,
+          colors,
           sports:sport_id (
             id,
             name,
@@ -117,6 +123,7 @@ export default function TeamsSelectionPage({ params }: { params: { slug: string 
         sport_id: t.sport_id,
         sport_name: t.sports?.name || 'Desconocido',
         sport_slug: t.sports?.slug || '',
+        colors: t.colors || undefined,
       })) || [];
 
       setExistingTeams(transformedTeams);
@@ -267,6 +274,7 @@ export default function TeamsSelectionPage({ params }: { params: { slug: string 
           name: team.name,
           coach: team.coach || undefined,
           isNew: false,
+          colors: team.colors,
         });
       }
 

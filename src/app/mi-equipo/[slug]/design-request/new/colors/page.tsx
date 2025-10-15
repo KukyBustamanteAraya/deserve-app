@@ -91,10 +91,11 @@ export default function ColorsCustomizationPage({ params }: { params: { slug: st
       const teamColors = selectedTeams[0].colors;
 
       // Team has colors set - use them
+      // Support both 'accent' and 'tertiary' for backwards compatibility
       const colors = {
         primary: teamColors.primary || '#FFFFFF',
         secondary: teamColors.secondary || '#FFFFFF',
-        accent: teamColors.tertiary || '#FFFFFF',
+        accent: teamColors.accent || teamColors.tertiary || '#FFFFFF',
       };
 
       setTeamColors(colors);
@@ -202,9 +203,9 @@ export default function ColorsCustomizationPage({ params }: { params: { slug: st
     router.push(`/mi-equipo/${params.slug}/design-request/new/quantities`);
   };
 
-  // Adjust step numbers for single teams (skip teams step)
+  // Adjust step numbers: single teams at colors (3/5), institutions at colors (4/6)
   const currentStep = teamType === 'single_team' ? 3 : 4;
-  const totalWizardSteps = teamType === 'single_team' ? 6 : 7;
+  const totalWizardSteps = teamType === 'single_team' ? 5 : 6;
 
   return (
     <WizardLayout

@@ -34,9 +34,9 @@ export default function DesignRequestEntryPage({ params }: { params: { slug: str
           console.log('[Design Request] Routing to institution wizard (teams step)');
           router.push(`/mi-equipo/${params.slug}/design-request/new/teams`);
         } else {
-          // Single team flow: skip teams step, go directly to gender selection
-          console.log('[Design Request] Routing to single team wizard (gender step)');
-          router.push(`/mi-equipo/${params.slug}/design-request/new/gender`);
+          // Single team flow: skip teams step, go directly to products (gender is already in team record)
+          console.log('[Design Request] Routing to single team wizard (products step)');
+          router.push(`/mi-equipo/${params.slug}/design-request/new/products`);
         }
       } catch (error) {
         console.error('[Design Request] Error:', error);

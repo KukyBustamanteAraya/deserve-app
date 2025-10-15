@@ -42,13 +42,68 @@ export default function ProductsSelectionPage({ params }: { params: { slug: stri
   }, [params.slug]);
 
   useEffect(() => {
-    // Redirect to team selection if wizard state is incomplete
-    if (!sport_id) {
-      router.push(`/mi-equipo/${params.slug}/design-request/new/teams`);
-      return;
+    // For single teams: load sport from team record if not in wizard state
+    async function initializeForSingleTeam() {
+      if (!sport_id && teamType === 'single_team') {
+        const supabase = getBrowserClient();
+        const { data: team, error: teamError } = await supabase
+          .from('teams')
+          .select(`
+            sport_id,
+            gender_category,
+            sports!teams_sport_id_fkey (
+              id,
+              name,
+              slug
+            )
+          `)
+          .eq('slug', params.slug)
+          .single();
+
+        if (teamError) {
+          console.error('[Products] Error loading team:', teamError);
+          router.push(`/mi-equipo/${params.slug}`);
+          return;
+        }
+
+        if (team && team.sport_id && team.sports) {
+          // Set sport, gender, and team in wizard state
+          const { setSport, setGenderCategory, setSelectedTeams } = useDesignRequestWizard.getState();
+          setSport(team.sport_id, team.sports.name);
+
+          // Set gender category from team record
+          if (team.gender_category) {
+            setGenderCategory(team.gender_category as 'male' | 'female' | 'both');
+          }
+
+          // Set the single team as selected (needed for wizard state)
+          setSelectedTeams([{
+            id: undefined, // Will be loaded from context
+            name: '', // Will be loaded from context
+            isNew: false,
+          }]);
+
+          // Now load products
+          loadProducts();
+          return;
+        }
+      }
+
+      // For institutions: redirect to team selection if wizard state is incomplete
+      if (!sport_id && teamType === 'institution') {
+        router.push(`/mi-equipo/${params.slug}/design-request/new/teams`);
+        return;
+      }
+
+      // If we have sport_id, just load products
+      if (sport_id) {
+        loadProducts();
+      }
     }
 
-    loadProducts();
+    if (teamType !== null) {
+      initializeForSingleTeam();
+    }
 
     // Initialize from store if available
     if (gender_category === 'both') {
@@ -61,7 +116,7 @@ export default function ProductsSelectionPage({ params }: { params: { slug: stri
     } else if (gender_category === 'female' && selectedProducts.female) {
       setSelectedProductIds(new Set(selectedProducts.female.map(p => p.id)));
     }
-  }, []);
+  }, [teamType]);
 
   const loadProducts = async () => {
     try {
@@ -172,13 +227,18 @@ export default function ProductsSelectionPage({ params }: { params: { slug: stri
     return groups;
   }, {} as Record<string, ProductType[]>);
 
-  // Adjust step numbers for single teams (skip teams step)
-  const currentStep = teamType === 'single_team' ? 2 : 3;
-  const totalWizardSteps = teamType === 'single_team' ? 6 : 7;
+  // Adjust step numbers: single teams start at products (1/5), institutions at products after teams (2/6)
+  const currentStep = teamType === 'single_team' ? 1 : 2;
+  const totalWizardSteps = teamType === 'single_team' ? 5 : 6;
 
   const handleBack = () => {
-    // Always go back to gender step
-    router.push(`/mi-equipo/${params.slug}/design-request/new/gender`);
+    if (teamType === 'institution') {
+      // Institution: go back to teams selection
+      router.push(`/mi-equipo/${params.slug}/design-request/new/teams`);
+    } else {
+      // Single team: go back to team dashboard (this is the first step)
+      router.push(`/mi-equipo/${params.slug}`);
+    }
   };
 
   return (

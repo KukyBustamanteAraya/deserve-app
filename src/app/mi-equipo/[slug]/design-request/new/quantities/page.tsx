@@ -128,9 +128,9 @@ export default function QuantitiesPage({ params }: { params: { slug: string } })
 
   const totals = getGrandTotal();
 
-  // Adjust step numbers for single teams (skip teams step)
+  // Adjust step numbers: single teams at quantities (4/5), institutions at quantities (5/6)
   const currentStep = teamType === 'single_team' ? 4 : 5;
-  const totalWizardSteps = teamType === 'single_team' ? 6 : 7;
+  const totalWizardSteps = teamType === 'single_team' ? 5 : 6;
 
   return (
     <WizardLayout
