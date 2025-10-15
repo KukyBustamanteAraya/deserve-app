@@ -155,23 +155,37 @@ export default function JoinTeamPage({ params }: { params: { slug: string } }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Cargando...</div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-700 border-t-[#e21c21] mx-auto"></div>
+          <p className="mt-4 text-gray-300">Cargando...</p>
+        </div>
       </div>
     );
   }
 
   if (error && !team) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">{error}</h1>
-          <button
-            onClick={() => router.push('/')}
-            className="text-blue-600 hover:text-blue-700"
-          >
-            Volver al inicio
-          </button>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+        <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl shadow-2xl p-8 border border-gray-700 text-center">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-xl"></div>
+
+          <div className="relative">
+            <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/30">
+              <svg className="w-10 h-10 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-4">{error}</h1>
+            <button
+              onClick={() => router.push('/')}
+              className="relative px-6 py-3 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg font-semibold transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group"
+              style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+              <span className="relative">Volver al inicio</span>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -180,18 +194,19 @@ export default function JoinTeamPage({ params }: { params: { slug: string } }) {
   if (!team) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
       {/* Header with team colors */}
       <div
-        className="h-64 relative"
+        className="h-64 relative overflow-hidden"
         style={{
           background: `linear-gradient(135deg, ${team.colors.primary}, ${team.colors.secondary}, ${team.colors.accent})`,
         }}
       >
-        <div className="max-w-3xl mx-auto px-4 h-full flex items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
+        <div className="max-w-3xl mx-auto px-4 h-full flex items-center justify-center relative z-10">
           <div className="text-center">
             {team.logo_url && (
-              <div className="w-32 h-32 rounded-full bg-white border-4 border-white shadow-2xl overflow-hidden mx-auto mb-6">
+              <div className="w-32 h-32 rounded-full bg-white/10 backdrop-blur-md border-4 border-white/30 shadow-2xl overflow-hidden mx-auto mb-6">
                 <Image
                   src={team.logo_url}
                   alt="Logo del equipo"
@@ -201,95 +216,105 @@ export default function JoinTeamPage({ params }: { params: { slug: string } }) {
                 />
               </div>
             )}
-            <h1 className="text-5xl font-bold text-white mb-2">
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-2 drop-shadow-2xl">
               ¡Te invitaron a {team.name}!
             </h1>
-            <p className="text-white text-xl opacity-90">Únete para ver diseños y coordinar pedidos</p>
+            <p className="text-white text-lg md:text-xl opacity-90 drop-shadow-lg">
+              Únete para ver diseños y coordinar pedidos
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 -mt-16">
-        <div className="bg-white rounded-lg shadow-xl p-8">
-          {!user ? (
-            // Not authenticated - show magic link form
-            <>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-                Ingresa con tu email
-              </h2>
-              <form onSubmit={handleSendMagicLink} className="space-y-4">
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="tu@email.com"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
+      <div className="max-w-md mx-auto px-4 -mt-16 pb-12">
+        <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl shadow-2xl p-8 border border-gray-700">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 hover:opacity-100 transition-opacity pointer-events-none rounded-xl"></div>
+
+          <div className="relative">
+            {!user ? (
+              // Not authenticated - show magic link form
+              <>
+                <h2 className="text-2xl font-bold text-white mb-6 text-center">
+                  Ingresa con tu email
+                </h2>
+                <form onSubmit={handleSendMagicLink} className="space-y-4">
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="tu@email.com"
+                      className="w-full px-4 py-3 bg-black/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-[#e21c21] focus:border-[#e21c21] outline-none transition-all"
+                      required
+                    />
+                  </div>
+
+                  {error && (
+                    <div className="p-3 bg-red-500/20 text-red-300 text-sm rounded-lg border border-red-500/30">
+                      {error}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="relative w-full py-3 px-6 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white font-semibold rounded-lg transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group"
+                    style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                    <span className="relative">Enviar link mágico</span>
+                  </button>
+
+                  <p className="text-xs text-gray-500 text-center mt-4">
+                    Te enviaremos un link para iniciar sesión sin contraseña
+                  </p>
+                </form>
+              </>
+            ) : (
+              // Authenticated - show join button
+              <>
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/30">
+                    <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-bold text-white mb-2">
+                    ¡Listo para unirte!
+                  </h2>
+                  <p className="text-gray-400">
+                    Estás conectado como <span className="font-medium text-white">{user.email}</span>
+                  </p>
                 </div>
 
                 {error && (
-                  <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg">
+                  <div className="p-3 bg-red-500/20 text-red-300 text-sm rounded-lg mb-4 border border-red-500/30">
                     {error}
                   </div>
                 )}
 
                 <button
-                  type="submit"
-                  className="w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+                  onClick={handleJoinTeam}
+                  disabled={joining}
+                  className="relative w-full py-3 px-6 bg-gradient-to-br from-green-600/90 to-green-700/90 backdrop-blur-md text-white font-semibold rounded-lg transition-all shadow-lg shadow-green-600/30 hover:shadow-green-600/50 border border-green-600/50 overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                 >
-                  Enviar link mágico
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                  <span className="relative">{joining ? 'Uniéndote...' : `Unirme a ${team.name}`}</span>
                 </button>
 
-                <p className="text-xs text-gray-500 text-center mt-4">
-                  Te enviaremos un link para iniciar sesión sin contraseña
-                </p>
-              </form>
-            </>
-          ) : (
-            // Authenticated - show join button
-            <>
-              <div className="text-center mb-6">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  ¡Listo para unirte!
-                </h2>
-                <p className="text-gray-600">
-                  Estás conectado como <span className="font-medium">{user.email}</span>
-                </p>
-              </div>
-
-              {error && (
-                <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg mb-4">
-                  {error}
-                </div>
-              )}
-
-              <button
-                onClick={handleJoinTeam}
-                disabled={joining}
-                className="w-full py-3 px-6 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:bg-gray-400"
-              >
-                {joining ? 'Uniéndote...' : `Unirme a ${team.name}`}
-              </button>
-
-              <button
-                onClick={() => supabase.auth.signOut().then(() => window.location.reload())}
-                className="w-full mt-3 py-2 px-6 text-gray-600 hover:text-gray-800 text-sm"
-              >
-                Usar otra cuenta
-              </button>
-            </>
-          )}
+                <button
+                  onClick={() => supabase.auth.signOut().then(() => window.location.reload())}
+                  className="w-full mt-3 py-2 px-6 text-gray-400 hover:text-gray-200 text-sm transition-colors"
+                >
+                  Usar otra cuenta
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

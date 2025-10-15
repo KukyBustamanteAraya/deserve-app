@@ -42,7 +42,7 @@ export default function InvitePage({ params }: { params: { token: string } }) {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       setUser(currentUser);
 
-      // Fetch invite by token (using service role would be better but we'll use a public endpoint)
+      // Fetch invite by token
       const response = await fetch(`/api/invites/${params.token}`);
       const data = await response.json();
 
@@ -120,10 +120,10 @@ export default function InvitePage({ params }: { params: { token: string } }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading invitation...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-700 border-t-[#e21c21] mx-auto"></div>
+          <p className="mt-4 text-gray-300">Cargando invitación...</p>
         </div>
       </div>
     );
@@ -131,19 +131,29 @@ export default function InvitePage({ params }: { params: { token: string } }) {
 
   if (error || !invite) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="text-red-600 text-5xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Invite Not Found</h1>
-          <p className="text-gray-600 mb-6">
-            {error || 'This invitation may have expired, been cancelled, or is invalid.'}
-          </p>
-          <button
-            onClick={() => router.push('/')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-          >
-            Go to Home
-          </button>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+        <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl shadow-2xl p-8 max-w-md w-full text-center border border-gray-700">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-xl"></div>
+
+          <div className="relative">
+            <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/30">
+              <svg className="w-10 h-10 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Invitación No Encontrada</h1>
+            <p className="text-gray-400 mb-6">
+              {error || 'Esta invitación puede haber expirado, sido cancelada, o no es válida.'}
+            </p>
+            <button
+              onClick={() => router.push('/')}
+              className="relative px-6 py-3 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg font-semibold transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group"
+              style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+              <span className="relative">Ir al Inicio</span>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -155,20 +165,30 @@ export default function InvitePage({ params }: { params: { token: string } }) {
 
   if (isExpired) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="text-yellow-600 text-5xl mb-4">⏰</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Invite Expired</h1>
-          <p className="text-gray-600 mb-6">
-            This invitation expired on {new Date(invite.expires_at).toLocaleDateString()}.
-            Please contact the team manager for a new invitation.
-          </p>
-          <button
-            onClick={() => router.push('/')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-          >
-            Go to Home
-          </button>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+        <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl shadow-2xl p-8 max-w-md w-full text-center border border-gray-700">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-xl"></div>
+
+          <div className="relative">
+            <div className="w-20 h-20 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-yellow-500/30">
+              <svg className="w-10 h-10 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Invitación Expirada</h1>
+            <p className="text-gray-400 mb-6">
+              Esta invitación expiró el {new Date(invite.expires_at).toLocaleDateString()}.
+              Por favor contacta al administrador del equipo para una nueva invitación.
+            </p>
+            <button
+              onClick={() => router.push('/')}
+              className="relative px-6 py-3 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg font-semibold transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group"
+              style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+              <span className="relative">Ir al Inicio</span>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -176,19 +196,29 @@ export default function InvitePage({ params }: { params: { token: string } }) {
 
   if (isAccepted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="text-green-600 text-5xl mb-4">✅</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Invite Already Accepted</h1>
-          <p className="text-gray-600 mb-6">
-            This invitation has already been accepted.
-          </p>
-          <button
-            onClick={() => router.push(`/mi-equipo?team=${invite.team_id}`)}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-          >
-            Go to Team
-          </button>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+        <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl shadow-2xl p-8 max-w-md w-full text-center border border-gray-700">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-xl"></div>
+
+          <div className="relative">
+            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/30">
+              <svg className="w-10 h-10 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Invitación Ya Aceptada</h1>
+            <p className="text-gray-400 mb-6">
+              Esta invitación ya ha sido aceptada.
+            </p>
+            <button
+              onClick={() => router.push(`/mi-equipo?team=${invite.team_id}`)}
+              className="relative px-6 py-3 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg font-semibold transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group"
+              style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+              <span className="relative">Ir al Equipo</span>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -196,26 +226,38 @@ export default function InvitePage({ params }: { params: { token: string } }) {
 
   if (alreadyMember && invite) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="text-6xl mb-4">✅</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">You're Already a Member!</h1>
-          <p className="text-gray-600 mb-6">
-            You're already part of <strong>{invite.team.name}</strong>. No need to accept this invitation again!
-          </p>
-          <div className="space-y-3">
-            <button
-              onClick={() => router.push(`/mi-equipo/${invite.team.slug}`)}
-              className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-            >
-              Go to Team Page
-            </button>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
-            >
-              Go to Dashboard
-            </button>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+        <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl shadow-2xl p-8 max-w-md w-full text-center border border-gray-700">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-xl"></div>
+
+          <div className="relative">
+            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/30">
+              <svg className="w-10 h-10 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-4">¡Ya Eres Miembro!</h1>
+            <p className="text-gray-400 mb-6">
+              Ya eres parte de <strong className="text-white">{invite.team.name}</strong>. ¡No necesitas aceptar esta invitación de nuevo!
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={() => router.push(`/mi-equipo/${invite.team.slug}`)}
+                className="relative w-full px-6 py-3 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg font-semibold transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group"
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                <span className="relative">Ir a la Página del Equipo</span>
+              </button>
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="relative w-full px-6 py-3 bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md text-gray-300 rounded-lg font-semibold transition-all border border-gray-700 hover:border-gray-600 overflow-hidden group"
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                <span className="relative">Ir al Dashboard</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -223,83 +265,99 @@ export default function InvitePage({ params }: { params: { token: string } }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
-        <div className="text-center mb-6">
-          <div className="text-blue-600 text-5xl mb-4">🎯</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            You're Invited!
-          </h1>
-          <p className="text-gray-600">
-            Join <strong>{invite.team.name}</strong> as a {invite.role}
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+      <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl shadow-2xl p-8 max-w-md w-full border border-gray-700">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 hover:opacity-100 transition-opacity pointer-events-none rounded-xl"></div>
+
+        <div className="relative">
+          <div className="text-center mb-6">
+            <div className="w-20 h-20 bg-[#e21c21]/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-[#e21c21]/30">
+              <svg className="w-10 h-10 text-[#e21c21]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">
+              ¡Estás Invitado!
+            </h1>
+            <p className="text-gray-400">
+              Únete a <strong className="text-white">{invite.team.name}</strong> como {invite.role}
+            </p>
+          </div>
+
+          {invite.player && (
+            <div className="relative bg-[#e21c21]/10 rounded-lg p-4 mb-6 border border-[#e21c21]/20">
+              <p className="text-sm text-gray-300">
+                <strong className="text-white">Nota:</strong> Esta invitación es específicamente para{' '}
+                <strong className="text-white">{invite.player.player_name}</strong>. Al aceptar, tu cuenta
+                se vinculará a este registro de jugador.
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-3 mb-6">
+            <div className="flex items-center justify-between py-3 border-b border-gray-700">
+              <span className="text-gray-400">Equipo:</span>
+              <span className="font-semibold text-white">{invite.team.name}</span>
+            </div>
+            <div className="flex items-center justify-between py-3 border-b border-gray-700">
+              <span className="text-gray-400">Rol:</span>
+              <span className="font-semibold text-white capitalize">{invite.role}</span>
+            </div>
+            <div className="flex items-center justify-between py-3 border-b border-gray-700">
+              <span className="text-gray-400">Expira:</span>
+              <span className="font-semibold text-white">
+                {new Date(invite.expires_at).toLocaleDateString()}
+              </span>
+            </div>
+          </div>
+
+          {!user ? (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-400 text-center mb-4">
+                Necesitas iniciar sesión o crear una cuenta para aceptar esta invitación
+              </p>
+              <button
+                onClick={() => router.push(`/login?redirect=/invite/${params.token}`)}
+                className="relative w-full px-6 py-3 bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 backdrop-blur-md text-white rounded-lg font-semibold transition-all shadow-lg shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 border border-[#e21c21]/50 overflow-hidden group"
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                <span className="relative">Iniciar Sesión</span>
+              </button>
+              <button
+                onClick={() => router.push(`/register?redirect=/invite/${params.token}`)}
+                className="relative w-full px-6 py-3 bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md text-gray-300 rounded-lg font-semibold transition-all border border-[#e21c21]/50 hover:border-[#e21c21] overflow-hidden group"
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                <span className="relative">Crear Cuenta</span>
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-400 text-center mb-4">
+                Conectado como <strong className="text-white">{user.email}</strong>
+              </p>
+              <button
+                onClick={handleAcceptInvite}
+                disabled={accepting}
+                className="relative w-full px-6 py-3 bg-gradient-to-br from-green-600/90 to-green-700/90 backdrop-blur-md text-white rounded-lg font-semibold transition-all shadow-lg shadow-green-600/30 hover:shadow-green-600/50 border border-green-600/50 overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                <span className="relative">{accepting ? 'Aceptando...' : 'Aceptar Invitación'}</span>
+              </button>
+              <button
+                onClick={() => router.push('/')}
+                className="relative w-full px-6 py-3 bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md text-gray-300 rounded-lg font-semibold transition-all border border-gray-700 hover:border-gray-600 overflow-hidden group"
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                <span className="relative">Rechazar</span>
+              </button>
+            </div>
+          )}
         </div>
-
-        {invite.player && (
-          <div className="bg-blue-50 rounded-lg p-4 mb-6">
-            <p className="text-sm text-blue-900">
-              <strong>Note:</strong> This invitation is specifically for{' '}
-              <strong>{invite.player.player_name}</strong>. By accepting, your account
-              will be linked to this player's roster entry.
-            </p>
-          </div>
-        )}
-
-        <div className="space-y-4 mb-6">
-          <div className="flex items-center justify-between py-2 border-b">
-            <span className="text-gray-600">Team:</span>
-            <span className="font-medium text-gray-900">{invite.team.name}</span>
-          </div>
-          <div className="flex items-center justify-between py-2 border-b">
-            <span className="text-gray-600">Role:</span>
-            <span className="font-medium text-gray-900 capitalize">{invite.role}</span>
-          </div>
-          <div className="flex items-center justify-between py-2 border-b">
-            <span className="text-gray-600">Expires:</span>
-            <span className="font-medium text-gray-900">
-              {new Date(invite.expires_at).toLocaleDateString()}
-            </span>
-          </div>
-        </div>
-
-        {!user ? (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-600 text-center mb-4">
-              You need to sign in or create an account to accept this invitation
-            </p>
-            <button
-              onClick={() => router.push(`/login?redirect=/invite/${params.token}`)}
-              className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => router.push(`/register?redirect=/invite/${params.token}`)}
-              className="w-full px-6 py-3 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 font-medium"
-            >
-              Create Account
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-600 text-center mb-4">
-              Signed in as <strong>{user.email}</strong>
-            </p>
-            <button
-              onClick={handleAcceptInvite}
-              disabled={accepting}
-              className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {accepting ? 'Accepting...' : 'Accept Invitation'}
-            </button>
-            <button
-              onClick={() => router.push('/')}
-              className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
-            >
-              Decline
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
