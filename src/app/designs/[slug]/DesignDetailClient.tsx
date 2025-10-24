@@ -258,7 +258,7 @@ const DesignDetailClient = memo(function DesignDetailClient({
   return (
     <div className="max-w-2xl mx-auto">
       {/* Design Image Section */}
-      <div className="space-y-4 md:space-y-4 fixed top-24 left-0 right-0 md:relative z-40 md:z-auto px-4 md:px-0 pt-2 md:pt-0 pb-2 md:pb-0">
+      <div className="space-y-4 md:space-y-4 fixed left-0 right-0 md:relative z-40 md:z-auto px-4 md:px-0 pt-2 md:pt-0 pb-2 md:pb-0" style={{ top: 'calc(6rem + env(safe-area-inset-top, 0px))' }}>
         {/* Main Mockup Image */}
         <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl border border-gray-700 overflow-hidden aspect-square flex items-center justify-center shadow-2xl group">
           {/* Glass shine effect */}

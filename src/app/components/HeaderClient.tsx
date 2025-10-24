@@ -271,7 +271,7 @@ const Header = memo(function Header() {
   };
 
   return (
-    <div className="w-full sticky top-0 z-50 px-4 pt-4">
+    <div className="w-full sticky z-50 px-4 pt-4" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
       <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-2xl group">
         {/* Glass shine effect */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-xl"></div>

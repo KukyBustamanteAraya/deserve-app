@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: "Deserve - Equipamiento Deportivo Personalizado",
   description: "Plataforma de equipamiento deportivo personalizado para equipos e instituciones en Chile",
   manifest: "/manifest.json",
-  themeColor: "#e21c21",
+  themeColor: "#000000",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

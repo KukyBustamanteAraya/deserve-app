@@ -280,7 +280,7 @@ export default function OrganizationStep() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-12">
         {/* Design Image Section - matching design page layout */}
-        <div className="space-y-4 mb-2 fixed top-24 left-0 right-0 md:relative z-40 md:z-auto px-4 md:px-0 pt-2 md:pt-0 pb-2 md:pb-0">
+        <div className="space-y-4 mb-2 fixed left-0 right-0 md:relative z-40 md:z-auto px-4 md:px-0 pt-2 md:pt-0 pb-2 md:pb-0" style={{ top: 'calc(6rem + env(safe-area-inset-top, 0px))' }}>
           {/* Main Mockup Image */}
           <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl border border-gray-700 overflow-hidden aspect-square flex items-center justify-center shadow-2xl group">
             <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
