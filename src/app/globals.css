@@ -6,8 +6,8 @@
   html {
     font-family: 'Montserrat', system-ui, sans-serif;
     overscroll-behavior-y: none;
-    /* Support iOS notch and safe areas with themed background */
-    background: linear-gradient(to bottom right, #111827, #000000, #111827);
+    /* Match body gradient exactly for seamless safe area blending */
+    @apply bg-gradient-to-br from-gray-900 via-black to-gray-900;
   }
 
   body {

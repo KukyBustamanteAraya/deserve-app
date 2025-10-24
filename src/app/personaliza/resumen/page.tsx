@@ -367,25 +367,25 @@ export default function ResumenPage() {
     });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
       <CustomizeBanner />
 
       {/* Main Content */}
       <div className="max-w-3xl mx-auto px-4 py-4 pb-32 pt-64">
         {/* Summary */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Tu diseño personalizado</h2>
+        <div className="bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-2xl p-6 mb-4">
+          <h2 className="text-xl font-bold text-white mb-4">Tu diseño personalizado</h2>
 
           {/* Design */}
-          <div className="mb-4 pb-4 border-b border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Diseño seleccionado</h3>
-            <p className="text-base text-gray-900 font-medium">{selectedDesign.name}</p>
-            <p className="text-sm text-gray-600 capitalize">{selectedDesign.sport}</p>
+          <div className="mb-4 pb-4 border-b border-gray-700">
+            <h3 className="text-sm font-semibold text-gray-200 mb-2">Diseño seleccionado</h3>
+            <p className="text-base text-white font-medium">{selectedDesign.name}</p>
+            <p className="text-sm text-gray-300 capitalize">{selectedDesign.sport}</p>
           </div>
 
           {/* Colors */}
-          <div className="mb-4 pb-4 border-b border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Colores del equipo</h3>
+          <div className="mb-4 pb-4 border-b border-gray-700">
+            <h3 className="text-sm font-semibold text-gray-200 mb-3">Colores del equipo</h3>
             <div className="flex gap-3">
               <div className="flex items-center gap-2">
                 <div
@@ -395,7 +395,7 @@ export default function ResumenPage() {
                     borderColor: teamColors.primary
                   }}
                 />
-                <span className="text-sm text-gray-600">Primario</span>
+                <span className="text-sm text-gray-300">Primario</span>
               </div>
               <div className="flex items-center gap-2">
                 <div
@@ -405,7 +405,7 @@ export default function ResumenPage() {
                     borderColor: teamColors.secondary
                   }}
                 />
-                <span className="text-sm text-gray-600">Secundario</span>
+                <span className="text-sm text-gray-300">Secundario</span>
               </div>
               <div className="flex items-center gap-2">
                 <div
@@ -415,14 +415,14 @@ export default function ResumenPage() {
                     borderColor: teamColors.accent
                   }}
                 />
-                <span className="text-sm text-gray-600">Acento</span>
+                <span className="text-sm text-gray-300">Acento</span>
               </div>
             </div>
           </div>
 
           {/* Apparel */}
-          <div className="mb-4 pb-4 border-b border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Artículos seleccionados</h3>
+          <div className="mb-4 pb-4 border-b border-gray-700">
+            <h3 className="text-sm font-semibold text-gray-200 mb-2">Artículos seleccionados</h3>
             <div className="flex flex-wrap gap-2">
               {selectedApparelItems.map((item) => (
                 <span
@@ -440,17 +440,17 @@ export default function ResumenPage() {
           </div>
 
           {/* User Type */}
-          <div className="mb-4 pb-4 border-b border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Tipo de usuario</h3>
-            <p className="text-gray-900 text-sm">
+          <div className="mb-4 pb-4 border-b border-gray-700">
+            <h3 className="text-sm font-semibold text-gray-200 mb-2">Tipo de usuario</h3>
+            <p className="text-white text-sm">
               {userType === 'player' ? 'Jugador / Capitán' : 'Entrenador / Administrador'}
             </p>
           </div>
 
           {/* Uniform Details */}
-          <div className="mb-4 pb-4 border-b border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Detalles del uniforme</h3>
-            <ul className="text-gray-900 space-y-1 text-sm">
+          <div className="mb-4 pb-4 border-b border-gray-700">
+            <h3 className="text-sm font-semibold text-gray-200 mb-2">Detalles del uniforme</h3>
+            <ul className="text-white space-y-1 text-sm">
               <li>• Manga: {uniformDetails.sleeve === 'short' ? 'Corta' : 'Larga'}</li>
               <li>• Cuello: {uniformDetails.neck === 'crew' ? 'Redondo' : uniformDetails.neck === 'v' ? 'V' : 'Polo'}</li>
               <li>• Ajuste: {uniformDetails.fit === 'athletic' ? 'Atlético' : 'Holgado'}</li>
@@ -459,9 +459,9 @@ export default function ResumenPage() {
 
           {/* Logo Placements */}
           {logoPlacementsList.length > 0 && (
-            <div className="mb-4 pb-4 border-b border-gray-200">
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">Posiciones del logo</h3>
-              <ul className="text-gray-900 space-y-1 text-sm">
+            <div className="mb-4 pb-4 border-b border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-200 mb-2">Posiciones del logo</h3>
+              <ul className="text-white space-y-1 text-sm">
                 {logoPlacementsList.map((placement) => (
                   <li key={placement}>• {placement}</li>
                 ))}
@@ -471,8 +471,8 @@ export default function ResumenPage() {
 
           {/* Names and Numbers */}
           <div className="mb-0">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Nombres y números</h3>
-            <p className="text-gray-900 text-sm">
+            <h3 className="text-sm font-semibold text-gray-200 mb-2">Nombres y números</h3>
+            <p className="text-white text-sm">
               {namesNumbers ? 'Sí, con personalización' : 'No, sin personalización'}
             </p>
           </div>
@@ -481,21 +481,21 @@ export default function ResumenPage() {
       </div>
 
       {/* Sticky CTA */}
-      <div className="fixed bottom-14 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40">
+      <div className="fixed bottom-14 left-0 right-0 bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border-t border-gray-700 shadow-2xl z-40">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-start justify-between gap-4">
             <button
               onClick={() => router.back()}
-              className="px-6 py-3 text-gray-700 hover:text-gray-900 font-medium transition-colors flex-shrink-0"
+              className="px-6 py-3 text-gray-200 hover:text-white font-medium transition-colors flex-shrink-0"
             >
               ← Volver
             </button>
 
             <div className="flex-1 flex flex-col items-end gap-2">
               {user ? (
-                <p className="text-xs text-gray-500">Conectado como: {user.email}</p>
+                <p className="text-xs text-gray-400">Conectado como: {user.email}</p>
               ) : (
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-gray-300">
                   {user ? 'Envía tu solicitud' : 'Inicia sesión para continuar'}
                 </p>
               )}
@@ -503,10 +503,10 @@ export default function ResumenPage() {
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className={`px-8 py-3 rounded-lg font-semibold text-white transition-all duration-200 shadow-md ${
+                className={`px-8 py-3 rounded-lg font-semibold text-white transition-all duration-200 shadow-2xl ${
                   isSubmitting
                     ? 'bg-gray-400 cursor-not-allowed'
-                    : 'hover:shadow-lg hover:opacity-90'
+                    : 'hover:shadow-2xl hover:opacity-90'
                 }`}
                 style={!isSubmitting ? {
                   background: `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.accent})`
@@ -522,12 +522,12 @@ export default function ResumenPage() {
       {/* Auth Modal */}
       {showAuthModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+          <div className="bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-2xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Continuar con email</h2>
+              <h2 className="text-xl font-bold text-white">Continuar con email</h2>
               <button
                 onClick={() => setShowAuthModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-300"
               >
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -535,13 +535,13 @@ export default function ResumenPage() {
               </button>
             </div>
 
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-gray-300 mb-4">
               Te enviaremos un link mágico para iniciar sesión sin contraseña
             </p>
 
             <form onSubmit={handleSendMagicLink}>
               <div className="mb-4">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-200 mb-2">
                   Email
                 </label>
                 <input
@@ -549,7 +549,7 @@ export default function ResumenPage() {
                   id="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent text-sm"
+                  className="w-full px-4 py-2 border border-gray-700 rounded-lg focus:ring-2 focus:border-transparent text-sm"
                   style={{
                     outline: `2px solid ${teamColors.primary}`
                   }}
@@ -566,7 +566,7 @@ export default function ResumenPage() {
 
               <button
                 type="submit"
-                className="w-full py-3 px-6 text-white font-semibold rounded-lg transition-colors shadow-md hover:shadow-lg hover:opacity-90"
+                className="w-full py-3 px-6 text-white font-semibold rounded-lg transition-colors shadow-2xl hover:shadow-2xl hover:opacity-90"
                 style={{
                   background: `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.accent})`
                 }}
@@ -575,7 +575,7 @@ export default function ResumenPage() {
               </button>
             </form>
 
-            <p className="text-xs text-gray-500 mt-4 text-center">
+            <p className="text-xs text-gray-400 mt-4 text-center">
               Al continuar, aceptas recibir un email de autenticación
             </p>
           </div>

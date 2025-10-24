@@ -47,11 +47,11 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     const totalPages = Math.ceil((count || 0) / limit);
 
     return (
-      <main className="min-h-screen bg-gray-50">
+      <main className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Mis pedidos</h1>
-            <p className="text-gray-600 mt-2">
+            <h1 className="text-3xl font-bold text-white">Mis pedidos</h1>
+            <p className="text-gray-300 mt-2">
               Historial de tus pedidos y compras
             </p>
           </div>
@@ -59,15 +59,15 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           {!orders || orders.length === 0 ? (
             <div className="text-center py-16">
               <div className="text-6xl mb-4">📦</div>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+              <h2 className="text-2xl font-semibold text-white mb-2">
                 No tienes pedidos aún
               </h2>
-              <p className="text-gray-600 mb-8">
+              <p className="text-gray-300 mb-8">
                 Explora nuestro catálogo y realiza tu primer pedido
               </p>
               <Link
                 href="/catalog"
-                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors duration-200"
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-[#e21c21] hover:bg-[#c11a1e] transition-colors duration-200"
               >
                 Ir al catálogo
               </Link>
@@ -75,20 +75,20 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           ) : (
             <>
               {/* Orders List */}
-              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                <div className="divide-y divide-gray-200">
+              <div className="bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-2xl border border-gray-700 overflow-hidden">
+                <div className="divide-y divide-gray-700">
                   {orders.map((order) => (
-                    <div key={order.id} className="p-6 hover:bg-gray-50 transition-colors duration-200">
+                    <div key={order.id} className="p-6 hover:bg-gray-800/50 transition-colors duration-200">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-4 mb-2">
-                            <h3 className="text-lg font-medium text-gray-900">
+                            <h3 className="text-lg font-medium text-white">
                               Pedido #{order.id.slice(-8).toUpperCase()}
                             </h3>
                             <OrderStatusBadge status={order.status} />
                           </div>
 
-                          <div className="text-sm text-gray-500 space-y-1">
+                          <div className="text-sm text-gray-400 space-y-1">
                             <p>Fecha: {new Date(order.created_at).toLocaleDateString('es-ES', {
                               year: 'numeric',
                               month: 'long',
@@ -103,12 +103,12 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                         </div>
 
                         <div className="text-right">
-                          <p className="text-2xl font-bold text-gray-900 mb-2">
+                          <p className="text-2xl font-bold text-white mb-2">
                             {formatCurrency(order.total_clp, order.currency)}
                           </p>
                           <Link
                             href={`/orders/${order.id}`}
-                            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
+                            className="inline-flex items-center px-4 py-2 border border-gray-700 text-sm font-medium rounded-md text-gray-200 bg-gray-800/50 hover:bg-gray-700/50 transition-colors duration-200"
                           >
                             Ver detalles
                           </Link>
@@ -122,7 +122,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
               {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-8">
-                  <div className="text-sm text-gray-700">
+                  <div className="text-sm text-gray-300">
                     Mostrando {offset + 1} a {Math.min(offset + limit, count || 0)} de {count || 0} pedidos
                   </div>
 
@@ -130,7 +130,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                     {page > 1 && (
                       <Link
                         href={`/orders?page=${page - 1}&limit=${limit}`}
-                        className="px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
+                        className="px-3 py-2 border border-gray-700 text-sm font-medium rounded-md text-gray-200 bg-gray-800/50 hover:bg-gray-700/50 transition-colors duration-200"
                       >
                         Anterior
                       </Link>
@@ -146,8 +146,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                           href={`/orders?page=${pageNum}&limit=${limit}`}
                           className={`px-3 py-2 border text-sm font-medium rounded-md transition-colors duration-200 ${
                             pageNum === page
-                              ? 'border-red-500 bg-red-50 text-red-600'
-                              : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                              ? 'border-[#e21c21] bg-[#e21c21]/20 text-[#e21c21]'
+                              : 'border-gray-700 text-gray-200 bg-gray-800/50 hover:bg-gray-700/50'
                           }`}
                         >
                           {pageNum}
@@ -158,7 +158,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                     {page < totalPages && (
                       <Link
                         href={`/orders?page=${page + 1}&limit=${limit}`}
-                        className="px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
+                        className="px-3 py-2 border border-gray-700 text-sm font-medium rounded-md text-gray-200 bg-gray-800/50 hover:bg-gray-700/50 transition-colors duration-200"
                       >
                         Siguiente
                       </Link>
