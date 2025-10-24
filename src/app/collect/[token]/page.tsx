@@ -686,7 +686,7 @@ export default function PlayerCollectionPage({ params }: { params: { token: stri
             <ol className="text-sm text-blue-300 text-left mt-2 space-y-2">
               <li>1. Check your email inbox</li>
               <li>2. Click the magic link we sent you</li>
-              <li>3. You'll be automatically added to <strong className="text-white">{teamInfo.name}</strong></li>
+              <li>3. You&apos;ll be automatically added to <strong className="text-white">{teamInfo.name}</strong></li>
               <li>4. View team updates, designs, and more!</li>
             </ol>
           </div>

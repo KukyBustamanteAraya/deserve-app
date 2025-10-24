@@ -428,7 +428,7 @@ export default function OrderDetailPanel({ order, isOpen, onClose }: OrderDetail
                     <span>{uploadingMockup ? 'Uploading...' : 'Upload Mockup Images'}</span>
                   </label>
                   <p className="text-xs text-gray-500">
-                    💡 Select one or more images (JPG, PNG). After uploading, change status to "Listo" so the customer can review.
+                    💡 Select one or more images (JPG, PNG). After uploading, change status to &quot;Listo&quot; so the customer can review.
                   </p>
                 </div>
               </div>

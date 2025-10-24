@@ -291,7 +291,7 @@ export default function DesignRequestCard({ request, onRefresh, isExpanded, onTo
                 )}
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                💡 After uploading all mockups, change status to "Listo" so customer can review
+                💡 After uploading all mockups, change status to &quot;Listo&quot; so customer can review
               </p>
             </div>
           </div>

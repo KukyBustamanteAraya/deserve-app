@@ -134,7 +134,7 @@ export function PlayerInfoForm({ teamId, userId, sport, onSubmit, onCancel, exis
               required
             />
             <p className="mt-1 text-sm text-gray-400">
-              We'll send you a magic link to join {teamName || 'the team'} and view updates
+              We&apos;ll send you a magic link to join {teamName || 'the team'} and view updates
             </p>
           </div>
         )}

@@ -282,7 +282,7 @@ export function BulkNameInputCard({
 
         {/* Helper Text */}
         <p className="text-xs text-gray-500 text-center mt-4">
-          Tip: Puedes copiar una columna de Excel y usar "Pegar desde Excel" para importar múltiples nombres a la vez
+          Tip: Puedes copiar una columna de Excel y usar &quot;Pegar desde Excel&quot; para importar múltiples nombres a la vez
         </p>
       </div>
     </div>

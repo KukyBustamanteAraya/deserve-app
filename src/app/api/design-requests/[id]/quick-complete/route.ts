@@ -189,11 +189,11 @@ export async function POST(
         slug: p.slug,
         category: p.category,
         price_clp: p.price_clp,
-        designs: [{
-          id: designRequest.designs.id,
-          name: designRequest.designs.name,
-          slug: designRequest.designs.slug
-        }],
+        designs: designRequest.designs ? [{
+          id: (designRequest.designs as any)[0]?.id || (designRequest.designs as any).id,
+          name: (designRequest.designs as any)[0]?.name || (designRequest.designs as any).name,
+          slug: (designRequest.designs as any)[0]?.slug || (designRequest.designs as any).slug
+        }] : [],
         colors: {
           primary: designRequest.primary_color,
           secondary: designRequest.secondary_color,
