@@ -3,10 +3,11 @@ import { NextRequest } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { CreateDesignRequestSchema } from '@/types/design';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiValidationError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
   const { data: requests, error, count } = await query;
 
   if (error) {
-    logger.error('Error fetching design requests:', error);
+    logger.error('Error fetching design requests:', toError(error));
     return apiError('Failed to fetch design requests', 500);
   }
 
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -58,10 +59,22 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validated = CreateDesignRequestSchema.parse(body);
 
+    // Get team details to check if it's an institution
+    const { data: team, error: teamError } = await supabase
+      .from('teams')
+      .select('id, team_type')
+      .eq('id', validated.teamId)
+      .single();
+
+    if (teamError || !team) {
+      logger.error('[DesignRequest] Team not found:', toError(teamError));
+      return apiForbidden('Team not found');
+    }
+
     // Verify user is a team member
     const { data: membership, error: membershipError } = await supabase
       .from('team_memberships')
-      .select('role')
+      .select('role, institution_role')
       .eq('team_id', validated.teamId)
       .eq('user_id', user.id)
       .maybeSingle();
@@ -75,6 +88,37 @@ export async function POST(request: NextRequest) {
         hasMembership: !!membership
       });
       return apiForbidden('Only team members can create design requests');
+    }
+
+    // For institutions, verify user has permission to create design requests
+    if (team.team_type === 'institution') {
+      const isAthleticDirector = membership.institution_role === 'athletic_director';
+      const isAssistant = membership.institution_role === 'assistant';
+
+      // Check if user is a coach
+      const { data: coachedTeams } = await supabase
+        .from('institution_sub_teams')
+        .select('id')
+        .eq('institution_team_id', team.id)
+        .eq('head_coach_user_id', user.id)
+        .eq('active', true);
+
+      const isCoach = coachedTeams && coachedTeams.length > 0;
+
+      if (!isAthleticDirector && !isCoach && !isAssistant) {
+        logger.warn('[DesignRequest] User not authorized to create design requests:', {
+          userId: user.id,
+          teamId: validated.teamId,
+          institutionRole: membership.institution_role,
+          isCoach
+        });
+        return apiForbidden('Only Athletic Directors, Coaches, and Assistants can create design requests for institutions');
+      }
+
+      logger.info('[DesignRequest] Institution role verified:', {
+        userId: user.id,
+        role: isAthleticDirector ? 'athletic_director' : isCoach ? 'coach' : 'assistant'
+      });
     }
 
     // Get user's role to set user_type
@@ -94,7 +138,8 @@ export async function POST(request: NextRequest) {
         requested_by: user.id,
         user_id: user.id,
         user_type: userType,
-        status: 'pending'
+        status: 'pending',
+        estimated_roster_size: validated.estimatedRosterSize || null,
       })
       .select()
       .single();
@@ -115,7 +160,7 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess(designRequest, 'Design request created successfully', 201);
   } catch (error) {
-    logger.error('Validation error:', error);
+    logger.error('Validation error:', toError(error));
     return apiValidationError('Invalid request data');
   }
 }

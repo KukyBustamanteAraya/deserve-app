@@ -80,8 +80,8 @@ export const swrRealtimeConfig: SWRConfiguration = {
  */
 export const swrPaginatedConfig: SWRConfiguration = {
   ...swrConfig,
-  revalidateFirstPage: false, // Don't revalidate first page on focus
-  persistSize: true, // Persist page size
+  revalidateIfStale: false, // Don't revalidate if data is stale
+  // Note: persistSize removed - no longer supported in current SWR version
 };
 
 /**
@@ -89,6 +89,6 @@ export const swrPaginatedConfig: SWRConfiguration = {
  */
 export const swrInfiniteConfig: SWRConfiguration = {
   ...swrConfig,
-  revalidateFirstPage: true,
-  revalidateAll: false, // Only revalidate visible pages
+  revalidateIfStale: true,
+  // Note: revalidateAll removed - no longer supported in current SWR version
 };

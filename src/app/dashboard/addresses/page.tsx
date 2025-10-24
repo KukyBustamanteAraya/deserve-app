@@ -2,10 +2,11 @@ import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client'
 import { redirect } from 'next/navigation';
 import AddressesClient from './AddressesClient';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export default async function AddressesPage() {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
     const user = await requireAuth(supabase);
 
     // Get user's shipping addresses
@@ -17,7 +18,7 @@ export default async function AddressesPage() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      logger.error('Error fetching addresses:', error);
+      logger.error('Error fetching addresses:', toError(error));
     }
 
     return (
@@ -39,7 +40,7 @@ export default async function AddressesPage() {
     );
 
   } catch (error) {
-    logger.error('Addresses page error:', error);
+    logger.error('Addresses page error:', toError(error));
     redirect('/login?redirect=/dashboard/addresses');
   }
 }

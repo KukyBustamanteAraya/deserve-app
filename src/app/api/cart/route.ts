@@ -2,11 +2,12 @@
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import type { CartResponse } from '@/types/orders';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { apiSuccess, apiError, apiUnauthorized } from '@/lib/api-response';
 
 export async function GET() {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Require authentication
     const user = await requireAuth(supabase);
@@ -28,7 +29,7 @@ export async function GET() {
       .single();
 
     if (fetchError) {
-      logger.error('Error fetching cart details:', fetchError);
+      logger.error('Error fetching cart details:', toSupabaseError(fetchError));
       return apiError('Failed to fetch cart details', 500);
     }
 
@@ -39,7 +40,7 @@ export async function GET() {
       return apiUnauthorized();
     }
 
-    logger.error('Unexpected error in cart retrieval:', error);
+    logger.error('Unexpected error in cart retrieval:', toError(error));
     return apiError('Internal server error');
   }
 }

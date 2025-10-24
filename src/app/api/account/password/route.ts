@@ -5,6 +5,7 @@ import {
   createSupabaseRouteClient,
   jsonWithCarriedCookies,
 } from "@/lib/supabase/route";
+import { toError } from '@/lib/error-utils';
 
 const PasswordPayload = z.object({
   newPassword: z.string().min(8),
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
   try {
     payload = PasswordPayload.parse(await req.json());
   } catch (e) {
-    logger.error("[password] Bad payload", e);
+    logger.error("[password] Bad payload", toError(e));
     return jsonWithCarriedCookies(carrier, { error: "Invalid payload" }, { status: 400 });
   }
 
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
   // Get the current user
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr || !userData?.user) {
-    logger.error("[password] getUser error:", userErr);
+    logger.error("[password] getUser error", toError(userErr));
     return jsonWithCarriedCookies(
       carrier,
       { error: "Unauthorized", code: "unauthorized" },

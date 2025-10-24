@@ -21,7 +21,7 @@ export class UserNotFoundError extends Error {
  * Throws AdminRequiredError if user is not authenticated or not an admin
  */
 export async function requireAdmin(): Promise<{ user: any; profile: UserProfile }> {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   // First require basic authentication
   const user = await requireAuth(supabase);
@@ -61,7 +61,7 @@ export async function isAdmin(): Promise<{ user: any; profile: UserProfile } | n
  * Check if a specific user ID is admin
  */
 export async function isUserAdmin(userId: string): Promise<boolean> {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   try {
     const { data: profile, error } = await supabase
@@ -83,7 +83,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile> {
   // Require admin to access other user profiles
   await requireAdmin();
 
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   const { data: profile, error } = await supabase
     .from('profiles')
@@ -105,7 +105,7 @@ export async function listUsers(limit = 50, offset = 0): Promise<UserProfile[]> 
   // Require admin to list users
   await requireAdmin();
 
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   const { data: profiles, error } = await supabase
     .from('profiles')
@@ -124,7 +124,7 @@ export async function listUsers(limit = 50, offset = 0): Promise<UserProfile[]> 
  * Server action to set user role (admin only)
  */
 export async function setUserRole(userId: string, role: 'customer' | 'admin'): Promise<void> {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   // This will use the admin RPC which includes its own permission checks
   const { data: result, error } = await supabase

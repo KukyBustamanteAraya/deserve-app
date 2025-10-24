@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import type { OrderWithDetails } from '@/types/clients';
+import type { OrderWithDetails, SizeBreakdown } from '@/types/clients';
 
 interface OrderDetailPanelProps {
   order: OrderWithDetails;
@@ -63,9 +63,10 @@ export default function OrderDetailPanel({ order, isOpen, onClose }: OrderDetail
 
       // Refresh the page to show updated mockups
       window.location.reload();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error uploading mockups:', error);
-      alert(`Error: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Error: ${errorMessage}`);
     } finally {
       setUploadingMockup(false);
     }
@@ -91,7 +92,7 @@ export default function OrderDetailPanel({ order, isOpen, onClose }: OrderDetail
       alert('Status updated successfully!');
       // Refresh from server
       window.location.reload();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating status:', error);
       alert('Error updating status');
     } finally {
@@ -101,7 +102,7 @@ export default function OrderDetailPanel({ order, isOpen, onClose }: OrderDetail
 
   const currentStageIndex = PROGRESS_STAGES.findIndex((stage) => stage.key === order.progress_stage);
 
-  const renderSizeBreakdown = (sizeBreakdown: any) => {
+  const renderSizeBreakdown = (sizeBreakdown: SizeBreakdown | undefined | null) => {
     if (!sizeBreakdown) return null;
 
     const sizes = ['xs', 's', 'm', 'l', 'xl', 'xxl'] as const;
@@ -293,9 +294,9 @@ export default function OrderDetailPanel({ order, isOpen, onClose }: OrderDetail
                       )}
                     </div>
                     <div className="text-right">
-                      <div className="text-white font-bold">{formatCurrency(item.line_total_cents)}</div>
+                      <div className="text-white font-bold">{formatCurrency(item.line_total_clp)}</div>
                       <div className="text-gray-400 text-sm">
-                        {formatCurrency(item.unit_price_cents)} × {item.quantity}
+                        {formatCurrency(item.unit_price_clp)} × {item.quantity}
                       </div>
                     </div>
                   </div>

@@ -29,7 +29,7 @@ export function AuthProvider({
     const { data: subscription } = supabaseBrowser.auth.onAuthStateChange((_event: any, session: any) => {
       if (!mounted) return;
 
-      logger.debug('Auth: State change event:', _event, session?.user ? 'user present' : 'no user');
+      logger.debug('Auth: State change event:', { event: _event, hasUser: session?.user ? 'user present' : 'no user' });
       setUser(session?.user ?? null);
     });
 

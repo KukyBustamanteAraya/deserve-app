@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { rateLimit } from '@/lib/security/rateLimit';
 import { assertSameSiteOrAllowed } from '@/lib/security/origin';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export async function POST(request: NextRequest) {
   const check = assertSameSiteOrAllowed(request);
@@ -18,8 +19,8 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify user session
-    const supabase = createSupabaseServerClient();
-    
+    const supabase = await createSupabaseServerClient();
+
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error("Error creating team:", error);
+    logger.error("Error creating team:", toError(error));
     return NextResponse.json(
       { error: "Internal server error" }, 
       { status: 500 }

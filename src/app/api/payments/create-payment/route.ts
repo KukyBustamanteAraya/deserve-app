@@ -3,6 +3,7 @@
 import { NextRequest } from 'next/server';
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { apiSuccess, apiError, apiUnauthorized, apiValidationError } from '@/lib/api-response';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { z } from 'zod';
@@ -16,7 +17,7 @@ const createPaymentSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Require authentication
     const user = await requireAuth(supabase);
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, team_id, total_amount_cents, payment_status')
+      .select('id, team_id, total_amount_clp, payment_status')
       .eq('id', orderId)
       .single();
 
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
         order_id: orderId,
         user_id: userId,
         team_id: order.team_id,
-        amount_cents: amountCents,
+        amount_clp: amountCents, // amountCents param is actually CLP pesos (naming is legacy)
         currency: 'CLP',
         status: 'pending',
         payment_status: 'pending'
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
             id: orderId,
             title: description,
             quantity: 1,
-            unit_price: amountCents / 100, // Convert cents to pesos
+            unit_price: amountCents, // CLP has no cents subdivision - value is already in pesos
             currency_id: 'CLP'
           }],
           external_reference: contribution.id, // Link back to our payment_contribution
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
         .eq('id', contribution.id);
 
       if (updateError) {
-        logger.error('Error updating contribution with preference ID:', updateError);
+        logger.error('Error updating contribution with preference ID:', toSupabaseError(updateError));
       }
 
       logger.info(`Created Mercado Pago preference ${response.id} for contribution ${contribution.id}`);
@@ -176,7 +177,7 @@ export async function POST(request: NextRequest) {
       return apiUnauthorized();
     }
 
-    logger.error('Unexpected error in create payment:', error);
+    logger.error('Unexpected error in create payment:', toError(error));
     return apiError('Internal server error');
   }
 }

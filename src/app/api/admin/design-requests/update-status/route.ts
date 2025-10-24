@@ -2,9 +2,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export async function POST(request: NextRequest) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      logger.error('[Admin] Error updating design request:', error);
+      logger.error('[Admin] Error updating design request:', toError(error));
       return NextResponse.json(
         { error: 'Failed to update design request' },
         { status: 500 }
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
       data: updated
     });
   } catch (error) {
-    logger.error('[Admin] Error:', error);
+    logger.error('[Admin] Error:', toError(error));
     return NextResponse.json(
       { error: 'Invalid request data' },
       { status: 400 }

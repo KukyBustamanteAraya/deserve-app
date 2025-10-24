@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   logger.debug('[Simple-Recolor] Request received');
 
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
     const body: RecolorBoundaryRequest = await request.json();
     const { designRequestId, baseUrl, colors, n = 1 } = body;
 
@@ -118,17 +118,9 @@ export async function POST(request: NextRequest) {
 
     // Step 9: Build render spec
     const renderSpec: RenderSpec = {
-      mode: 'simple_ai',
-      baseImage: baseUrl,
-      colorway: colors,
-      rules: {
-        onlyChangeColors: true,
-        keepDesignIntact: true,
-      },
-      export: {
-        format: 'png',
-        sameSizeAsBase: true,
-      },
+      mode: 'ai',
+      colors: colors,
+      templateUrl: baseUrl,
       timestamp: new Date().toISOString(),
     };
 

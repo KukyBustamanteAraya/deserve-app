@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import FabricSelector from './FabricSelector';
 import QuantitySlider from './QuantitySlider';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface Product {
   id: string;
@@ -69,7 +70,7 @@ export default function ProductDetailView({
       const data = await response.json();
       setPricing(data);
     } catch (error) {
-      logger.error('Pricing error:', error);
+      logger.error('Pricing error:', toError(error));
     } finally {
       setLoadingPrice(false);
     }

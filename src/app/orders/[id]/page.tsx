@@ -5,6 +5,7 @@ import OrderStatusBadge from '@/components/orders/OrderStatusBadge';
 import { formatCurrency } from '@/types/orders';
 import type { OrderWithItems } from '@/types/orders';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface OrderDetailPageProps {
   params: { id: string };
@@ -12,7 +13,7 @@ interface OrderDetailPageProps {
 
 export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
     const user = await requireAuth(supabase);
 
     const orderId = params.id;
@@ -81,7 +82,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                 </div>
 
                 <div className="divide-y divide-gray-200">
-                  {order.items.map((item) => (
+                  {order.items.map((item: any) => (
                     <div key={item.id} className="p-6">
                       <div className="flex items-start space-x-4">
                         <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
@@ -93,14 +94,14 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                             {item.name}
                           </h3>
                           <div className="text-sm text-gray-500 space-y-1">
-                            <p>Precio unitario: {formatCurrency(item.unit_price_cents, order.currency)}</p>
+                            <p>Precio unitario: {formatCurrency(item.unit_price_clp, order.currency)}</p>
                             <p>Cantidad: {item.quantity}</p>
                           </div>
                         </div>
 
                         <div className="text-right">
                           <p className="text-lg font-semibold text-gray-900">
-                            {formatCurrency(item.line_total_cents, order.currency)}
+                            {formatCurrency(item.line_total_clp, order.currency)}
                           </p>
                         </div>
                       </div>
@@ -132,7 +133,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Subtotal</span>
                       <span className="text-gray-900 font-medium">
-                        {formatCurrency(order.subtotal_cents, order.currency)}
+                        {formatCurrency(order.subtotal_clp, order.currency)}
                       </span>
                     </div>
 
@@ -146,7 +147,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                     <div className="flex justify-between text-lg font-semibold">
                       <span className="text-gray-900">Total</span>
                       <span className="text-red-600">
-                        {formatCurrency(order.total_cents, order.currency)}
+                        {formatCurrency(order.total_clp, order.currency)}
                       </span>
                     </div>
                   </div>
@@ -187,7 +188,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
     );
 
   } catch (error) {
-    logger.error('Order detail page error:', error);
+    logger.error('Order detail page error:', toError(error));
     redirect('/login?redirect=/orders');
   }
 }

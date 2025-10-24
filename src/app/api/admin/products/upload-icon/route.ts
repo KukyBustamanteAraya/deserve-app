@@ -3,6 +3,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url }, { status: 200 });
   } catch (error) {
-    logger.error('Error uploading product icon:', error);
+    logger.error('Error uploading product icon:', toError(error));
     return NextResponse.json(
       { error: 'Failed to upload product icon' },
       { status: 500 }

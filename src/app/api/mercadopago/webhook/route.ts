@@ -3,6 +3,7 @@
 import { NextRequest } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import crypto from 'crypto';
 
@@ -30,7 +31,7 @@ function verifySignature(
   const hash = parts.find(p => p.startsWith('v1='))?.split('=')[1];
 
   if (!ts || !hash) {
-    logger.warn('[Webhook] Invalid signature format:', xSignature);
+    logger.warn('[Webhook] Invalid signature format:', { signature: xSignature });
     return false;
   }
 
@@ -54,7 +55,7 @@ function verifySignature(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    logger.info('MP webhook:', JSON.stringify(body));
+    logger.info('MP webhook:', { body: JSON.stringify(body) });
 
     const { data, type } = body;
     if (type !== 'payment' || !data?.id) {
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
     const paymentData = await payment.get({ id: data.id });
 
     const externalReference = paymentData.external_reference;
-    logger.info('[Webhook] External reference from MP:', externalReference);
+    logger.info('[Webhook] External reference from MP:', externalReference ? { externalReference } : undefined);
 
     if (!externalReference) {
       logger.warn('[Webhook] No external reference in payment data');
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
     logger.info('[Webhook] Creating service client to query database');
     const supabase = createSupabaseServiceClient();
 
-    logger.info('[Webhook] Querying payment_contributions for external_reference:', externalReference);
+    logger.info('[Webhook] Querying payment_contributions for external_reference:', { externalReference });
     const { data: contribution, error: queryError } = await supabase
       .from('payment_contributions')
       .select('id, order_id, payment_status')
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!contribution) {
-      logger.warn('[Webhook] Payment contribution not found for external_reference:', externalReference);
+      logger.warn('[Webhook] Payment contribution not found for external_reference:', { externalReference });
       return new Response('OK', { status: 200 });
     }
 
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
     };
 
     const newStatus = statusMap[paymentData.status || 'pending'] || 'pending';
-    logger.info('[Webhook] MP payment status:', paymentData.status, '-> mapped to:', newStatus);
+    logger.info('[Webhook] MP payment status:', { mpStatus: paymentData.status, mappedStatus: newStatus });
 
     if (contribution.payment_status !== newStatus) {
       logger.info('[Webhook] Status changed, updating contribution:', contribution.id);
@@ -134,7 +135,7 @@ export async function POST(request: NextRequest) {
       const updateData: any = {
         payment_status: newStatus,
         status: newStatus,
-        mp_payment_id: paymentData.id.toString(),
+        mp_payment_id: paymentData.id?.toString() || null,
         payment_method: paymentData.payment_method_id || null,
         raw_payment_data: paymentData
       };
@@ -149,7 +150,7 @@ export async function POST(request: NextRequest) {
         .eq('id', contribution.id);
 
       if (updateError) {
-        logger.error('[Webhook] Failed to update contribution:', updateError);
+        logger.error('[Webhook] Failed to update contribution:', toSupabaseError(updateError));
       } else {
         logger.info(`[Webhook] ✅ Successfully updated contribution ${contribution.id} to ${newStatus}`);
       }

@@ -2,12 +2,13 @@
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import type { Sport } from '@/types/catalog';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { apiSuccess, apiError, apiUnauthorized } from '@/lib/api-response';
 export const revalidate = 60; // Cache for 1 minute
 
 export async function GET() {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Fetch sports with optimized query (no auth required for public data)
     const { data: sports, error } = await supabase
@@ -16,7 +17,7 @@ export async function GET() {
       .order('name', { ascending: true });
 
     if (error) {
-      logger.error('Error fetching sports:', error);
+      logger.error('Error fetching sports:', toError(error));
       return apiError('Failed to fetch sports', 500);
     }
 
@@ -31,7 +32,7 @@ export async function GET() {
     return response;
 
   } catch (error) {
-    logger.error('Unexpected error in sports endpoint:', error);
+    logger.error('Unexpected error in sports endpoint:', toError(error));
     return apiError('An unexpected error occurred while fetching sports');
   }
 }

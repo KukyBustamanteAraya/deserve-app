@@ -1,6 +1,7 @@
 // GET /api/teams/[id]/members - Get members for a specific team
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { apiSuccess, apiError, apiUnauthorized } from '@/lib/api-response';
 
 interface TeamMember {
@@ -17,7 +18,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Require authentication
     const user = await requireAuth(supabase);
@@ -73,7 +74,7 @@ export async function GET(
       return apiUnauthorized();
     }
 
-    logger.error('Unexpected error in teams/[id]/members:', error);
+    logger.error('Unexpected error in teams/[id]/members:', toError(error));
     return apiError('Internal server error');
   }
 }

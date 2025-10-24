@@ -3,10 +3,11 @@ import { NextRequest } from 'next/server';
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import type { CreateTeamRequest, CreateTeamResponse } from '@/types/user';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { apiSuccess, apiError, apiUnauthorized, apiValidationError } from '@/lib/api-response';
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Require authentication
     const user = await requireAuth(supabase);
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
     // Check if user is already in a team
     const { data: userProfile } = await supabase
       .from('profiles')
-      .select('team_id, display_name, role')
+      .select('team_id, display_name, role, full_name')
       .eq('id', user.id)
       .single();
 
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (teamError) {
-      logger.error('Error creating team:', teamError);
+      logger.error('Error creating team:', toError(teamError));
       return apiError('Failed to create team', 500);
     }
 
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id);
 
     if (profileError) {
-      logger.error('Error updating user profile:', profileError);
+      logger.error('Error updating user profile:', toError(profileError));
     }
 
     // Prepare response with team details
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
       members: [{
         id: user.id,
         email: user.email,
-        display_name: userProfile?.display_name || null,
+        full_name: userProfile?.full_name || null,
         role: userProfile?.role || 'customer'
       }],
       created_at: newTeam.created_at,
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
       return apiUnauthorized();
     }
 
-    logger.error('Unexpected error in team creation:', error);
+    logger.error('Unexpected error in team creation:', toError(error));
     return apiError('Internal server error');
   }
 }

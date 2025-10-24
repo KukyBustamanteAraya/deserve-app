@@ -1,27 +1,34 @@
 // Main catalog page - Sport selector with product rows
-import { createSupabaseServer } from '@/lib/supabase/server-client';
+import { createClient } from '@supabase/supabase-js';
 import { CatalogWithSportSelector } from './CatalogWithSportSelector';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export const dynamic = 'force-dynamic';
 
 async function getSports() {
-  const supabase = createSupabaseServer();
+  // Use direct client for public data - avoids cookies() call that causes Suspense hanging
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   try {
+    logger.info('[CATALOG] Fetching sports...');
     const { data: sports, error } = await supabase
       .from('sports')
       .select('id, slug, name')
       .order('name', { ascending: true });
 
     if (error) {
-      logger.error('Error fetching sports:', error);
+      logger.error('[CATALOG] Error fetching sports:', toError(error));
       return [];
     }
 
+    logger.info('[CATALOG] Sports fetched successfully:', { count: sports?.length || 0 });
     return sports || [];
   } catch (error) {
-    logger.error('Error in getSports:', error);
+    logger.error('[CATALOG] Exception in getSports:', toError(error));
     return [];
   }
 }
@@ -29,11 +36,15 @@ async function getSports() {
 export default async function CatalogPage() {
   // Catalog is public - no authentication required
 
+  logger.info('[CATALOG] Rendering CatalogPage...');
+
   // Fetch all sports
   const sports = await getSports();
 
+  logger.info('[CATALOG] Rendering with sports:', { sportsCount: sports.length });
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-black">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-12">
         {/* Sport selector and product rows */}
         <CatalogWithSportSelector sports={sports} />

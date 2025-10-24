@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 const createPreferenceSchema = z.object({
   orderId: z.string().uuid()
@@ -13,7 +14,7 @@ function getBaseURL() {
 
 export async function POST(request: Request) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Check authentication
     const { data: { session }, error: authError } = await supabase.auth.getSession();
@@ -31,13 +32,13 @@ export async function POST(request: Request) {
       .select(`
         id,
         status,
-        total_cents,
+        total_clp,
         currency,
         user_id,
         order_items (
           id,
           quantity,
-          line_total_cents,
+          line_total_clp,
           products (
             id,
             name
@@ -66,11 +67,11 @@ export async function POST(request: Request) {
     }
 
     // Calculate total amount
-    const amountCents = order.order_items.reduce((sum: number, item: any) =>
-      sum + item.line_total_cents, 0
+    const amountClp = order.order_items.reduce((sum: number, item: any) =>
+      sum + item.line_total_clp, 0
     );
 
-    if (amountCents <= 0) {
+    if (amountClp <= 0) {
       return NextResponse.json({ error: 'Invalid order amount' }, { status: 400 });
     }
 
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
       items: [{
         title: `Order ${shortOrderId}`,
         quantity: 1,
-        unit_price: amountCents / 100,
+        unit_price: amountClp, // CLP amounts are already in full pesos (no cents)
         currency_id: order.currency || 'CLP'
       }],
       back_urls: {
@@ -107,7 +108,7 @@ export async function POST(request: Request) {
 
     if (!mpResponse.ok) {
       const mpError = await mpResponse.text();
-      logger.error('Mercado Pago error:', mpError);
+      logger.error('Mercado Pago error', { response: mpError });
       return NextResponse.json({ error: 'Payment provider error' }, { status: 500 });
     }
 
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
         .from('payments')
         .update({
           preference_id: preference.id,
-          amount_cents: amountCents,
+          amount_cents: amountClp, // Store CLP amount in amount_cents column
           currency: order.currency || 'CLP',
           status: 'pending',
           raw: preference
@@ -137,7 +138,7 @@ export async function POST(request: Request) {
           order_id: orderId,
           provider: 'mercadopago',
           preference_id: preference.id,
-          amount_cents: amountCents,
+          amount_cents: amountClp, // Store CLP amount in amount_cents column
           currency: order.currency || 'CLP',
           status: 'pending',
           raw: preference
@@ -167,7 +168,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    logger.error('Create preference error:', error);
+    logger.error('Create preference error:', toError(error));
 
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid request data' }, { status: 400 });

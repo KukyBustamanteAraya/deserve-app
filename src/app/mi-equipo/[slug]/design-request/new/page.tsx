@@ -3,26 +3,41 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getBrowserClient } from '@/lib/supabase/client';
+import { useDesignRequestWizard } from '@/store/design-request-wizard';
 
 export default function DesignRequestEntryPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
   const router = useRouter();
   const [checking, setChecking] = useState(true);
+  const { setSelectedTeams, resetWizard } = useDesignRequestWizard();
 
   useEffect(() => {
     async function checkTeamTypeAndRedirect() {
       try {
         const supabase = getBrowserClient();
 
+        // Reset wizard state at the start of design request flow
+        console.log('[Design Request] Resetting wizard state');
+        resetWizard();
+
         // Get team to check type
         const { data: team, error } = await supabase
           .from('teams')
-          .select('team_type, sport_id')
-          .eq('slug', params.slug)
+          .select(`
+            id,
+            name,
+            team_type,
+            sport_id,
+            sports!teams_sport_id_fkey (
+              name
+            )
+          `)
+          .eq('slug', slug)
           .single();
 
         if (error) {
           console.error('[Design Request] Error loading team:', error);
-          router.push(`/mi-equipo/${params.slug}`);
+          router.push(`/mi-equipo/${slug}`);
           return;
         }
 
@@ -32,22 +47,33 @@ export default function DesignRequestEntryPage({ params }: { params: { slug: str
         if (team.team_type === 'institution') {
           // Institution flow: select sub-teams first
           console.log('[Design Request] Routing to institution wizard (teams step)');
-          router.push(`/mi-equipo/${params.slug}/design-request/new/teams`);
+          router.push(`/mi-equipo/${slug}/design-request/new/teams`);
         } else {
-          // Single team flow: skip teams step, go directly to products (gender is already in team record)
+          // Single team flow: Initialize selectedTeams with current team
+          console.log('[Design Request] Initializing selectedTeams for single team:', team.name);
+          setSelectedTeams([{
+            id: team.id,
+            name: team.name,
+            slug: slug,
+            sport_id: team.sport_id,
+            sport_name: team.sports?.name,
+            isNew: false,
+          }]);
+
+          // Go directly to products (gender is already in team record)
           console.log('[Design Request] Routing to single team wizard (products step)');
-          router.push(`/mi-equipo/${params.slug}/design-request/new/products`);
+          router.push(`/mi-equipo/${slug}/design-request/new/products`);
         }
       } catch (error) {
         console.error('[Design Request] Error:', error);
-        router.push(`/mi-equipo/${params.slug}`);
+        router.push(`/mi-equipo/${slug}`);
       } finally {
         setChecking(false);
       }
     }
 
     checkTeamTypeAndRedirect();
-  }, [params.slug, router]);
+  }, [slug, router, setSelectedTeams, resetWizard]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">

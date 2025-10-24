@@ -2,11 +2,12 @@
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import type { TeamMeResponse } from '@/types/user';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { apiSuccess, apiError, apiUnauthorized } from '@/lib/api-response';
 
 export async function GET() {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Require authentication
     const user = await requireAuth(supabase);
@@ -19,7 +20,7 @@ export async function GET() {
       .single();
 
     if (profileError) {
-      logger.error('Error fetching profile:', profileError);
+      logger.error('Error fetching profile:', toError(profileError));
       return apiError('Failed to fetch profile', 500);
     }
 
@@ -42,7 +43,7 @@ export async function GET() {
       .single();
 
     if (teamError) {
-      logger.error('Error fetching team:', teamError);
+      logger.error('Error fetching team:', toError(teamError));
       return apiError('Failed to fetch team details', 500);
     }
 
@@ -59,7 +60,7 @@ export async function GET() {
       return apiUnauthorized();
     }
 
-    logger.error('Unexpected error in teams/me:', error);
+    logger.error('Unexpected error in teams/me:', toError(error));
     return apiError('Internal server error');
   }
 }

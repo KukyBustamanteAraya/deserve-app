@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { z } from 'zod';
 
 const UpdateSubTeamSchema = z.object({
@@ -9,7 +10,7 @@ const UpdateSubTeamSchema = z.object({
   level: z.string().optional(),
   head_coach_user_id: z.string().uuid().nullable().optional(),
   coordinator_user_id: z.string().uuid().nullable().optional(),
-  colors: z.record(z.any()).optional(),
+  colors: z.record(z.string(), z.any()).optional(),
   logo_url: z.string().url().nullable().optional(),
   season_year: z.string().optional(),
   notes: z.string().nullable().optional(),
@@ -21,7 +22,7 @@ export async function GET(
   { params }: { params: { slug: string; id: string } }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -55,14 +56,14 @@ export async function GET(
       .single();
 
     if (subTeamError || !subTeam) {
-      logger.error('Error fetching sub-team:', subTeamError);
+      logger.error('Error fetching sub-team', toSupabaseError(subTeamError));
       return NextResponse.json({ error: 'Program not found' }, { status: 404 });
     }
 
     return NextResponse.json({ sub_team: subTeam });
 
   } catch (error) {
-    logger.error('Error in sub-team GET:', error);
+    logger.error('Error in sub-team GET:', toError(error));
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -72,7 +73,7 @@ export async function PATCH(
   { params }: { params: { slug: string; id: string } }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -138,7 +139,7 @@ export async function PATCH(
       .single();
 
     if (updateError) {
-      logger.error('Error updating sub-team:', updateError);
+      logger.error('Error updating sub-team:', toSupabaseError(updateError));
 
       if (updateError.code === '23505') {
         return NextResponse.json(
@@ -163,7 +164,7 @@ export async function PATCH(
       );
     }
 
-    logger.error('Error in sub-team PATCH:', error);
+    logger.error('Error in sub-team PATCH:', toError(error));
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -173,7 +174,7 @@ export async function DELETE(
   { params }: { params: { slug: string; id: string } }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -216,7 +217,7 @@ export async function DELETE(
       .eq('institution_team_id', institution.id);
 
     if (deleteError) {
-      logger.error('Error deleting sub-team:', deleteError);
+      logger.error('Error deleting sub-team:', toSupabaseError(deleteError));
       return NextResponse.json(
         { error: 'Failed to delete program', details: deleteError.message },
         { status: 500 }
@@ -226,7 +227,7 @@ export async function DELETE(
     return NextResponse.json({ success: true }, { status: 200 });
 
   } catch (error) {
-    logger.error('Error in sub-team DELETE:', error);
+    logger.error('Error in sub-team DELETE:', toError(error));
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

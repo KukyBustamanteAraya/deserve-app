@@ -87,10 +87,10 @@ export function OrderDetailModal({ orderId, isOpen, onClose }: OrderDetailModalP
 
   const totalPaid = payments
     .filter(p => p.payment_status === 'approved')
-    .reduce((sum, p) => sum + p.amount_cents, 0);
+    .reduce((sum, p) => sum + p.amount_clp, 0);
 
   const { percentage: paymentPercentage, isPaid } = calculatePaymentProgress(
-    order?.total_cents || 0,
+    order?.total_clp || 0,
     totalPaid
   );
 
@@ -208,30 +208,25 @@ export function OrderDetailModal({ orderId, isOpen, onClose }: OrderDetailModalP
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="text-gray-400">Subtotal</span>
-                              <span className="text-white font-medium">{formatCLP(order.subtotal_cents)}</span>
+                              <span className="text-white font-medium">{formatCLP(order.subtotal_clp)}</span>
                             </div>
-                            {order.discount_cents > 0 && (
+                            {order.discount_clp > 0 && (
                               <div className="flex items-center justify-between">
                                 <span className="text-gray-400">Descuento</span>
-                                <span className="text-green-400 font-medium">-{formatCLP(order.discount_cents)}</span>
+                                <span className="text-green-400 font-medium">-{formatCLP(order.discount_clp)}</span>
                               </div>
                             )}
-                            {order.tax_cents > 0 && (
+                            {order.tax_clp > 0 && (
                               <div className="flex items-center justify-between">
                                 <span className="text-gray-400">Impuestos</span>
-                                <span className="text-white font-medium">{formatCLP(order.tax_cents)}</span>
+                                <span className="text-white font-medium">{formatCLP(order.tax_clp)}</span>
                               </div>
                             )}
-                            {order.shipping_cents > 0 && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-gray-400">Envío</span>
-                                <span className="text-white font-medium">{formatCLP(order.shipping_cents)}</span>
-                              </div>
-                            )}
+                            {/* Shipping is free - no shipping cost to display */}
                             <div className="flex items-center justify-between pt-2 border-t border-gray-700">
                               <span className="text-lg font-bold text-white">Total</span>
                               <span className="text-2xl font-bold text-white">
-                                {formatCLP(order.total_cents || order.total_amount_cents)}
+                                {formatCLP(order.total_clp || order.total_amount_clp)}
                               </span>
                             </div>
                             <div className="flex items-center justify-between">
@@ -307,10 +302,10 @@ export function OrderDetailModal({ orderId, isOpen, onClose }: OrderDetailModalP
                                 </div>
                                 <div className="text-right">
                                   <div className="font-bold text-white">
-                                    {formatCLP(item.line_total_cents || 0)}
+                                    {formatCLP(item.line_total_clp || 0)}
                                   </div>
                                   <div className="text-sm text-gray-400">
-                                    {formatCLP(item.unit_price_cents)} × {item.quantity}
+                                    {formatCLP(item.unit_price_clp)} × {item.quantity}
                                   </div>
                                 </div>
                               </div>
@@ -352,7 +347,7 @@ export function OrderDetailModal({ orderId, isOpen, onClose }: OrderDetailModalP
                                   )}
                                 </div>
                                 <div className="text-right">
-                                  <div className="font-bold text-white">{formatCLP(payment.amount_cents)}</div>
+                                  <div className="font-bold text-white">{formatCLP(payment.amount_clp)}</div>
                                   <div
                                     className={`text-xs px-2 py-1 rounded-full inline-block mt-1 ${
                                       payment.payment_status === 'approved'

@@ -4,7 +4,7 @@ import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
 
 export async function requireUser() {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
   const { data: { user }, error } = await supabase.auth.getUser();
 
   logger.debug('requireUser: Server-side auth check:', {
@@ -21,7 +21,7 @@ export async function requireUser() {
 }
 
 export async function getUserProfileOrNull() {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   const { data: profile } = await supabase

@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { revalidateTag, revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -14,7 +15,7 @@ export async function POST(
 ) {
   try {
     const { user } = await requireAdmin();
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Verify product exists
     const { data: product, error: productError } = await supabase
@@ -95,7 +96,7 @@ export async function POST(
       });
 
     if (uploadError) {
-      logger.error('Storage upload error:', uploadError);
+      logger.error('Storage upload error:', toSupabaseError(uploadError));
       return NextResponse.json(
         { error: 'Failed to upload image' },
         { status: 500 }
@@ -163,7 +164,7 @@ export async function POST(
     }, { status: 201 });
 
   } catch (error) {
-    logger.error('Product image upload error:', error);
+    logger.error('Product image upload error:', toError(error));
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

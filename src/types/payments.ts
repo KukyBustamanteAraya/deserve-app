@@ -4,7 +4,7 @@ import { z } from 'zod';
 // ENUMS & CONSTANTS
 // ===================================================================
 
-export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'refunded';
+export type PaymentStatus = 'pending' | 'approved' | 'completed' | 'rejected' | 'cancelled' | 'refunded';
 export type OrderPaymentStatus = 'unpaid' | 'partial' | 'paid';
 export type OrderStatus = 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 
@@ -210,6 +210,8 @@ export interface PlayerInfoSubmission {
 export interface OrderWithDetails extends Order {
   items: OrderItem[];
   payment_contributions?: PaymentContribution[];
+  contributions?: PaymentContribution[]; // Alias for compatibility
+  payment_mode?: string | null;
   total_paid_clp?: number;
   total_pending_clp?: number;
   payment_progress_percentage?: number;
@@ -486,6 +488,8 @@ export interface OrderOverview {
   payment_status: OrderPaymentStatus;
   payment_mode: string | null;
   total_clp: number | null;
+  total_amount_clp?: number | null; // Alias for compatibility with Order interface
+  estimated_delivery?: string | null; // Estimated delivery date
   can_modify: boolean;
   locked_at: string | null;
   created_at: string;

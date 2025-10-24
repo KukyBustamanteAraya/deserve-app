@@ -20,7 +20,7 @@ export const maxDuration = 60;
 
 interface Colorway {
   primary: string;
-  secondary?: string;
+  secondary: string;
   tertiary?: string;
 }
 
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   logger.debug('[Recolor API] Request received (Lock-Geometry Mode)');
 
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Parse request body
     const body: RecolorRequest = await request.json();

@@ -1,38 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const { slug } = await params;
+    logger.info(`[Overview API] Fetching institution overview for slug: "${slug}"`);
+    const supabase = await createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
+      logger.error('[Overview API] Authentication failed:', toError(authError));
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    logger.info(`[Overview API] User authenticated: ${user.id}`);
+
     // Fetch institution team by slug
     const { data: institution, error: teamError } = await supabase
       .from('teams')
       .select('*')
-      .eq('slug', params.slug)
+      .eq('slug', slug)
       .eq('team_type', 'institution')
       .single();
 
     if (teamError || !institution) {
-      logger.error('Institution not found:', teamError);
+      logger.error(`[Overview API] Institution not found for slug "${slug}":`, toError(teamError));
+      logger.error('[Overview API] Error details:', { code: (teamError as any)?.code, message: (teamError as any)?.message, details: (teamError as any)?.details });
       return NextResponse.json(
         { error: 'Institution not found' },
         { status: 404 }
       );
     }
+
+    logger.info(`[Overview API] Institution found: ${institution.name} (ID: ${institution.id}, Type: ${institution.team_type})`);
 
     // Verify user has access to this institution
     const { data: membership, error: membershipError } = await supabase
@@ -58,7 +67,7 @@ export async function GET(
       .order('name');
 
     if (subTeamsError) {
-      logger.error('Error fetching sub-teams:', subTeamsError);
+      logger.error('[Overview API] Error fetching sub-teams:', subTeamsError);
     }
 
     // Fetch total members count across all sub-teams
@@ -126,7 +135,7 @@ export async function GET(
     }
 
     // Return overview data (using camelCase to match frontend InstitutionStats interface)
-    return NextResponse.json({
+    const responseData = {
       institution: {
         id: institution.id,
         name: institution.name,
@@ -154,10 +163,12 @@ export async function GET(
       programs: subTeams || [],
       design_requests: designRequests || [],
       settings: settings || null,
-    });
+    };
+
+    return NextResponse.json(responseData);
 
   } catch (error) {
-    logger.error('Error fetching institution overview:', error);
+    logger.error('Error fetching institution overview:', toError(error));
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -97,19 +97,24 @@ export default function ProductsGrid({ products }: ProductsGridProps) {
   const handleSave = async (productId: string) => {
     setSaving(true);
     try {
+      console.log('Sending PATCH with data:', editForm);
       const response = await fetch(`/api/admin/products/${productId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm),
       });
 
-      if (!response.ok) throw new Error('Failed to update product');
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API error response:', errorData);
+        throw new Error(errorData.error || 'Failed to update product');
+      }
 
       // Refresh the page to show updated data
       window.location.reload();
     } catch (error) {
       console.error('Error updating product:', error);
-      alert('Failed to update product');
+      alert(`Failed to update product: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
@@ -220,12 +225,10 @@ export default function ProductsGrid({ products }: ProductsGridProps) {
                             className="w-full px-2 py-1 bg-black/50 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-[#e21c21]/50 focus:border-[#e21c21]/50"
                           >
                             <option value="">Select category</option>
-                            <option value="jerseys">Jerseys</option>
-                            <option value="shorts">Shorts</option>
-                            <option value="socks">Socks</option>
-                            <option value="jackets">Jackets</option>
-                            <option value="pants">Pants</option>
-                            <option value="accessories">Accessories</option>
+                            <option value="camiseta">Jersey (Camiseta)</option>
+                            <option value="poleron">Hoodie (Poleron)</option>
+                            <option value="medias">Socks (Calcetines)</option>
+                            <option value="chaqueta">Jacket (Chaqueta)</option>
                           </select>
                         </div>
                         <div>

@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import {
   createBulkPayPreference,
   generateExternalReference,
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
       .single();
 
     if (bulkError || !bulkPayment) {
-      logger.error('[Bulk-Payment] Error creating bulk payment:', bulkError);
+      logger.error('[Bulk-Payment] Error creating bulk payment', toSupabaseError(bulkError));
       return NextResponse.json(
         { error: 'Failed to create bulk payment record' },
         { status: 500 }
@@ -132,7 +133,7 @@ export async function POST(request: Request) {
       .insert(orderLinks);
 
     if (linkError) {
-      logger.error('[Bulk-Payment] Error linking orders:', linkError);
+      logger.error('[Bulk-Payment] Error linking orders:', toError(linkError));
       // Clean up bulk payment if linking fails
       await supabase.from('bulk_payments').delete().eq('id', bulkPayment.id);
       return NextResponse.json(
@@ -175,7 +176,7 @@ export async function POST(request: Request) {
       orderCount: orders.length,
     });
   } catch (error: any) {
-    logger.error('[Bulk-Payment] Error:', error);
+    logger.error('[Bulk-Payment] Error:', toError(error));
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }

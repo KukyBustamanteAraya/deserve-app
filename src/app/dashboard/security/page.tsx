@@ -23,12 +23,10 @@ export default function SecurityPage() {
   // Show loading state
   if (loading || redirecting) {
     return (
-      <div className="mx-auto max-w-xl p-6 space-y-6">
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
-            <p className="text-gray-600">{loading ? 'Loading...' : 'Redirecting...'}</p>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-300">{loading ? 'Loading...' : 'Redirecting...'}</p>
         </div>
       </div>
     );
@@ -42,9 +40,11 @@ export default function SecurityPage() {
   const hasPassword = (user.identities ?? []).some((i: any) => i.provider === 'email');
 
   return (
-    <div className="mx-auto max-w-xl p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Security</h1>
-      <SetPasswordForm hasPassword={hasPassword} />
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
+      <div className="mx-auto max-w-2xl p-6 space-y-6">
+        <h1 className="text-3xl font-bold text-white">Security</h1>
+        <SetPasswordForm hasPassword={hasPassword} />
+      </div>
     </div>
   );
 }

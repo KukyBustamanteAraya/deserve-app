@@ -18,7 +18,7 @@ export async function GET(
       );
     }
 
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Fetch payment contribution with order and team details
     const { data: contribution, error: contributionError } = await supabase

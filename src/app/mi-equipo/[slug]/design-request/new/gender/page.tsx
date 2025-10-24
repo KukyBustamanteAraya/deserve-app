@@ -7,6 +7,7 @@ import { useDesignRequestWizard, type GenderCategory } from '@/store/design-requ
 import { WizardLayout } from '@/components/institution/design-request/WizardLayout';
 
 export default function GenderSelectionPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
   const router = useRouter();
   const { gender_category, both_config, setGenderCategory, setBothConfig } = useDesignRequestWizard();
 
@@ -33,7 +34,7 @@ export default function GenderSelectionPage({ params }: { params: { slug: string
       const { data: team } = await supabase
         .from('teams')
         .select('team_type')
-        .eq('slug', params.slug)
+        .eq('slug', slug)
         .single();
 
       if (team) {
@@ -42,7 +43,7 @@ export default function GenderSelectionPage({ params }: { params: { slug: string
     }
 
     loadTeamType();
-  }, [params.slug]);
+  }, [slug]);
 
   const handleGenderSelect = (gender: GenderCategory) => {
     setSelectedGender(gender);
@@ -50,7 +51,7 @@ export default function GenderSelectionPage({ params }: { params: { slug: string
 
     // Reset both_config if not selecting "both"
     if (gender !== 'both') {
-      setBothConfig(null);
+      setBothConfig({ same_design: false, same_colors: false });
     }
   };
 
@@ -61,7 +62,7 @@ export default function GenderSelectionPage({ params }: { params: { slug: string
         same_colors: sameColors,
       });
     }
-    router.push(`/mi-equipo/${params.slug}/design-request/new/products`);
+    router.push(`/mi-equipo/${slug}/design-request/new/products`);
   };
 
   const genderOptions = [
@@ -85,10 +86,10 @@ export default function GenderSelectionPage({ params }: { params: { slug: string
   const handleBack = () => {
     if (teamType === 'institution') {
       // Institution: go back to teams selection
-      router.push(`/mi-equipo/${params.slug}/design-request/new/teams`);
+      router.push(`/mi-equipo/${slug}/design-request/new/teams`);
     } else {
       // Single team: go back to team dashboard (this is the first step)
-      router.push(`/mi-equipo/${params.slug}`);
+      router.push(`/mi-equipo/${slug}`);
     }
   };
 

@@ -4,7 +4,7 @@ import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
 
 export async function GET() {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   const { data: bundles, error } = await supabase
     .from('bundles')

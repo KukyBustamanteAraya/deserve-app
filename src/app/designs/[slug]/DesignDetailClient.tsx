@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuickDesignRequest } from '@/store/quick-design-request';
@@ -14,6 +14,7 @@ interface Team {
     primary?: string;
     secondary?: string;
     accent?: string;
+    tertiary?: string; // Backwards compatibility
   };
 }
 
@@ -67,7 +68,7 @@ interface DesignDetailClientProps {
   currentMockups: MockupGroup[];
 }
 
-export function DesignDetailClient({
+const DesignDetailClient = memo(function DesignDetailClient({
   design,
   currentSport,
   availableSports,
@@ -87,6 +88,7 @@ export function DesignDetailClient({
   const [userTeams, setUserTeams] = useState<Team[]>([]);
   const [localSelectedTeamId, setLocalSelectedTeamId] = useState<string>(''); // Empty string = no selection
   const [isLoadingTeams, setIsLoadingTeams] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Quick Design Request state
   const {
@@ -164,7 +166,8 @@ export function DesignDetailClient({
         setTeamName(selectedTeam.name);
         setPrimaryColor(selectedTeam.colors.primary || '#e21c21');
         setSecondaryColor(selectedTeam.colors.secondary || '#ffffff');
-        setAccentColor(selectedTeam.colors.accent || '#000000');
+        // Support both 'accent' and 'tertiary' for backwards compatibility
+        setAccentColor(selectedTeam.colors.accent || selectedTeam.colors.tertiary || '#000000');
         setSelectedTeamId(localSelectedTeamId); // Store in Zustand
       }
     } else if (localSelectedTeamId === 'new') {
@@ -183,6 +186,66 @@ export function DesignDetailClient({
     setSelectedSport(sport);
     setSelectedMockupIndex(0);
     router.push(`/designs/${design.slug}?sport=${sport.slug}`);
+  };
+
+  // Submit design request for existing team (skip organization page)
+  const handleSubmitExistingTeam = async () => {
+    if (!localSelectedTeamId || localSelectedTeamId === 'new' || !selectedSport) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Get authenticated user's email
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) {
+        throw new Error('User not authenticated');
+      }
+
+      // Prepare form data
+      const formData = new FormData();
+      formData.append('design_id', design.id);
+      formData.append('sport_id', selectedSport.id.toString());
+      formData.append('sport_slug', selectedSport.slug);
+      formData.append('existing_team_id', localSelectedTeamId);
+      formData.append('team_name', teamName); // Team name from state
+      formData.append('primary_color', primaryColor);
+      formData.append('secondary_color', secondaryColor);
+      formData.append('accent_color', accentColor);
+      formData.append('organization_type', 'single_team'); // Default for existing teams
+      formData.append('additional_specifications', '');
+      formData.append('email', user.email);
+      formData.append('role', 'manager'); // Default role for existing team owners
+      formData.append('custom_role', '');
+      formData.append('is_authenticated', 'true');
+
+      // Submit to API (include credentials for auth session)
+      const response = await fetch('/api/quick-design-request', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include', // Ensure session cookies are sent
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to submit design request');
+      }
+
+      // Success! Redirect to team page
+      const teamSlug = userTeams.find(t => t.id === localSelectedTeamId)?.slug;
+      if (teamSlug) {
+        router.push(`/mi-equipo/${teamSlug}?request_created=true`);
+      } else {
+        router.push('/mi-equipo');
+      }
+    } catch (error) {
+      console.error('Error submitting design request:', error);
+      alert('Hubo un error al enviar tu solicitud. Por favor intenta de nuevo.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -354,19 +417,22 @@ export function DesignDetailClient({
 
             {/* Continue Button */}
             <button
-              onClick={() => {
-                // If mounted and user selected an existing team, can continue
-                // Otherwise, need team name and colors filled
-                if (!mounted) return; // Don't allow click before mounted
+              onClick={async () => {
+                if (!mounted || isSubmitting) return;
+
                 const hasSelectedExistingTeam = isAuthenticated && userTeams.length > 0 && localSelectedTeamId && localSelectedTeamId !== 'new';
-                const canContinue = hasSelectedExistingTeam || canProceedToStep2();
-                if (canContinue) {
+
+                if (hasSelectedExistingTeam) {
+                  // Submit directly for existing team
+                  await handleSubmitExistingTeam();
+                } else if (canProceedToStep2()) {
+                  // Go to organization page for new team
                   router.push(`/designs/${design.slug}/request/organization`);
                 }
               }}
-              disabled={!mounted || !((isAuthenticated && userTeams.length > 0 && localSelectedTeamId && localSelectedTeamId !== 'new') || canProceedToStep2())}
+              disabled={!mounted || isSubmitting || !((isAuthenticated && userTeams.length > 0 && localSelectedTeamId && localSelectedTeamId !== 'new') || canProceedToStep2())}
               className={`relative w-full px-4 py-2.5 sm:px-6 sm:py-3 rounded-lg font-semibold text-sm sm:text-base transition-all shadow-lg overflow-hidden group ${
-                mounted && ((isAuthenticated && userTeams.length > 0 && localSelectedTeamId && localSelectedTeamId !== 'new') || canProceedToStep2())
+                mounted && !isSubmitting && ((isAuthenticated && userTeams.length > 0 && localSelectedTeamId && localSelectedTeamId !== 'new') || canProceedToStep2())
                   ? 'bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 text-white border border-[#e21c21]/50 shadow-[#e21c21]/30 hover:shadow-[#e21c21]/50 cursor-pointer'
                   : 'bg-gray-700/50 text-gray-500 border border-gray-600 cursor-not-allowed'
               }`}
@@ -375,10 +441,29 @@ export function DesignDetailClient({
               {/* Glass shine effect - always render to avoid hydration mismatch */}
               <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
               <span className="relative flex items-center justify-center gap-1.5 sm:gap-2">
-                Continuar con el pedido
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Enviando...
+                  </>
+                ) : mounted && isAuthenticated && userTeams.length > 0 && localSelectedTeamId && localSelectedTeamId !== 'new' ? (
+                  <>
+                    Enviar solicitud
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </>
+                ) : (
+                  <>
+                    Continuar con el pedido
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </>
+                )}
               </span>
             </button>
           </div>
@@ -386,4 +471,6 @@ export function DesignDetailClient({
       </div>
     </div>
   );
-}
+});
+
+export default DesignDetailClient;

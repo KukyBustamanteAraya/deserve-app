@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getBrowserClient } from '@/lib/supabase/client';
 import Image from 'next/image';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
+import { MiniFieldMap } from '@/components/team/MiniFieldMap';
+import type { SportSlug } from '@/types/catalog';
 
 interface Team {
   id: string;
@@ -16,9 +19,11 @@ interface Team {
     accent: string;
   };
   logo_url?: string;
+  sport?: SportSlug;
 }
 
 export default function JoinTeamPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -31,10 +36,11 @@ export default function JoinTeamPage({ params }: { params: { slug: string } }) {
   const [email, setEmail] = useState('');
   const [showAuth, setShowAuth] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [teamPlayers, setTeamPlayers] = useState<any[]>([]);
 
   useEffect(() => {
     loadTeam();
-  }, [params.slug]);
+  }, [slug]);
 
   // Handle auth callback and auto-join
   useEffect(() => {
@@ -63,15 +69,35 @@ export default function JoinTeamPage({ params }: { params: { slug: string } }) {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       setUser(currentUser);
 
-      // Get team
+      // Get team with sport information
       const { data: teamData, error: teamError } = await supabase
         .from('teams')
-        .select('*')
-        .eq('slug', params.slug)
+        .select(`
+          *,
+          sports:sport_id (
+            id,
+            slug,
+            name
+          )
+        `)
+        .eq('slug', slug)
         .single();
 
       if (teamError) throw teamError;
-      setTeam(teamData);
+
+      // Extract sport slug from joined data
+      const sportSlug = (teamData as any).sports?.slug || null;
+      setTeam({ ...teamData, sport: sportSlug });
+
+      // Get current team players for field visualization
+      const { data: players } = await supabase
+        .from('team_players')
+        .select('*')
+        .eq('team_id', teamData.id)
+        .order('created_at', { ascending: true });
+
+      console.log('[Join Team] Loaded team players:', players?.length || 0);
+      setTeamPlayers(players || []);
 
       // If user is already authenticated, check if they're already a member
       if (currentUser) {
@@ -84,12 +110,12 @@ export default function JoinTeamPage({ params }: { params: { slug: string } }) {
 
         if (membership) {
           // Already a member, redirect to team page
-          router.push(`/mi-equipo/${params.slug}`);
+          router.push(`/mi-equipo/${slug}`);
           return;
         }
       }
     } catch (error) {
-      logger.error('Error loading team:', error);
+      logger.error('Error loading team:', toError(error));
       setError('Equipo no encontrado');
     } finally {
       setLoading(false);
@@ -104,15 +130,25 @@ export default function JoinTeamPage({ params }: { params: { slug: string } }) {
       const { error: authError } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/join/${params.slug}${token ? `?token=${token}` : ''}`,
+          emailRedirectTo: `${window.location.origin}/join/${slug}${token ? `?token=${token}` : ''}`,
         },
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        // Check for rate limit error
+        if (authError.message?.includes('can only request this after')) {
+          const match = authError.message.match(/(\d+)\s+seconds/);
+          const seconds = match ? match[1] : '60';
+          throw new Error(
+            `Por favor espera ${seconds} segundos antes de solicitar otro link. Si ya recibiste un link en tu email, úsalo.`
+          );
+        }
+        throw authError;
+      }
 
       alert('¡Link mágico enviado! Revisa tu email para continuar.');
     } catch (error: any) {
-      logger.error('Error sending magic link:', error);
+      logger.error('Error sending magic link:', toError(error));
       setError(error.message || 'Error al enviar el link. Intenta de nuevo.');
     }
   };
@@ -124,6 +160,45 @@ export default function JoinTeamPage({ params }: { params: { slug: string } }) {
     setError(null);
 
     try {
+      // Get user's full profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, user_type, athletic_profile, manager_profile')
+        .eq('id', user.id)
+        .single();
+
+      // If user doesn't have user_type, they need to complete profile setup
+      if (!profile?.user_type) {
+        console.log('[Join Team] User has no user_type, redirecting to profile setup');
+        router.push(`/profile/setup?welcome=true&next=${encodeURIComponent(`/join/${slug}${token ? `?token=${token}` : ''}`)}`);
+        return;
+      }
+
+      // If user is manager/director joining as player, upgrade to hybrid
+      if (profile.user_type === 'manager' || profile.user_type === 'athletic_director') {
+        console.log('[Join Team] Manager/Director joining as player, upgrading to hybrid');
+
+        // Create basic athletic_profile
+        const basicAthleticProfile = {
+          sports: team.sport ? [team.sport] : [],
+          primary_sport: team.sport || '',
+          positions: [],
+          jersey_number: '',
+          gender: null,
+        };
+
+        // Upgrade to hybrid
+        await supabase
+          .from('profiles')
+          .update({
+            user_type: 'hybrid',
+            athletic_profile: basicAthleticProfile
+          })
+          .eq('id', user.id);
+
+        console.log('[Join Team] User upgraded to hybrid successfully');
+      }
+
       // Add user to team
       const { error: joinError } = await supabase
         .from('team_memberships')
@@ -144,9 +219,9 @@ export default function JoinTeamPage({ params }: { params: { slug: string } }) {
       }
 
       // Redirect to team page
-      router.push(`/mi-equipo/${params.slug}`);
+      router.push(`/mi-equipo/${slug}`);
     } catch (error: any) {
-      logger.error('Error joining team:', error);
+      logger.error('Error joining team:', toError(error));
       setError('Error al unirte al equipo. Intenta de nuevo.');
     } finally {
       setJoining(false);
@@ -226,8 +301,29 @@ export default function JoinTeamPage({ params }: { params: { slug: string } }) {
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 -mt-16 pb-12">
-        <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl shadow-2xl p-8 border border-gray-700">
+      <div className="max-w-3xl mx-auto px-4 -mt-16 pb-12">
+        {/* Mini Field Preview */}
+        {team.sport && teamPlayers.length > 0 && (
+          <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl shadow-2xl p-6 mb-6 border border-gray-700">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 hover:opacity-100 transition-opacity pointer-events-none rounded-xl"></div>
+            <div className="relative">
+              <div className="text-center mb-4">
+                <h2 className="text-2xl font-bold text-white mb-2">
+                  🎯 ¡Conoce a tu futuro equipo!
+                </h2>
+                <p className="text-gray-300">
+                  Mira quién ya está en el equipo
+                </p>
+              </div>
+              <MiniFieldMap
+                sport={team.sport}
+                players={teamPlayers}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="max-w-md mx-auto relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-xl shadow-2xl p-8 border border-gray-700">
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 hover:opacity-100 transition-opacity pointer-events-none rounded-xl"></div>
 
           <div className="relative">

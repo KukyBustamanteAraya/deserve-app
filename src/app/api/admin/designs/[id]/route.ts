@@ -4,6 +4,7 @@
 import { requireAdmin } from '@/lib/auth/admin-guard';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(
@@ -14,7 +15,7 @@ export async function GET(
     await requireAdmin();
 
     const { id } = params;
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     const { data: design, error } = await supabase
       .from('designs')
@@ -46,7 +47,7 @@ export async function GET(
     return apiSuccess(design, 'Design retrieved successfully');
 
   } catch (error) {
-    logger.error('Unexpected error fetching design:', error);
+    logger.error('Unexpected error fetching design:', toError(error));
     return apiError('An unexpected error occurred while fetching design');
   }
 }
@@ -59,7 +60,7 @@ export async function PATCH(
     await requireAdmin();
 
     const { id } = params;
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
     const body = await request.json();
 
     const {
@@ -110,14 +111,14 @@ export async function PATCH(
       .single();
 
     if (error) {
-      logger.error('Error updating design:', error);
+      logger.error('Error updating design:', toError(error));
       return apiError('Failed to update design', 500);
     }
 
     return apiSuccess(design, 'Design updated successfully');
 
   } catch (error) {
-    logger.error('Unexpected error updating design:', error);
+    logger.error('Unexpected error updating design:', toError(error));
     return apiError('An unexpected error occurred while updating design');
   }
 }
@@ -130,7 +131,7 @@ export async function DELETE(
     await requireAdmin();
 
     const { id } = params;
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Delete design (cascade will handle mockups)
     const { error } = await supabase
@@ -139,14 +140,14 @@ export async function DELETE(
       .eq('id', id);
 
     if (error) {
-      logger.error('Error deleting design:', error);
+      logger.error('Error deleting design:', toError(error));
       return apiError('Failed to delete design', 500);
     }
 
     return apiSuccess(null, 'Design deleted successfully');
 
   } catch (error) {
-    logger.error('Unexpected error deleting design:', error);
+    logger.error('Unexpected error deleting design:', toError(error));
     return apiError('An unexpected error occurred while deleting design');
   }
 }

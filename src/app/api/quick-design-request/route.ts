@@ -7,6 +7,7 @@ import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { apiSuccess, apiError, apiValidationError } from '@/lib/api-response';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 // Helper to generate slug from name
 function generateSlug(name: string): string {
@@ -29,7 +30,7 @@ async function generateUniqueSlug(supabase: any, baseName: string): Promise<stri
       .maybeSingle();
 
     if (error) {
-      logger.error('Error checking slug uniqueness:', error);
+      logger.error('Error checking slug uniqueness', toSupabaseError(error));
       throw new Error('Failed to generate unique slug');
     }
 
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
     const designId = formData.get('design_id') as string;
     const sportId = parseInt(formData.get('sport_id') as string);
     let sportSlug = formData.get('sport_slug') as string;
+    const existingTeamId = formData.get('existing_team_id') as string | null; // For existing teams
     const teamName = formData.get('team_name') as string;
     const primaryColor = formData.get('primary_color') as string;
     const secondaryColor = formData.get('secondary_color') as string;
@@ -60,15 +62,15 @@ export async function POST(request: NextRequest) {
     const organizationType = formData.get('organization_type') as string;
     const additionalSpecifications = formData.get('additional_specifications') as string || '';
     const email = formData.get('email') as string;
-    const role = formData.get('role') as string;
+    const role = formData.get('role') as string || 'manager'; // Default to manager if not provided
     const customRole = formData.get('custom_role') as string || '';
     const isAuthenticated = formData.get('is_authenticated') === 'true';
     const logoFile = formData.get('logo') as File | null;
 
-    logger.info('Form data parsed:', { designId, sportId, sportSlug, teamName, primaryColor, secondaryColor, accentColor, organizationType, email, role, isAuthenticated });
+    logger.info('Form data parsed:', { designId, sportId, sportSlug, existingTeamId, teamName, primaryColor, secondaryColor, accentColor, organizationType, email, role, isAuthenticated });
 
     // Create Supabase clients early for sport_slug lookup
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -87,7 +89,7 @@ export async function POST(request: NextRequest) {
 
       if (sport?.slug) {
         sportSlug = sport.slug;
-        logger.info('Generated sport_slug from database:', sportSlug);
+        logger.info('Generated sport_slug from database:', { sportSlug });
       }
     }
 
@@ -102,7 +104,7 @@ export async function POST(request: NextRequest) {
     if (!accentColor) missingFields.push('accent_color');
     if (!organizationType) missingFields.push('organization_type');
     if (!email) missingFields.push('email');
-    if (!role) missingFields.push('role');
+    // role is now optional with default value
 
     if (missingFields.length > 0) {
       logger.error('Missing required fields:', missingFields);
@@ -111,6 +113,7 @@ export async function POST(request: NextRequest) {
 
     let userId: string;
     let userWasCreated = false;
+    let autoLoginToken: string | null = null;
 
     // Step 1: Get or create user
     if (isAuthenticated) {
@@ -124,7 +127,7 @@ export async function POST(request: NextRequest) {
       const { data: existingUsers, error: userCheckError } = await supabaseAdmin.auth.admin.listUsers();
 
       if (userCheckError) {
-        logger.error('Error checking existing users:', userCheckError);
+        logger.error('Error checking existing users', toError(userCheckError));
         return apiError('Failed to check existing user', 500);
       }
 
@@ -132,7 +135,31 @@ export async function POST(request: NextRequest) {
 
       if (existingUser) {
         userId = existingUser.id;
-        logger.info('User already exists:', { email, userId });
+        logger.info('User already exists, generating auto-login token:', { email, userId });
+
+        // Generate a magic link for auto-login
+        try {
+          const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+            type: 'magiclink',
+            email: email,
+            options: {
+              redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
+            },
+          });
+
+          if (linkError) {
+            logger.error('Error generating magic link', toError(linkError));
+            // Continue without auto-login token
+          } else if (linkData) {
+            // Extract the token from the magic link
+            const url = new URL(linkData.properties.action_link);
+            autoLoginToken = url.searchParams.get('token');
+            logger.info('Auto-login token generated for existing user');
+          }
+        } catch (linkGenError) {
+          logger.error('Error in magic link generation', toError(linkGenError));
+          // Continue without auto-login
+        }
       } else {
         // Create new user with a temporary password
         const tempPassword = Math.random().toString(36).slice(-12) + 'Aa1!';
@@ -144,7 +171,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (createUserError || !newUser.user) {
-          logger.error('Error creating user:', createUserError);
+          logger.error('Error creating user', toError(createUserError));
           return apiError('Failed to create user account', 500);
         }
 
@@ -156,85 +183,158 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Step 2: Generate unique slug for team
-    const teamSlug = await generateUniqueSlug(supabaseAdmin, teamName);
+    let team: any;
+    let teamSlug: string;
 
-    // Step 3: Upload logo if provided
-    let logoUrl: string | null = null;
-    if (logoFile) {
-      try {
-        const fileExt = logoFile.name.split('.').pop();
-        const fileName = `${teamSlug}-${Date.now()}.${fileExt}`;
-        const filePath = `team-logos/${fileName}`;
+    // Step 2: Use existing team OR create new team
+    if (existingTeamId) {
+      // Using existing team - fetch it
+      logger.info('Using existing team:', { existingTeamId });
 
-        const fileBuffer = await logoFile.arrayBuffer();
-        const { error: uploadError } = await supabaseAdmin.storage
-          .from('products')
-          .upload(filePath, fileBuffer, {
-            contentType: logoFile.type,
-            cacheControl: '3600',
-            upsert: false,
-          });
+      const { data: existingTeam, error: fetchError } = await supabaseAdmin
+        .from('teams')
+        .select('*')
+        .eq('id', existingTeamId)
+        .single();
 
-        if (uploadError) {
-          logger.error('Error uploading logo:', uploadError);
-          // Don't fail the whole request if logo upload fails
-        } else {
-          const { data: { publicUrl } } = supabaseAdmin.storage
+      if (fetchError || !existingTeam) {
+        logger.error('Error fetching existing team', toSupabaseError(fetchError));
+        return apiError('Team not found', 404);
+      }
+
+      // Verify user has access to this team
+      const { data: membership, error: membershipError } = await supabaseAdmin
+        .from('team_memberships')
+        .select('id')
+        .eq('team_id', existingTeamId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (membershipError) {
+        logger.error('Error checking team membership', toSupabaseError(membershipError));
+        return apiError('Failed to verify team access', 500);
+      }
+
+      if (!membership) {
+        logger.error('User does not have access to this team', { userId, existingTeamId });
+        return apiError('You do not have access to this team', 403);
+      }
+
+      team = existingTeam;
+      teamSlug = existingTeam.slug;
+      logger.info('Using existing team:', { teamId: team.id, teamSlug: team.slug });
+    } else {
+      // Creating new team
+      logger.info('Creating new team:', { teamName });
+
+      // Generate unique slug for team
+      teamSlug = await generateUniqueSlug(supabaseAdmin, teamName);
+
+      // Upload logo if provided
+      let logoUrl: string | null = null;
+      if (logoFile) {
+        try {
+          const fileExt = logoFile.name.split('.').pop();
+          const fileName = `${teamSlug}-${Date.now()}.${fileExt}`;
+          const filePath = `team-logos/${fileName}`;
+
+          const fileBuffer = await logoFile.arrayBuffer();
+          const { error: uploadError } = await supabaseAdmin.storage
             .from('products')
-            .getPublicUrl(filePath);
-          logoUrl = publicUrl;
+            .upload(filePath, fileBuffer, {
+              contentType: logoFile.type,
+              cacheControl: '3600',
+              upsert: false,
+            });
+
+          if (uploadError) {
+            logger.error('Error uploading logo', toSupabaseError(uploadError));
+            // Don't fail the whole request if logo upload fails
+          } else {
+            const { data: { publicUrl } } = supabaseAdmin.storage
+              .from('products')
+              .getPublicUrl(filePath);
+            logoUrl = publicUrl;
+          }
+        } catch (uploadError) {
+          logger.error('Error processing logo upload', toError(uploadError));
+          // Continue without logo
         }
-      } catch (uploadError) {
-        logger.error('Error processing logo upload:', uploadError);
-        // Continue without logo
+      }
+
+      // Create team
+      const { data: newTeam, error: teamError } = await supabaseAdmin
+        .from('teams')
+        .insert({
+          name: teamName,
+          slug: teamSlug,
+          sport_id: sportId,
+          team_type: organizationType, // Set team_type from organization_type
+          created_by: userId,
+          owner_id: userId, // Set owner_id so creator can access settings
+          current_owner_id: userId, // Also set current_owner_id for consistency
+          colors: {
+            primary: primaryColor,
+            secondary: secondaryColor,
+            accent: accentColor, // Standard field name
+            tertiary: accentColor, // Backwards compatibility
+          },
+          logo_url: logoUrl,
+        })
+        .select()
+        .single();
+
+      if (teamError || !newTeam) {
+        logger.error('Error creating team', toSupabaseError(teamError));
+        return apiError('Failed to create team', 500);
+      }
+
+      team = newTeam;
+      logger.info('Created team:', { teamId: team.id, teamSlug: team.slug });
+
+      // Add user to team memberships
+      // CRITICAL: Always set as 'manager' since they are creating the team and need to invite/manage members
+      // Their selected role (player, coach, etc.) is stored in the design_request for context only
+      const membershipRole = 'manager';
+
+      const { data: newMembership, error: membershipError } = await supabaseAdmin
+        .from('team_memberships')
+        .insert({
+          team_id: team.id,
+          user_id: userId,
+          role: membershipRole,
+        })
+        .select()
+        .single();
+
+      if (membershipError) {
+        logger.error('CRITICAL: Failed to create team membership', toSupabaseError(membershipError));
+        // This is critical - without membership, user can't access their team
+        return apiError('Team created but failed to grant access. Please contact support.', 500);
+      }
+
+      logger.info('Team membership created:', { membershipId: newMembership.id, role: membershipRole });
+
+      // BACKWARDS COMPATIBILITY: Backfill team_settings with colors
+      // The trigger auto-creates team_settings, but doesn't populate color columns
+      const { error: settingsUpdateError } = await supabaseAdmin
+        .from('team_settings')
+        .update({
+          primary_color: primaryColor,
+          secondary_color: secondaryColor,
+          tertiary_color: accentColor,
+        })
+        .eq('team_id', team.id);
+
+      if (settingsUpdateError) {
+        logger.warn('Failed to backfill team_settings colors (non-critical):', settingsUpdateError);
+        // Non-critical - colors are in teams.colors
+      } else {
+        logger.info('Backfilled team_settings with colors for backwards compatibility');
       }
     }
 
-    // Step 4: Create team
-    const { data: team, error: teamError } = await supabaseAdmin
-      .from('teams')
-      .insert({
-        name: teamName,
-        slug: teamSlug,
-        sport_id: sportId,
-        created_by: userId,
-        colors: {
-          primary: primaryColor,
-          secondary: secondaryColor,
-          tertiary: accentColor,
-        },
-        logo_url: logoUrl,
-      })
-      .select()
-      .single();
-
-    if (teamError || !team) {
-      logger.error('Error creating team:', teamError);
-      return apiError('Failed to create team', 500);
-    }
-
-    logger.info('Created team:', { teamId: team.id, teamSlug: team.slug });
-
-    // Step 5: Add user to team memberships
-    // Always set as 'manager' since they are creating the team and need to invite/manage members
-    // Their selected role (player, coach, etc.) is stored in the design_request for context
-    const membershipRole = 'manager';
-
-    const { error: membershipError } = await supabaseAdmin
-      .from('team_memberships')
-      .insert({
-        team_id: team.id,
-        user_id: userId,
-        role: membershipRole,
-      });
-
-    if (membershipError) {
-      logger.error('Error creating team membership:', membershipError);
-      // Don't fail the request, team is already created
-    }
-
-    // Step 6: Create design request
+    // Step 3: Create design request
     const userType = role === 'player' ? 'player' : role === 'coach' ? 'coach' : 'manager';
 
     // Include role information in notes if it's a custom role
@@ -262,7 +362,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (designRequestError) {
-      logger.error('Error creating design request:', designRequestError);
+      logger.error('Error creating design request', toSupabaseError(designRequestError));
       // Team is created, so return success but with warning
       return apiSuccess(
         {
@@ -279,6 +379,12 @@ export async function POST(request: NextRequest) {
 
     logger.info('Created design request:', { requestId: designRequest.id });
 
+    // Determine if onboarding is needed (institutions need to complete setup)
+    const requiresOnboarding = organizationType === 'institution';
+    const redirectUrl = requiresOnboarding
+      ? `/mi-equipo/${team.slug}?onboarding=true&dr=${designRequest.id}`
+      : `/mi-equipo/${team.slug}/design-requests/${designRequest.id}`;
+
     // Success!
     return apiSuccess(
       {
@@ -287,12 +393,15 @@ export async function POST(request: NextRequest) {
         design_request_id: designRequest.id,
         user_id: userId,
         user_created: userWasCreated,
+        auto_login_token: autoLoginToken, // For existing users, allows auto-login
+        requires_onboarding: requiresOnboarding,
+        redirect_url: redirectUrl,
       },
       'Design request submitted successfully! You will receive an email confirmation.',
       201
     );
   } catch (error) {
-    logger.error('Unexpected error in quick design request:', error);
+    logger.error('Unexpected error in quick design request', toError(error));
     return apiError('An unexpected error occurred');
   }
 }

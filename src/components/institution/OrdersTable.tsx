@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import type { InstitutionOrder } from '@/lib/mockData/institutionData';
+import { GenderBadge } from '@/components/team/orders/GenderBadge';
 
 interface OrdersTableProps {
   orders: InstitutionOrder[];
@@ -16,6 +18,7 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
   const router = useRouter();
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [expandedDivisions, setExpandedDivisions] = useState<Record<string, boolean>>({});
 
   const getStatusColor = (status: string) => {
     // Design request statuses
@@ -29,9 +32,16 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
           return 'bg-orange-500/20 text-orange-400 border-orange-500/50';
         case 'design_approved':
           return 'bg-green-500/20 text-green-400 border-green-500/50';
+        case 'design_ready':
+          return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50';
         default:
           return 'bg-purple-500/20 text-purple-400 border-purple-500/50';
       }
+    }
+
+    // Handle non-prefixed design request statuses
+    if (status === 'ready' || status === 'design_ready') {
+      return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50';
     }
 
     // Order statuses
@@ -61,9 +71,16 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
           return 'Cambios Solicitados';
         case 'design_approved':
           return 'Diseño Aprobado';
+        case 'design_ready':
+          return 'Listo para Aprobar';
         default:
           return status.replace('design_', '');
       }
+    }
+
+    // Handle non-prefixed design request statuses
+    if (status === 'ready' || status === 'design_ready') {
+      return 'Listo para Aprobar';
     }
 
     // Order statuses
@@ -105,7 +122,27 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
     return 0;
   });
 
-  // Group orders by order number
+  // First, group by division_group (for gender-divided teams like Men/Women Basketball)
+  // Then group by order number within each division group
+  const divisionGroups: Record<string, InstitutionOrder[]> = {};
+
+  sortedOrders.forEach((order) => {
+    const divisionGroup = (order as any).division_group || (order as any).sub_team?.division_group;
+
+    if (divisionGroup) {
+      // This order is part of a gender-divided team - group by division_group
+      if (!divisionGroups[divisionGroup]) {
+        divisionGroups[divisionGroup] = [];
+      }
+      divisionGroups[divisionGroup].push(order);
+    } else {
+      // Single order or non-gendered team - use order ID as unique key
+      const key = `single_${order.id}`;
+      divisionGroups[key] = [order];
+    }
+  });
+
+  // Group orders by order number (keep existing logic for compatibility)
   const groupedOrders = sortedOrders.reduce((groups, order) => {
     const key = order.orderNumber;
     if (!groups[key]) {
@@ -153,6 +190,9 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-700">
+              <th className="px-4 py-3 text-left w-20">
+                <span className="text-xs font-semibold text-gray-300">Vista</span>
+              </th>
               <th className="px-4 py-3 text-left">
                 <button
                   onClick={() => handleSort('teamName')}
@@ -172,7 +212,7 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
                 </button>
               </th>
               <th className="px-4 py-3 text-right">
-                <span className="text-xs font-semibold text-gray-300">Items</span>
+                <span className="text-xs font-semibold text-gray-300">Cantidad</span>
               </th>
               <th className="px-4 py-3 text-right">
                 <button
@@ -195,14 +235,59 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
             </tr>
           </thead>
           <tbody>
-            {Object.entries(groupedOrders).map(([orderNumber, groupOrders], groupIdx) => {
-              const groupTotal = groupOrders.reduce((sum, o) => sum + o.totalCents, 0);
-              const groupPaid = groupOrders.reduce((sum, o) => sum + (o.paidCents || o.totalCents), 0);
-              const groupItems = groupOrders.reduce((sum, o) => sum + o.items, 0);
-              const isMultiTeam = groupOrders.length > 1;
+            {Object.entries(divisionGroups).map(([divisionKey, divisionOrders], divisionIdx) => {
+              const isDivisionGroup = !divisionKey.startsWith('single_');
+              const isExpanded = expandedDivisions[divisionKey] !== false; // Default to expanded
+
+              // Calculate division totals
+              const divisionTotal = divisionOrders.reduce((sum, o) => sum + o.totalCents, 0);
+              const divisionPaid = divisionOrders.reduce((sum, o) => sum + (o.paidCents || o.totalCents), 0);
+              const divisionItems = divisionOrders.reduce((sum, o) => sum + o.items, 0);
+
+              // Get division name from first order's team name (remove gender suffix)
+              const firstOrder = divisionOrders[0];
+              const divisionName = isDivisionGroup
+                ? (firstOrder.teamName || 'División').replace(/\s+(Men|Women|Hombres|Mujeres)$/i, '').trim()
+                : null;
 
               return (
-                <React.Fragment key={orderNumber}>
+                <React.Fragment key={divisionKey}>
+                  {/* Division Group Header - Only for actual division groups */}
+                  {isDivisionGroup && divisionOrders.length > 1 && (
+                    <tr className="bg-gray-800/80 border-t-2 border-gray-600">
+                      <td colSpan={6} className="px-4 py-3">
+                        <button
+                          onClick={() => setExpandedDivisions(prev => ({ ...prev, [divisionKey]: !isExpanded }))}
+                          className="flex items-center gap-3 text-white font-semibold hover:text-gray-300 transition-colors w-full"
+                        >
+                          <span className="text-gray-400">
+                            {isExpanded ? '▼' : '▶'}
+                          </span>
+                          <span>{divisionName} División</span>
+                          <span className="text-xs text-gray-400">
+                            ({divisionOrders.length} equipos • {divisionItems} items • ${(divisionTotal / 100).toLocaleString('es-CL')} CLP)
+                          </span>
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+
+                  {/* Render orders (collapsed if division is not expanded) */}
+                  {(isExpanded || !isDivisionGroup) && Object.entries(
+                    divisionOrders.reduce((groups, order) => {
+                      const key = order.orderNumber;
+                      if (!groups[key]) groups[key] = [];
+                      groups[key].push(order);
+                      return groups;
+                    }, {} as Record<string, InstitutionOrder[]>)
+                  ).map(([orderNumber, groupOrders], groupIdx) => {
+                    const groupTotal = groupOrders.reduce((sum, o) => sum + o.totalCents, 0);
+                    const groupPaid = groupOrders.reduce((sum, o) => sum + (o.paidCents || o.totalCents), 0);
+                    const groupItems = groupOrders.reduce((sum, o) => sum + o.items, 0);
+                    const isMultiTeam = groupOrders.length > 1;
+
+                    return (
+                      <React.Fragment key={orderNumber}>
                   {groupOrders.map((order, idx) => {
                     const paymentPercentage = order.paidCents
                       ? Math.round((order.paidCents / order.totalCents) * 100)
@@ -212,17 +297,41 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
 
                     // Check if this is a design request
                     const isDesignRequest = (order as any).is_design_request;
-                    const handleRowClick = () => {
-                      if (isDesignRequest) {
-                        // Navigate to design request detail page (or could open a modal)
-                        const designRequestId = (order as any).design_request_id;
-                        // For now, we'll just log it - you may want to create a design request detail page
-                        console.log('Clicked design request:', designRequestId);
-                        // TODO: Navigate to design request detail or open modal
-                        // router.push(`/mi-equipo/${institutionSlug}/design-requests/${designRequestId}`);
-                      } else {
-                        router.push(`/mi-equipo/${institutionSlug}/orders/${order.id}`);
+                    const designRequestData = isDesignRequest ? (order as any).design_request_data : null;
+
+                    // Get mockup image - prioritize structured mockups (home.front) over array format
+                    const getMockupImage = () => {
+                      if (!designRequestData) return null;
+
+                      // Priority 1: Structured mockups (JSONB format) - show home front specifically
+                      const mockups = (order as any).design_request_data?.mockups;
+                      if (mockups?.home?.front) {
+                        return mockups.home.front;
                       }
+
+                      // Priority 2: Admin-uploaded mockups array (legacy format)
+                      const mockupUrls = (order as any).mockup_urls;
+                      if (mockupUrls && mockupUrls.length > 0) {
+                        return mockupUrls[0]; // Use first admin-uploaded mockup
+                      }
+
+                      // Priority 3: Fallback to catalog design mockups
+                      const designs = designRequestData.designs;
+                      if (designs?.design_mockups && designs.design_mockups.length > 0) {
+                        // Find primary mockup or use first one
+                        const primaryMockup = designs.design_mockups.find((m: any) => m.is_primary);
+                        return primaryMockup?.mockup_url || designs.design_mockups[0]?.mockup_url;
+                      }
+
+                      return null;
+                    };
+
+                    const mockupImage = getMockupImage();
+
+                    const handleRowClick = () => {
+                      // All rows navigate to unified order summary page
+                      // Order summary page already handles both regular orders and design requests
+                      router.push(`/mi-equipo/${institutionSlug}/orders/${order.id}`);
                     };
 
                     return (
@@ -234,18 +343,41 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
                         } ${isLastInGroup && isMultiTeam ? '' : ''} ${isDesignRequest ? 'bg-blue-900/10' : ''}`}
                       >
                         <td className="px-4 py-3">
-                          <span className="text-sm text-gray-300">{order.teamName}</span>
+                          {mockupImage ? (
+                            <div className="relative w-12 h-12 rounded overflow-hidden border border-gray-600">
+                              <Image
+                                src={mockupImage}
+                                alt="Design mockup"
+                                fill
+                                sizes="48px"
+                                className="object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 rounded bg-gray-800 border border-gray-600 flex items-center justify-center">
+                              <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-300">{order.teamName}</span>
+                            {(order as any).sub_team?.gender_category && (
+                              <GenderBadge gender={(order as any).sub_team.gender_category} size="sm" />
+                            )}
+                            {(order as any).team_gender_category && !(order as any).sub_team?.gender_category && (
+                              <GenderBadge gender={(order as any).team_gender_category} size="sm" />
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm text-gray-400">{order.sport}</span>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <span className="text-sm text-gray-300">
-                            {isDesignRequest ? (
-                              <span className="text-gray-500 italic">-</span>
-                            ) : (
-                              order.items
-                            )}
+                            {order.items > 0 ? order.items : <span className="text-gray-500 italic">-</span>}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -291,6 +423,7 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
                   })}
                   {isMultiTeam && (
                     <tr className="border-b-2 border-gray-600 bg-gray-800/50">
+                      <td className="px-4 py-2"></td>
                       <td className="px-4 py-2 text-right" colSpan={2}>
                         <span className="text-xs font-bold text-gray-300">Total de la Orden:</span>
                       </td>
@@ -310,6 +443,9 @@ export function OrdersTable({ orders, institutionSlug }: OrdersTableProps) {
                       <td className="px-4 py-2"></td>
                     </tr>
                   )}
+                </React.Fragment>
+              );
+            })}
                 </React.Fragment>
               );
             })}

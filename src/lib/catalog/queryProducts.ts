@@ -2,6 +2,7 @@
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import type { ProductListItem, ProductListResult } from '@/types/catalog';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export interface QueryProductsOptions {
   sport?: string | null;
@@ -16,7 +17,7 @@ export interface QueryProductsOptions {
  */
 export async function queryProducts(options: QueryProductsOptions = {}): Promise<ProductListResult> {
   const { sport, sportId, limit = 12, cursor = null } = options;
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   try {
     // 1) Build count query - filter by status='active' not active=true
@@ -48,7 +49,7 @@ export async function queryProducts(options: QueryProductsOptions = {}): Promise
 
     // 2) Build items query - uses OLD schema: path, alt, position
     //    Filter by status='active' (enum) not active (boolean)
-    //    Include all price fields for display_price_cents calculation
+    //    Include all price fields for display_price_clp calculation
     //    Updated to use sport_ids array (products can span multiple sports)
     let itemsQuery = supabase
       .from('products')
@@ -56,9 +57,9 @@ export async function queryProducts(options: QueryProductsOptions = {}): Promise
         id,
         slug,
         name,
-        price_cents,
-        base_price_cents,
-        retail_price_cents,
+        price_clp,
+        base_price_clp,
+        retail_price_clp,
         status,
         sport_ids,
         product_images!left (
@@ -93,7 +94,7 @@ export async function queryProducts(options: QueryProductsOptions = {}): Promise
     const { data: rows, error } = await itemsQuery;
 
     if (error) {
-      logger.error('queryProducts error:', error);
+      logger.error('queryProducts error:', toError(error));
       throw error;
     }
 
@@ -109,22 +110,22 @@ export async function queryProducts(options: QueryProductsOptions = {}): Promise
         ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${firstImage.path}`
         : null;
 
-      // Calculate display_price_cents: COALESCE(retail_price_cents, price_cents, base_price_cents, 0)
-      const display_price_cents = p.retail_price_cents ?? p.price_cents ?? p.base_price_cents ?? 0;
+      // Calculate display_price_clp: COALESCE(retail_price_clp, price_clp, base_price_clp, 0)
+      const display_price_clp = p.retail_price_clp ?? p.price_clp ?? p.base_price_clp ?? 0;
 
       // Log warning if product has no price data
-      if (!p.retail_price_cents && !p.price_cents && !p.base_price_cents) {
-        logger.warn(`⚠️  Product ${p.id} (${p.slug}) has no price data. Suggested fix: UPDATE products SET base_price_cents = price_cents WHERE id = ${p.id};`);
+      if (!p.retail_price_clp && !p.price_clp && !p.base_price_clp) {
+        logger.warn(`⚠️  Product ${p.id} (${p.slug}) has no price data. Suggested fix: UPDATE products SET base_price_clp = price_clp WHERE id = ${p.id};`);
       }
 
       return {
         id: p.id,
         slug: p.slug ?? null,
         name: p.name,
-        price_cents: p.price_cents ?? null,
-        base_price_cents: p.base_price_cents ?? null,
-        retail_price_cents: p.retail_price_cents ?? null,
-        display_price_cents,
+        price_clp: p.price_clp ?? null,
+        base_price_clp: p.base_price_clp ?? null,
+        retail_price_clp: p.retail_price_clp ?? null,
+        display_price_clp,
         active: p.status === 'active',  // Map status enum to boolean
         thumbnail_url: thumbnailUrl,  // Full Supabase Storage URL
       };
@@ -137,7 +138,7 @@ export async function queryProducts(options: QueryProductsOptions = {}): Promise
     };
 
   } catch (error) {
-    logger.error('queryProducts failed:', error);
+    logger.error('queryProducts failed:', toError(error));
     // Return safe empty result on error
     return {
       items: [],

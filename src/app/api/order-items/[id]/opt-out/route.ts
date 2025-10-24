@@ -3,13 +3,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
     const user = await requireAuth(supabase);
     const orderItemId = params.id;
 
@@ -18,7 +19,7 @@ export async function POST(
     // 1. Get the order item
     const { data: orderItem, error: itemError } = await supabase
       .from('order_items')
-      .select('id, order_id, player_id, unit_price_cents, quantity, opted_out')
+      .select('id, order_id, player_id, unit_price_clp, quantity, opted_out')
       .eq('id', orderItemId)
       .single();
 
@@ -41,7 +42,7 @@ export async function POST(
     // 2. Get the order details
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, team_id, total_amount_cents, payment_status, status')
+      .select('id, team_id, total_amount_clp, payment_status, status')
       .eq('id', orderItem.order_id)
       .single();
 
@@ -98,7 +99,7 @@ export async function POST(
       .eq('id', orderItemId);
 
     if (updateError) {
-      logger.error('[Opt-Out] Error updating order item:', updateError);
+      logger.error('[Opt-Out] Error updating order item:', toSupabaseError(updateError));
       return NextResponse.json(
         { error: 'Failed to opt out' },
         { status: 500 }
@@ -109,7 +110,7 @@ export async function POST(
     // Get all non-opted-out items for this order
     const { data: activeItems, error: itemsError } = await supabase
       .from('order_items')
-      .select('unit_price_cents, quantity')
+      .select('unit_price_clp, quantity')
       .eq('order_id', orderItem.order_id)
       .eq('opted_out', false);
 
@@ -119,16 +120,16 @@ export async function POST(
     }
 
     // Calculate new total
-    const newTotalCents = (activeItems || []).reduce((sum, item) => {
-      return sum + (item.unit_price_cents * item.quantity);
+    const newTotalClp = (activeItems || []).reduce((sum, item) => {
+      return sum + (item.unit_price_clp * item.quantity);
     }, 0);
 
     // Update order total
     const { error: orderUpdateError } = await supabase
       .from('orders')
       .update({
-        total_amount_cents: newTotalCents,
-        subtotal_cents: newTotalCents,
+        total_amount_clp: newTotalClp,
+        subtotal_clp: newTotalClp,
         updated_at: new Date().toISOString()
       })
       .eq('id', orderItem.order_id);
@@ -142,15 +143,15 @@ export async function POST(
     // Get total paid from contributions
     const { data: contributions } = await supabase
       .from('payment_contributions')
-      .select('amount_cents, payment_status')
+      .select('amount_clp, payment_status')
       .eq('order_id', orderItem.order_id);
 
     const totalPaid = (contributions || [])
       .filter(c => c.payment_status === 'approved')
-      .reduce((sum, c) => sum + c.amount_cents, 0);
+      .reduce((sum, c) => sum + c.amount_clp, 0);
 
     let newPaymentStatus: string;
-    if (totalPaid >= newTotalCents && newTotalCents > 0) {
+    if (totalPaid >= newTotalClp && newTotalClp > 0) {
       newPaymentStatus = 'paid';
     } else if (totalPaid > 0) {
       newPaymentStatus = 'partial';
@@ -165,12 +166,12 @@ export async function POST(
         .eq('id', orderItem.order_id);
     }
 
-    logger.info(`[Opt-Out] Success! Order item ${orderItemId} opted out. New total: ${newTotalCents}`);
+    logger.info(`[Opt-Out] Success! Order item ${orderItemId} opted out. New total: ${newTotalClp}`);
 
     return NextResponse.json({
       success: true,
       message: 'Successfully opted out',
-      newTotalCents,
+      newTotalClp,
       itemCount: activeItems?.length || 0
     });
 

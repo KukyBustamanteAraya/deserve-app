@@ -86,6 +86,60 @@ export async function POST(
       );
     }
 
+    // Check if user has completed profile setup
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('user_type, athletic_profile, manager_profile')
+      .eq('id', user.id)
+      .single();
+
+    // If user doesn't have user_type, they need to complete profile setup first
+    if (!profile?.user_type) {
+      console.log('[Accept Invite] User has no user_type, needs profile setup');
+      return NextResponse.json(
+        {
+          error: 'profile_setup_required',
+          message: 'Please complete your profile setup first',
+          redirect_to: `/profile/setup?welcome=true&next=${encodeURIComponent(`/api/invites/${params.token}/accept`)}`
+        },
+        { status: 400 }
+      );
+    }
+
+    // If user is being invited as 'player' but is manager/director, upgrade to hybrid
+    if (invite.role === 'player' && (profile.user_type === 'manager' || profile.user_type === 'athletic_director')) {
+      console.log('[Accept Invite] Manager/Director invited as player, upgrading to hybrid');
+
+      // Get team info to get sport
+      const { data: team } = await supabase
+        .from('teams')
+        .select('sports:sport_id(slug, name)')
+        .eq('id', invite.team_id)
+        .single();
+
+      const teamSport = (team as any)?.sports?.name || '';
+
+      // Create basic athletic_profile if they don't have one
+      const basicAthleticProfile = profile.athletic_profile || {
+        sports: teamSport ? [teamSport] : [],
+        primary_sport: teamSport,
+        positions: [],
+        jersey_number: '',
+        gender: null,
+      };
+
+      // Upgrade to hybrid
+      await supabase
+        .from('profiles')
+        .update({
+          user_type: 'hybrid',
+          athletic_profile: basicAthleticProfile
+        })
+        .eq('id', user.id);
+
+      console.log('[Accept Invite] User upgraded to hybrid successfully');
+    }
+
     // Auto-link: If invite is linked to a player submission, link the user_id
     if (invite.player_submission_id) {
       const { error: linkError } = await supabase

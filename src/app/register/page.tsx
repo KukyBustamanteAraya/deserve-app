@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import GoogleSignInButton from '@/app/components/GoogleSignInButton';
 
 type Mode = 'password' | 'magic';
 
@@ -76,9 +77,12 @@ export default function RegisterPage({ onSuccess }: { onSuccess?: () => void }) 
     try {
       if (mode === 'password') {
         // Preserve redirect parameter for invite flow
-        const callbackUrl = redirectUrl
-          ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectUrl)}`
-          : `${window.location.origin}/auth/callback`;
+        // Use NEXT_PUBLIC_SITE_URL to ensure consistent callback URL
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+
+        // Always redirect to profile setup after registration, unless there's a specific redirect
+        const finalRedirect = redirectUrl || '/profile/setup?welcome=true';
+        const callbackUrl = `${baseUrl}/auth/callback?next=${encodeURIComponent(finalRedirect)}`;
 
         const { data, error } = await supabaseBrowser.auth.signUp({
           email: normalizedEmail,
@@ -106,13 +110,17 @@ export default function RegisterPage({ onSuccess }: { onSuccess?: () => void }) 
         } else {
           setSuccessMsg('Account created. Redirecting…');
           onSuccess?.();
-          setTimeout(() => router.replace(redirectUrl || '/dashboard'), 400);
+          // Redirect to profile setup if no redirect URL, otherwise use redirect URL
+          setTimeout(() => router.replace(redirectUrl || '/profile/setup?welcome=true'), 400);
         }
       } else {
         // Preserve redirect parameter for invite flow
-        const callbackUrl = redirectUrl
-          ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectUrl)}`
-          : `${window.location.origin}/auth/callback`;
+        // Use NEXT_PUBLIC_SITE_URL to ensure consistent callback URL
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+
+        // Always redirect to profile setup after registration, unless there's a specific redirect
+        const finalRedirect = redirectUrl || '/profile/setup?welcome=true';
+        const callbackUrl = `${baseUrl}/auth/callback?next=${encodeURIComponent(finalRedirect)}`;
 
         const { error } = await supabaseBrowser.auth.signInWithOtp({
           email: normalizedEmail,
@@ -142,6 +150,18 @@ export default function RegisterPage({ onSuccess }: { onSuccess?: () => void }) 
         >
           {mode === 'password' ? 'Use magic link' : 'Use password'}
         </button>
+      </div>
+
+      {/* Google Sign-In Button */}
+      <div className="mb-4">
+        <GoogleSignInButton text="Sign up with Google" />
+      </div>
+
+      {/* Divider */}
+      <div className="relative flex items-center my-4">
+        <div className="flex-grow border-t border-gray-300"></div>
+        <span className="flex-shrink mx-4 text-sm text-gray-500">OR</span>
+        <div className="flex-grow border-t border-gray-300"></div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">

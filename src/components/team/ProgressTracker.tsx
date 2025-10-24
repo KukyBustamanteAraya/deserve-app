@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { CompletionBar } from './CompletionBar';
@@ -35,7 +35,7 @@ type ProgressStats = {
   delivered: boolean;
 };
 
-export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, onShareDesign, isManager }: ProgressTrackerProps) {
+const ProgressTracker = memo(function ProgressTracker({ teamId, designRequestId, branding, teamSlug, onShareDesign, isManager }: ProgressTrackerProps) {
   const router = useRouter();
   const [stats, setStats] = useState<ProgressStats>({
     sportSelected: false,
@@ -135,13 +135,13 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
         // Get all orders for this team
         const { data: orders } = await supabase
           .from('orders')
-          .select('id, total_amount_cents, payment_status, status')
+          .select('id, total_amount_clp, payment_status, status')
           .eq('team_id', teamId);
 
         // Check if all orders are fully paid
         let allPlayersPaid = false;
         if (orders && orders.length > 0) {
-          allPlayersPaid = orders.every(order => order.payment_status === 'paid');
+          allPlayersPaid = orders.every((order: any) => order.payment_status === 'paid');
         }
 
         // Check production stages based on order status
@@ -151,20 +151,20 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
 
         if (orders && orders.length > 0 && allPlayersPaid) {
           // Check if any order is in manufacturing/production
-          inManufacturing = orders.some(order =>
+          inManufacturing = orders.some((order: any) =>
             order.status === 'processing' ||
             order.status === 'shipped' ||
             order.status === 'delivered'
           );
 
           // Check if any order is in shipping
-          inShipping = orders.some(order =>
+          inShipping = orders.some((order: any) =>
             order.status === 'shipped' ||
             order.status === 'delivered'
           );
 
           // Check if all orders are delivered
-          delivered = orders.every(order => order.status === 'delivered');
+          delivered = orders.every((order: any) => order.status === 'delivered');
         }
 
         setStats({
@@ -191,38 +191,40 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
     loadProgress();
   }, [teamId, designRequestId]);
 
-  // Calculate overall completion percentage (9 total steps)
+  // Calculate overall completion percentage (7 total steps for manager-only flow)
   const calculateCompletion = () => {
-    const totalSteps = 9;
+    const totalSteps = 7;
     let completedSteps = 0;
 
-    // Design phase (3 steps)
-    if (stats.sportSelected) completedSteps++;
-    if (stats.designsSelected > 0) completedSteps++;
-    if (stats.designPersonalized) completedSteps++;
+    // Setup phase (1 step) - Always complete if team exists
+    if (stats.sportSelected) completedSteps++; // Team is created with sport
 
-    // Order phase (3 steps)
-    if (stats.designShared) completedSteps++;
-    if (stats.playersSubmitted === stats.totalMembers && stats.totalMembers > 0) completedSteps++;
-    if (stats.allPlayersPaid) completedSteps++;
+    // Team Building phase (2 steps)
+    if (stats.playersSubmitted > 0) completedSteps++; // Players added
+    if (stats.designsSelected > 0) completedSteps++; // Design created
 
-    // Production phase (3 steps)
-    if (stats.inManufacturing) completedSteps++;
-    if (stats.inShipping) completedSteps++;
-    if (stats.delivered) completedSteps++;
+    // Order phase (2 steps)
+    if (stats.designShared) completedSteps++; // Collection link shared
+    if (stats.allPlayersPaid) completedSteps++; // Payment complete
+
+    // Production phase (2 steps)
+    if (stats.inShipping) completedSteps++; // In shipping
+    if (stats.delivered) completedSteps++; // Delivered
 
     return Math.round((completedSteps / totalSteps) * 100);
   };
 
-  // Determine current phase
-  const designPhaseComplete = stats.sportSelected && stats.designsSelected > 0 && stats.designPersonalized;
-  const orderPhaseComplete = stats.designShared && stats.playersSubmitted === stats.totalMembers && stats.totalMembers > 0 && stats.allPlayersPaid;
+  // Determine current phase based on progress
+  const setupComplete = stats.sportSelected; // Team created with sport
+  const buildingComplete = stats.playersSubmitted > 0 && stats.designsSelected > 0;
+  const orderPhaseComplete = stats.designShared && stats.allPlayersPaid;
   const productionPhaseComplete = stats.delivered;
 
   const currentPhase = productionPhaseComplete ? 'completed' :
                       orderPhaseComplete ? 'production' :
-                      designPhaseComplete ? 'order' :
-                      'design';
+                      buildingComplete ? 'order' :
+                      setupComplete ? 'building' :
+                      'setup';
 
   if (loading) {
     return (
@@ -287,7 +289,7 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
 
   // Helper component: Collapsed Macro Step (completed phase) - Match active step size
   const CollapsedMacroStep = ({ label, color, icon }: { label: string; color: string; icon: string }) => {
-    const colorClasses = {
+    const colorClasses = ({
       green: {
         bg: 'bg-gradient-to-br from-green-900/30 via-green-800/20 to-green-900/30 border-green-500/50',
         badge: 'bg-green-500 border-green-400',
@@ -303,7 +305,11 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
         badge: 'bg-purple-500 border-purple-400',
         text: 'text-purple-400'
       }
-    }[color];
+    } as Record<string, { bg: string; badge: string; text: string }>)[color] || {
+      bg: 'bg-gradient-to-br from-gray-900/30 via-gray-800/20 to-gray-900/30 border-gray-500/50',
+      badge: 'bg-gray-500 border-gray-400',
+      text: 'text-gray-400'
+    };
 
     return (
       <div className={`relative rounded-lg p-3 py-8 border overflow-hidden group/step transition-all ${colorClasses.bg}`}>
@@ -333,50 +339,81 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
   };
 
   // Render functions for each phase
-  const renderDesignPhaseExpanded = () => {
-    // Check if steps are complete and have no button (should grow to match card+button height)
-    const deporteComplete = stats.sportSelected;
-    const disenosComplete = stats.designsSelected > 0;
-    const personalizadoComplete = stats.designPersonalized;
+  const renderSetupPhaseExpanded = () => {
+    return (
+      <>
+        {/* Step 1: Team Created (always complete in this phase) */}
+        <div className="flex flex-col gap-2">
+          <div className="relative rounded-lg p-3 py-8 border overflow-hidden group/step transition-all bg-gradient-to-br from-green-900/30 via-green-800/20 to-green-900/30 border-green-500/50">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/step:opacity-100 transition-opacity pointer-events-none"></div>
+            <div className="flex flex-col items-center gap-2 relative">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full border bg-green-500 border-green-400">
+                <span className="text-base font-bold text-white">✓</span>
+              </div>
+              <span className="text-xs font-medium text-center text-green-400">
+                Equipo Creado
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Locked: Building */}
+        <LockedMacroStep label="Jugadores & Diseño" stepNumber={2} />
+
+        {/* Locked: Order */}
+        <LockedMacroStep label="Pedido" stepNumber={3} />
+
+        {/* Locked: Production */}
+        <LockedMacroStep label="Producción" stepNumber={4} />
+      </>
+    );
+  };
+
+  const renderBuildingPhaseExpanded = () => {
+    const jugadoresComplete = stats.playersSubmitted > 0;
+    const disenoComplete = stats.designsSelected > 0;
 
     return (
       <>
-        {/* Step 1: Sport */}
+        {/* Collapsed: Setup */}
+        <CollapsedMacroStep label="Setup" color="green" icon="✓" />
+
+        {/* Step 1: Players */}
         <div className="flex flex-col gap-2">
           <div className={`relative rounded-lg p-3 border overflow-hidden group/step transition-all ${
-            deporteComplete ? 'py-8' : ''
+            jugadoresComplete ? 'py-8' : ''
           } ${
-            stats.sportSelected
+            stats.playersSubmitted > 0
               ? 'bg-gradient-to-br from-green-900/30 via-green-800/20 to-green-900/30 border-green-500/50'
               : 'bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 border-gray-700'
           }`}>
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/step:opacity-100 transition-opacity pointer-events-none"></div>
             <div className="flex flex-col items-center gap-2 relative">
               <div className={`flex items-center justify-center w-8 h-8 rounded-full border ${
-                stats.sportSelected ? 'bg-green-500 border-green-400' : 'bg-black/40 border-gray-600'
+                stats.playersSubmitted > 0 ? 'bg-green-500 border-green-400' : 'bg-black/40 border-gray-600'
               }`}>
-                <span className={`text-base font-bold ${stats.sportSelected ? 'text-white' : 'text-gray-400'}`}>
-                  {stats.sportSelected ? '✓' : '1'}
+                <span className={`text-base font-bold ${stats.playersSubmitted > 0 ? 'text-white' : 'text-gray-400'}`}>
+                  {stats.playersSubmitted > 0 ? '✓' : '1'}
                 </span>
               </div>
-              <span className={`text-xs font-medium text-center ${stats.sportSelected ? 'text-green-400' : 'text-gray-400'}`}>
-                Deporte
+              <span className={`text-xs font-medium text-center ${stats.playersSubmitted > 0 ? 'text-green-400' : 'text-gray-400'}`}>
+                {stats.playersSubmitted > 0 ? `${stats.playersSubmitted} Jugador${stats.playersSubmitted > 1 ? 'es' : ''}` : 'Jugadores'}
               </span>
             </div>
           </div>
-          {isManager && teamSlug && !stats.sportSelected && (
+          {isManager && teamSlug && stats.playersSubmitted === 0 && (
             <ActionButtonCard
-              label="Elegir"
-              onClick={() => router.push(`/mi-equipo/${teamSlug}/settings`)}
+              label="Agregar"
+              onClick={() => router.push(`/mi-equipo/${teamSlug}/players`)}
               variant="primary"
             />
           )}
         </div>
 
-        {/* Step 2: Designs */}
+        {/* Step 2: Design */}
         <div className="flex flex-col gap-2">
           <div className={`relative rounded-lg p-3 border overflow-hidden group/step transition-all ${
-            disenosComplete ? 'py-8' : ''
+            disenoComplete ? 'py-8' : ''
           } ${
             stats.designsSelected > 0
               ? 'bg-gradient-to-br from-green-900/30 via-green-800/20 to-green-900/30 border-green-500/50'
@@ -392,7 +429,7 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
                 </span>
               </div>
               <span className={`text-xs font-medium text-center ${stats.designsSelected > 0 ? 'text-green-400' : 'text-gray-400'}`}>
-                {stats.designsSelected > 0 ? `${stats.designsSelected} Diseño${stats.designsSelected > 1 ? 's' : ''}` : 'Diseños'}
+                {stats.designsSelected > 0 ? `${stats.designsSelected} Diseño${stats.designsSelected > 1 ? 's' : ''}` : 'Diseño'}
               </span>
             </div>
           </div>
@@ -405,44 +442,11 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
           )}
         </div>
 
-        {/* Step 3: Personalization */}
-        <div className="flex flex-col gap-2">
-          <div className={`relative rounded-lg p-3 border overflow-hidden group/step transition-all ${
-            personalizadoComplete ? 'py-8' : ''
-          } ${
-            stats.designPersonalized
-              ? 'bg-gradient-to-br from-green-900/30 via-green-800/20 to-green-900/30 border-green-500/50'
-              : 'bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 border-gray-700'
-          }`}>
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/step:opacity-100 transition-opacity pointer-events-none"></div>
-            <div className="flex flex-col items-center gap-2 relative">
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full border ${
-                stats.designPersonalized ? 'bg-green-500 border-green-400' : 'bg-black/40 border-gray-600'
-              }`}>
-                <span className={`text-base font-bold ${stats.designPersonalized ? 'text-white' : 'text-gray-400'}`}>
-                  {stats.designPersonalized ? '✓' : '3'}
-                </span>
-              </div>
-              <span className={`text-xs font-medium text-center ${stats.designPersonalized ? 'text-green-400' : 'text-gray-400'}`}>
-                Personalizado
-              </span>
-            </div>
-          </div>
-          {teamSlug && !stats.designPersonalized && (
-            <ActionButtonCard
-              label="Ver"
-              onClick={() => window.scrollTo({ top: document.getElementById('designs-section')?.offsetTop || 0, behavior: 'smooth' })}
-              variant="secondary"
-              disabled={true}
-            />
-          )}
-        </div>
+        {/* Locked: Order */}
+        <LockedMacroStep label="Pedido" stepNumber={3} />
 
-        {/* Locked: Jugadores */}
-        <LockedMacroStep label="Jugadores" stepNumber={4} />
-
-        {/* Locked: Producción */}
-        <LockedMacroStep label="Producción" stepNumber={5} />
+        {/* Locked: Production */}
+        <LockedMacroStep label="Producción" stepNumber={4} />
       </>
     );
   };
@@ -450,13 +454,15 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
   const renderOrderPhaseExpanded = () => {
     // Check if steps are complete and have no button (should grow to match card+button height)
     const compartidoComplete = stats.designShared;
-    const jugadoresComplete = stats.playersSubmitted === stats.totalMembers && stats.totalMembers > 0;
     const pagadoComplete = stats.allPlayersPaid;
 
     return (
       <>
-        {/* Collapsed: Diseño */}
-        <CollapsedMacroStep label="Diseño" color="green" icon="⚡" />
+        {/* Collapsed: Setup */}
+        <CollapsedMacroStep label="Setup" color="green" icon="✓" />
+
+        {/* Collapsed: Building */}
+        <CollapsedMacroStep label="Equipo" color="green" icon="✓" />
 
         {/* Step 1: Design Shared */}
         <div className="flex flex-col gap-2">
@@ -481,48 +487,16 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
               </span>
             </div>
           </div>
-          {isManager && onShareDesign && !stats.designShared && (
+          {onShareDesign && (
             <ActionButtonCard
-              label="Compartir"
+              label={stats.designShared ? "Ver Enlace" : "Compartir"}
               onClick={onShareDesign}
               variant="primary"
             />
           )}
         </div>
 
-        {/* Step 2: Players Submitted */}
-        <div className="flex flex-col gap-2">
-          <div className={`relative rounded-lg p-3 border overflow-hidden group/step transition-all ${
-            jugadoresComplete ? 'py-8' : ''
-          } ${
-            stats.playersSubmitted > 0
-              ? 'bg-gradient-to-br from-blue-900/30 via-blue-800/20 to-blue-900/30 border-blue-500/50'
-              : 'bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 border-gray-700'
-          }`}>
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/step:opacity-100 transition-opacity pointer-events-none"></div>
-            <div className="flex flex-col items-center gap-2 relative">
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full border ${
-                stats.playersSubmitted > 0 ? 'bg-blue-500 border-blue-400' : 'bg-black/40 border-gray-600'
-              }`}>
-                <span className={`text-base font-bold ${stats.playersSubmitted > 0 ? 'text-white' : 'text-gray-400'}`}>
-                  {stats.playersSubmitted > 0 ? '✓' : '2'}
-                </span>
-              </div>
-              <span className={`text-xs font-medium text-center ${stats.playersSubmitted > 0 ? 'text-blue-400' : 'text-gray-400'}`}>
-                {stats.playersSubmitted > 0 ? `${stats.playersSubmitted}/${stats.totalMembers}` : 'Jugadores'}
-              </span>
-            </div>
-          </div>
-          {teamSlug && stats.playersSubmitted < stats.totalMembers && (
-            <ActionButtonCard
-              label="Ver"
-              onClick={() => router.push(`/mi-equipo/${teamSlug}/players`)}
-              variant="secondary"
-            />
-          )}
-        </div>
-
-        {/* Step 3: Payment */}
+        {/* Step 2: Payment */}
         <div className="flex flex-col gap-2">
           <div className={`relative rounded-lg p-3 border overflow-hidden group/step transition-all ${
             pagadoComplete ? 'py-8' : ''
@@ -537,7 +511,7 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
                 stats.allPlayersPaid ? 'bg-blue-500 border-blue-400' : 'bg-black/40 border-gray-600'
               }`}>
                 <span className={`text-base font-bold ${stats.allPlayersPaid ? 'text-white' : 'text-gray-400'}`}>
-                  {stats.allPlayersPaid ? '✓' : '3'}
+                  {stats.allPlayersPaid ? '✓' : '2'}
                 </span>
               </div>
               <span className={`text-xs font-medium text-center ${stats.allPlayersPaid ? 'text-blue-400' : 'text-gray-400'}`}>
@@ -555,57 +529,28 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
         </div>
 
         {/* Locked: Producción */}
-        <LockedMacroStep label="Producción" stepNumber={5} />
+        <LockedMacroStep label="Producción" stepNumber={3} />
       </>
     );
   };
 
   const renderProductionPhaseExpanded = () => {
     // Check if steps are complete and have no button (should grow to match card+button height)
-    const fabricacionComplete = stats.inShipping; // Grow when moved to shipping (no button)
-    const envioComplete = stats.delivered; // Grow when delivered (no button)
+    const envioComplete = stats.inShipping;
+    const entregadoComplete = stats.delivered;
 
     return (
       <>
-        {/* Collapsed: Diseño */}
-        <CollapsedMacroStep label="Diseño" color="green" icon="⚡" />
+        {/* Collapsed: Setup */}
+        <CollapsedMacroStep label="Setup" color="green" icon="✓" />
 
-        {/* Collapsed: Jugadores */}
-        <CollapsedMacroStep label="Jugadores" color="blue" icon="📦" />
+        {/* Collapsed: Building */}
+        <CollapsedMacroStep label="Equipo" color="green" icon="✓" />
 
-        {/* Step 1: Manufacturing */}
-        <div className="flex flex-col gap-2">
-          <div className={`relative rounded-lg p-3 border overflow-hidden group/step transition-all ${
-            fabricacionComplete ? 'py-8' : ''
-          } ${
-            stats.inManufacturing
-              ? 'bg-gradient-to-br from-purple-900/30 via-purple-800/20 to-purple-900/30 border-purple-500/50'
-              : 'bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 border-gray-700'
-          }`}>
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/step:opacity-100 transition-opacity pointer-events-none"></div>
-            <div className="flex flex-col items-center gap-2 relative">
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full border ${
-                stats.inManufacturing ? 'bg-purple-500 border-purple-400' : 'bg-black/40 border-gray-600'
-              }`}>
-                <span className={`text-base font-bold ${stats.inManufacturing ? 'text-white' : 'text-gray-400'}`}>
-                  {stats.inManufacturing ? '✓' : '1'}
-                </span>
-              </div>
-              <span className={`text-xs font-medium text-center ${stats.inManufacturing ? 'text-purple-400' : 'text-gray-400'}`}>
-                Fabricación
-              </span>
-            </div>
-          </div>
-          {teamSlug && stats.inManufacturing && !stats.inShipping && (
-            <ActionButtonCard
-              label="Ver"
-              onClick={() => router.push(`/mi-equipo/${teamSlug}/payments`)}
-              variant="secondary"
-            />
-          )}
-        </div>
+        {/* Collapsed: Order */}
+        <CollapsedMacroStep label="Pedido" color="blue" icon="✓" />
 
-        {/* Step 2: Shipping */}
+        {/* Step 1: Shipping */}
         <div className="flex flex-col gap-2">
           <div className={`relative rounded-lg p-3 border overflow-hidden group/step transition-all ${
             envioComplete ? 'py-8' : ''
@@ -620,7 +565,7 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
                 stats.inShipping ? 'bg-purple-500 border-purple-400' : 'bg-black/40 border-gray-600'
               }`}>
                 <span className={`text-base font-bold ${stats.inShipping ? 'text-white' : 'text-gray-400'}`}>
-                  {stats.inShipping ? '✓' : '2'}
+                  {stats.inShipping ? '✓' : '1'}
                 </span>
               </div>
               <span className={`text-xs font-medium text-center ${stats.inShipping ? 'text-purple-400' : 'text-gray-400'}`}>
@@ -637,7 +582,7 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
           )}
         </div>
 
-        {/* Step 3: Delivered - Always grown (never has button) */}
+        {/* Step 2: Delivered - Always grown (never has button) */}
         <div className="flex flex-col gap-2">
           <div className={`relative rounded-lg p-3 py-8 border overflow-hidden group/step transition-all ${
             stats.delivered
@@ -650,7 +595,7 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
                 stats.delivered ? 'bg-purple-500 border-purple-400' : 'bg-black/40 border-gray-600'
               }`}>
                 <span className={`text-base font-bold ${stats.delivered ? 'text-white' : 'text-gray-400'}`}>
-                  {stats.delivered ? '✓' : '3'}
+                  {stats.delivered ? '✓' : '2'}
                 </span>
               </div>
               <span className={`text-xs font-medium text-center ${stats.delivered ? 'text-purple-400' : 'text-gray-400'}`}>
@@ -685,10 +630,13 @@ export function ProgressTracker({ teamId, designRequestId, branding, teamSlug, o
 
       {/* Dynamic Step Indicators - 5 columns */}
       <div className="grid grid-cols-5 gap-2 relative">
-        {currentPhase === 'design' && renderDesignPhaseExpanded()}
+        {currentPhase === 'setup' && renderSetupPhaseExpanded()}
+        {currentPhase === 'building' && renderBuildingPhaseExpanded()}
         {currentPhase === 'order' && renderOrderPhaseExpanded()}
         {(currentPhase === 'production' || currentPhase === 'completed') && renderProductionPhaseExpanded()}
       </div>
     </div>
   );
-}
+});
+
+export default ProgressTracker;

@@ -1,13 +1,13 @@
 // src/app/login/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import LoginForm from '@/app/components/LoginForm';
 import { useAuth } from '@/app/components/AuthProvider';
 import { logger } from '@/lib/logger';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [redirecting, setRedirecting] = useState(false);
@@ -63,5 +63,20 @@ export default function LoginPage() {
         logger.debug('[LoginPage] Login successful, waiting for auth state...');
       }} />
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <main className="max-w-md mx-auto p-4">
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#e21c21]"></div>
+          <p className="mt-2 text-gray-300">Loading...</p>
+        </div>
+      </main>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }

@@ -8,6 +8,7 @@ import { http } from '@/lib/http/json';
 import type { Sport, ProductListResult } from '@/types/catalog';
 import type { ApiResponse } from '@/types/api';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 interface CatalogClientProps {
   sports: Sport[];
   initialProducts: ProductListResult;
@@ -36,14 +37,14 @@ export function CatalogClient({ sports, initialProducts, initialSport }: Catalog
       params.append('_t', Date.now().toString()); // Cache buster
 
       const url = `/api/catalog/products?${params}`;
-      logger.debug('🌐 fetchProducts making request to:', url);
+      logger.debug('🌐 fetchProducts making request to:', { url });
 
       const res = await fetch(url, {
         cache: 'no-store',
       });
 
       if (!res.ok) {
-        logger.error('❌ API request failed:', res.status, res.statusText);
+        logger.error('❌ API request failed:', { status: res.status, statusText: res.statusText });
         return { items: [], total: 0, nextCursor: null };
       }
 
@@ -64,7 +65,7 @@ export function CatalogClient({ sports, initialProducts, initialSport }: Catalog
         nextCursor: nextCursor ?? null,
       };
     } catch (error) {
-      logger.error('❌ Error fetching products:', error);
+      logger.error('❌ Error fetching products:', toError(error));
       return { items: [], total: 0, nextCursor: null };
     }
   }, []);
@@ -83,7 +84,7 @@ export function CatalogClient({ sports, initialProducts, initialSport }: Catalog
     router.push(url, { scroll: false });
 
     try {
-      logger.debug('📡 Calling fetchProducts with:', sportSlug);
+      logger.debug('📡 Calling fetchProducts with:', { sportSlug });
       const newProducts = await fetchProducts(sportSlug);
       logger.debug('📦 fetchProducts returned:', {
         itemsCount: newProducts?.items?.length,
@@ -101,10 +102,10 @@ export function CatalogClient({ sports, initialProducts, initialSport }: Catalog
       logger.debug('✅ Setting products state:', productsToSet);
       setProducts(productsToSet);
     } catch (error) {
-      logger.error('❌ Error in handleSportChange:', error);
+      logger.error('❌ Error in handleSportChange:', toError(error));
       setError(error instanceof Error ? error.message : 'Error al cargar productos');
       setProducts({ items: [], total: 0, nextCursor: null });
-      logger.error('Error changing sport:', error);
+      logger.error('Error changing sport:', toError(error));
     } finally {
       setLoading(false);
     }
@@ -130,7 +131,7 @@ export function CatalogClient({ sports, initialProducts, initialSport }: Catalog
       }));
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Error al cargar más productos');
-      logger.error('Error loading more products:', error);
+      logger.error('Error loading more products:', toError(error));
     } finally {
       setLoadingMore(false);
     }

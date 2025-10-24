@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface ThemeSettings {
   logoMode: 'text' | 'logo';
@@ -21,7 +22,7 @@ interface ThemeSettings {
   beisbolIconUrl: string | null;
 }
 
-export default function ThemeManagerClient() {
+const ThemeManagerClient = memo(function ThemeManagerClient() {
   const [settings, setSettings] = useState<ThemeSettings>({
     logoMode: 'text',
     primaryLogoUrl: null,
@@ -131,7 +132,7 @@ export default function ThemeManagerClient() {
           if (sportIconsData.beisbolIconUrl) setSportIconPreviews(prev => ({ ...prev, beisbol: sportIconsData.beisbolIconUrl }));
         }
       } catch (error) {
-        logger.error('Error loading settings:', error);
+        logger.error('Error loading settings:', toError(error));
       }
     }
 
@@ -218,7 +219,7 @@ export default function ThemeManagerClient() {
       setTimeout(() => setStatusMessage(''), 5000); // Clear after 5 seconds
     } catch (error: any) {
       console.error(`Error uploading ${type}:`, error);
-      logger.error(`Error uploading ${type}:`, error);
+      logger.error(`Error uploading ${type}:`, toError(error));
       setStatusMessage(`Error uploading file: ${error.message}`);
       setTimeout(() => setStatusMessage(''), 5000);
     } finally {
@@ -261,7 +262,7 @@ export default function ThemeManagerClient() {
       setTimeout(() => setStatusMessage(''), 5000);
     } catch (error: any) {
       console.error('Error saving logo settings:', error);
-      logger.error('Error saving logo settings:', error);
+      logger.error('Error saving logo settings:', toError(error));
       setStatusMessage(`Error saving settings: ${error.message}`);
       setTimeout(() => setStatusMessage(''), 5000);
     } finally {
@@ -304,7 +305,7 @@ export default function ThemeManagerClient() {
       setTimeout(() => setStatusMessage(''), 5000);
     } catch (error: any) {
       console.error('Error saving banner settings:', error);
-      logger.error('Error saving banner settings:', error);
+      logger.error('Error saving banner settings:', toError(error));
       setStatusMessage(`Error saving banners: ${error.message}`);
       setTimeout(() => setStatusMessage(''), 5000);
     } finally {
@@ -359,7 +360,7 @@ export default function ThemeManagerClient() {
       setTimeout(() => setStatusMessage(''), 3000);
     } catch (error: any) {
       console.error('Error saving sport icons:', error);
-      logger.error('Error saving sport icons:', error);
+      logger.error('Error saving sport icons:', toError(error));
       setStatusMessage(`Error saving sport icons: ${error.message}`);
       setTimeout(() => setStatusMessage(''), 5000);
     } finally {
@@ -718,4 +719,6 @@ export default function ThemeManagerClient() {
       </div>
     </div>
   );
-}
+});
+
+export default ThemeManagerClient;

@@ -1,13 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import type { CSVPreview, ColumnMapping, RosterCommitResult } from '@/types/roster';
+import type { CSVPreview, RosterCommitResult } from '@/types/roster';
+
+// Local type for column index mapping (different from API's ColumnMapping)
+type ColumnIndexMapping = {
+  name?: number;
+  email?: number;
+  phone?: number;
+  size?: number;
+  number?: number;
+  position?: number;
+  notes?: number;
+};
 
 export default function RosterPage({ params }: { params: { teamId: string } }) {
   const [step, setStep] = useState<'upload' | 'preview' | 'map' | 'commit'>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<CSVPreview | null>(null);
-  const [mapping, setMapping] = useState<ColumnMapping>({});
+  const [mapping, setMapping] = useState<ColumnIndexMapping>({});
   const [result, setResult] = useState<RosterCommitResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,9 +59,9 @@ export default function RosterPage({ params }: { params: { teamId: string } }) {
   // Step 2: Preview and continue to mapping
   const handlePreviewConfirm = () => {
     if (!preview) return;
-    
+
     // Auto-detect column mappings
-    const autoMapping: ColumnMapping = {};
+    const autoMapping: ColumnIndexMapping = {};
     preview.headers.forEach((header, index) => {
       const lower = header.toLowerCase();
       if (lower.includes('name')) autoMapping.name = index;
@@ -77,15 +88,24 @@ export default function RosterPage({ params }: { params: { teamId: string } }) {
     setError(null);
 
     // Build members array from preview data
-    const members = preview.rows.map(row => ({
-      name: row[mapping.name!],
-      email: mapping.email !== undefined ? row[mapping.email] : undefined,
-      phone: mapping.phone !== undefined ? row[mapping.phone] : undefined,
-      size: mapping.size !== undefined ? row[mapping.size] : undefined,
-      number: mapping.number !== undefined ? row[mapping.number] : undefined,
-      position: mapping.position !== undefined ? row[mapping.position] : undefined,
-      notes: mapping.notes !== undefined ? row[mapping.notes] : undefined,
-    }));
+    const members = preview.rows.map(row => {
+      // Get header name from column index
+      const getValueByIndex = (index: number | undefined) => {
+        if (index === undefined) return undefined;
+        const headerName = preview.headers[index];
+        return row.data[headerName];
+      };
+
+      return {
+        name: getValueByIndex(mapping.name!),
+        email: getValueByIndex(mapping.email),
+        phone: getValueByIndex(mapping.phone),
+        size: getValueByIndex(mapping.size),
+        number: getValueByIndex(mapping.number),
+        position: getValueByIndex(mapping.position),
+        notes: getValueByIndex(mapping.notes),
+      };
+    });
 
     try {
       const res = await fetch('/api/roster/commit', {
@@ -162,9 +182,9 @@ export default function RosterPage({ params }: { params: { teamId: string } }) {
               <tbody>
                 {preview.rows.map((row, i) => (
                   <tr key={i} className="border-b">
-                    {row.map((cell, j) => (
+                    {preview.headers.map((header, j) => (
                       <td key={j} className="border px-4 py-2 text-sm">
-                        {cell}
+                        {row.data[header]}
                       </td>
                     ))}
                   </tr>
@@ -189,7 +209,7 @@ export default function RosterPage({ params }: { params: { teamId: string } }) {
             <div key={field}>
               <label className="block text-sm font-medium mb-1 capitalize">{field} {field === 'name' && <span className="text-red-500">*</span>}</label>
               <select
-                value={mapping[field as keyof ColumnMapping] ?? ''}
+                value={mapping[field as keyof ColumnIndexMapping] ?? ''}
                 onChange={(e) =>
                   setMapping((prev) => ({
                     ...prev,
@@ -229,7 +249,7 @@ export default function RosterPage({ params }: { params: { teamId: string } }) {
                 <p className="font-semibold text-red-700">Errors:</p>
                 <ul className="list-disc list-inside text-sm text-red-600">
                   {result.errors.map((err, i) => (
-                    <li key={i}>{err}</li>
+                    <li key={i}>Line {err.line}: {err.message}</li>
                   ))}
                 </ul>
               </div>

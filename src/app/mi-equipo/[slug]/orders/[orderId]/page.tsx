@@ -6,6 +6,13 @@ import { getBrowserClient } from '@/lib/supabase/client';
 import type { Order, OrderItem, PaymentContribution } from '@/types/payments';
 import { formatCLP } from '@/types/payments';
 import { ProductSizeBreakdownCard, ProductSizeBreakdown } from '@/components/team/orders/ProductSizeBreakdownCard';
+import { SizeAssignmentCard } from '@/components/team/orders/SizeAssignmentCard';
+import { JerseyNameConfigCard } from '@/components/team/orders/JerseyNameConfigCard';
+import { BulkNameInputCard } from '@/components/team/orders/BulkNameInputCard';
+import { MockupCarousel } from '@/components/design/MockupCarousel';
+import { KitDisplayCard } from '@/components/design/KitDisplayCard';
+import { getSizeOrderIndex } from '@/constants/sizing';
+import Image from 'next/image';
 
 type OrderWithDetails = Order & {
   items: OrderItem[];
@@ -23,11 +30,16 @@ type OrderWithDetails = Order & {
 };
 
 export default function OrderSummaryPage({ params }: { params: { slug: string; orderId: string } }) {
+  const { slug, orderId } = params;
   const router = useRouter();
   const [order, setOrder] = useState<OrderWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [productBreakdowns, setProductBreakdowns] = useState<ProductSizeBreakdown[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [jerseyNameStyle, setJerseyNameStyle] = useState<'player_name' | 'team_name' | 'none' | null>(null);
+  const [jerseyTeamName, setJerseyTeamName] = useState<string | null>(null);
+  const [rosterMembers, setRosterMembers] = useState<any[]>([]);
 
   // Process order items into product size breakdowns
   const processProductBreakdowns = (items: OrderItem[], contributions: any[]): ProductSizeBreakdown[] => {
@@ -56,6 +68,14 @@ export default function OrderSummaryPage({ params }: { params: { slug: string; o
       const playerName = item.player_name || '';
       const playerId = item.player_id || '';
 
+      // Apply jersey name configuration
+      let displayName = playerName;
+      if (jerseyNameStyle === 'team_name' && jerseyTeamName) {
+        displayName = jerseyTeamName;
+      } else if (jerseyNameStyle === 'none') {
+        displayName = '-';
+      }
+
       // Check if player has paid
       const playerContribution = contributions.find(
         (c) => c.user_id === playerId
@@ -81,8 +101,8 @@ export default function OrderSummaryPage({ params }: { params: { slug: string; o
       if (jerseyNumber) {
         sizeEntry.jersey_numbers.push(jerseyNumber);
       }
-      if (playerName) {
-        sizeEntry.player_names.push(playerName);
+      if (displayName) {
+        sizeEntry.player_names.push(displayName);
       }
       if (playerId) {
         sizeEntry.player_ids.push(playerId);
@@ -96,11 +116,10 @@ export default function OrderSummaryPage({ params }: { params: { slug: string; o
 
     // Sort sizes within each product
     productMap.forEach((product) => {
-      product.sizes.sort((a, b) => {
-        // Sort by size (assuming standard sizes like S, M, L, XL, XXL)
-        const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
-        const aIndex = sizeOrder.indexOf(a.size.toUpperCase());
-        const bIndex = sizeOrder.indexOf(b.size.toUpperCase());
+      product.sizes.sort((a: any, b: any) => {
+        // Sort by size using centralized size ordering
+        const aIndex = getSizeOrderIndex(a.size);
+        const bIndex = getSizeOrderIndex(b.size);
 
         if (aIndex !== -1 && bIndex !== -1) {
           return aIndex - bIndex;
@@ -119,11 +138,242 @@ export default function OrderSummaryPage({ params }: { params: { slug: string; o
       try {
         const supabase = getBrowserClient();
 
-        // Fetch order
+        // Check if this is a design request order (format: design-request-{id})
+        const isDesignRequestOrder = orderId.startsWith('design-request-');
+
+        if (isDesignRequestOrder) {
+          // Extract design request ID
+          const designRequestId = orderId.replace('design-request-', '');
+
+          // Fetch design request instead of order
+          const { data: designRequest, error: drError } = await supabase
+            .from('design_requests')
+            .select(`
+              *,
+              designs (
+                id,
+                name,
+                slug,
+                description,
+                designer_name,
+                design_mockups (
+                  id,
+                  mockup_url,
+                  is_primary,
+                  view_angle,
+                  product_type_slug
+                )
+              ),
+              institution_sub_teams (
+                id,
+                name,
+                slug,
+                jersey_name_style,
+                jersey_team_name
+              )
+            `)
+            .eq('id', designRequestId)
+            .single();
+
+          if (drError) throw drError;
+
+          console.log('[Order Page] Design request loaded:', {
+            id: designRequest.id,
+            selected_apparel: designRequest.selected_apparel,
+            estimated_roster_size: designRequest.estimated_roster_size
+          });
+
+          // Fetch team info
+          const { data: teamData } = await supabase
+            .from('teams')
+            .select('name, slug')
+            .eq('id', designRequest.team_id)
+            .single();
+
+          // Fetch player info for the sub-team to show sizing breakdown
+          let playerInfos: any[] = [];
+          if (designRequest.sub_team_id) {
+            const { data: playerData, error: playerError } = await supabase
+              .from('institution_sub_team_members')
+              .select('*')
+              .eq('sub_team_id', designRequest.sub_team_id);
+
+            if (playerError) {
+              console.error('Error fetching player info:', playerError);
+            }
+
+            // Sort by jersey number numerically
+            playerInfos = (playerData || []).sort((a: any, b: any) => {
+              const numA = parseInt(a.jersey_number) || 0;
+              const numB = parseInt(b.jersey_number) || 0;
+              return numA - numB;
+            });
+          }
+
+          // Calculate pricing from selected_apparel and roster size
+          const selectedApparel = designRequest.selected_apparel || { products: [] };
+          const rosterSize = playerInfos.length || designRequest.estimated_roster_size || 0;
+
+          // Calculate total cost: sum of (each product price × roster size)
+          let totalClpPerPlayer = 0;
+          (selectedApparel.products || []).forEach((product: any) => {
+            totalClpPerPlayer += product.price_clp || 0;
+          });
+
+          const totalClp = totalClpPerPlayer * rosterSize;
+
+          console.log('[Order Page] Pricing calculation:', {
+            products: selectedApparel.products?.length || 0,
+            totalClpPerPlayer,
+            rosterSize,
+            totalClp
+          });
+
+          // Create a mock order object from design request for consistency
+          const mockOrder = {
+            id: orderId,
+            order_number: `DR-${designRequestId}`,
+            team_id: designRequest.team_id,
+            created_at: designRequest.created_at,
+            updated_at: designRequest.updated_at,
+            status: 'pending', // Design requests don't have order status yet
+            total_amount_clp: totalClp,
+            subtotal_clp: totalClp,
+            tax_clp: 0,
+            shipping_clp: 0,
+            discount_clp: 0,
+            is_design_request: true,
+            design_request_data: designRequest,
+            items: [],
+            contributions: [],
+            team: teamData || undefined,
+          };
+
+          setOrder(mockOrder as any);
+
+          // Store jersey config
+          setJerseyNameStyle(designRequest.institution_sub_teams?.jersey_name_style || null);
+          setJerseyTeamName(designRequest.institution_sub_teams?.jersey_team_name || null);
+
+          // Store roster members
+          setRosterMembers(playerInfos);
+          console.log('[Order Page] Updated roster members:', {
+            count: playerInfos.length,
+            sample: playerInfos.slice(0, 3).map(p => ({
+              id: p.id,
+              name: p.player_name,
+              size: p.size,
+              number: p.jersey_number
+            })),
+            subTeamId: designRequest.sub_team_id
+          });
+
+          // Process player info into size breakdown format
+          if (playerInfos.length > 0) {
+            const sizeMap = new Map<string, any>();
+
+            // Get jersey config for this sub-team
+            const jerseyStyle = designRequest.institution_sub_teams?.jersey_name_style;
+            const teamNameForJersey = designRequest.institution_sub_teams?.jersey_team_name;
+
+            playerInfos.forEach((player) => {
+              const size = player.size || 'N/A';
+
+              if (!sizeMap.has(size)) {
+                sizeMap.set(size, {
+                  size,
+                  quantity: 0,
+                  jersey_numbers: [],
+                  player_names: [],
+                  player_ids: [],
+                  payment_statuses: [],
+                });
+              }
+
+              const sizeEntry = sizeMap.get(size);
+              sizeEntry.quantity += 1;
+              if (player.jersey_number) {
+                sizeEntry.jersey_numbers.push(player.jersey_number);
+              }
+
+              // Apply jersey name configuration
+              let displayName = player.player_name;
+              if (jerseyStyle === 'team_name' && teamNameForJersey) {
+                displayName = teamNameForJersey;
+              } else if (jerseyStyle === 'none') {
+                displayName = '-';
+              }
+
+              if (displayName) {
+                sizeEntry.player_names.push(displayName);
+              }
+              // Use member ID since institution_sub_team_members don't have user_id
+              if (player.id) {
+                sizeEntry.player_ids.push(player.id);
+              }
+              sizeEntry.payment_statuses.push(false); // No payments yet for design requests
+            });
+
+            // Sort sizes
+            const sizes = Array.from(sizeMap.values()).sort((a: any, b: any) => {
+              const aIndex = getSizeOrderIndex(a.size);
+              const bIndex = getSizeOrderIndex(b.size);
+
+              if (aIndex !== -1 && bIndex !== -1) {
+                return aIndex - bIndex;
+              }
+              return a.size.localeCompare(b.size);
+            });
+
+            // Create product breakdowns for each product in selected_apparel
+            const selectedApparel = designRequest.selected_apparel || { products: [] };
+            const teamName = designRequest.institution_sub_teams?.name || 'Equipo';
+            const breakdowns: ProductSizeBreakdown[] = [];
+
+            if (selectedApparel.products && selectedApparel.products.length > 0) {
+              selectedApparel.products.forEach((product: any, index: number) => {
+                const unitPriceClp = product.price_clp || 0;
+                const totalPriceClp = unitPriceClp * playerInfos.length;
+
+                breakdowns.push({
+                  product_id: product.id || index,
+                  product_name: product.name || `Producto ${index + 1}`,
+                  product_type_name: product.category || 'Artículo',
+                  images: [],
+                  sizes: sizes,
+                  total_quantity: playerInfos.length,
+                  unit_price_clp: unitPriceClp,
+                  total_price_clp: totalPriceClp,
+                });
+              });
+            } else {
+              // Fallback: single breakdown for the roster
+              breakdowns.push({
+                product_id: 1,
+                product_name: `${teamName} Roster`,
+                product_type_name: 'Uniforme',
+                images: [],
+                sizes: sizes,
+                total_quantity: playerInfos.length,
+                unit_price_clp: totalClpPerPlayer,
+                total_price_clp: totalClp,
+              });
+            }
+
+            setProductBreakdowns(breakdowns);
+          } else {
+            setProductBreakdowns([]);
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Regular order flow
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
           .select('*')
-          .eq('id', params.orderId)
+          .eq('id', orderId)
           .single();
 
         if (orderError) throw orderError;
@@ -132,7 +382,7 @@ export default function OrderSummaryPage({ params }: { params: { slug: string; o
         const { data: items, error: itemsError } = await supabase
           .from('order_items')
           .select('*')
-          .eq('order_id', params.orderId);
+          .eq('order_id', orderId);
 
         if (itemsError) throw itemsError;
 
@@ -143,8 +393,8 @@ export default function OrderSummaryPage({ params }: { params: { slug: string; o
           .eq('team_id', orderData.team_id);
 
         // Merge player info with order items
-        const enrichedItems = (items || []).map((item) => {
-          const playerInfo = playerInfos?.find((p) => p.user_id === item.player_id);
+        const enrichedItems = (items || []).map((item: any) => {
+          const playerInfo = playerInfos?.find((p: any) => p.user_id === item.player_id);
 
           return {
             ...item,
@@ -162,7 +412,7 @@ export default function OrderSummaryPage({ params }: { params: { slug: string; o
         const { data: contributions, error: contributionsError } = await supabase
           .from('payment_contributions')
           .select('*')
-          .eq('order_id', params.orderId);
+          .eq('order_id', orderId);
 
         if (contributionsError) {
           console.error('Error fetching contributions:', contributionsError);
@@ -171,7 +421,7 @@ export default function OrderSummaryPage({ params }: { params: { slug: string; o
 
         // If we have contributions, fetch user details separately
         const contributionsWithUsers = await Promise.all(
-          (contributions || []).map(async (contrib) => {
+          (contributions || []).map(async (contrib: any) => {
             if (contrib.user_id) {
               const { data: userData } = await supabase
                 .from('users')
@@ -213,7 +463,7 @@ export default function OrderSummaryPage({ params }: { params: { slug: string; o
     }
 
     loadOrder();
-  }, [params.orderId]);
+  }, [orderId, refreshKey]);
 
   if (loading) {
     return (
@@ -281,6 +531,36 @@ export default function OrderSummaryPage({ params }: { params: { slug: string; o
     ? Math.round((paidClp / totalAmountClp) * 100)
     : 0;
 
+  // Handler for size assignment completion
+  const handleSizeAssignmentComplete = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
+  // Handler for jersey config update
+  const handleJerseyConfigUpdate = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
+  // Handler for name update completion
+  const handleNameUpdateComplete = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
+  // Get design request data and current size distribution
+  const designRequestData = (order as any).design_request_data;
+  const subTeamId = designRequestData?.sub_team_id;
+  const isDesignRequest = (order as any).is_design_request;
+
+  // Calculate current size distribution from product breakdowns
+  const currentSizes: Record<string, number> = {};
+  if (productBreakdowns.length > 0) {
+    productBreakdowns[0].sizes.forEach(sizeInfo => {
+      if (sizeInfo.size && sizeInfo.size !== 'N/A') {
+        currentSizes[sizeInfo.size] = sizeInfo.quantity;
+      }
+    });
+  }
+
   return (
     <div className="min-h-screen bg-black">
       {/* Main Content */}
@@ -318,6 +598,25 @@ export default function OrderSummaryPage({ params }: { params: { slug: string; o
             </div>
           </div>
         </div>
+
+        {/* Legacy Design Request Notice - No Pricing Data */}
+        {isDesignRequest && totalAmountClp === 0 && (
+          <div className="relative bg-gradient-to-br from-yellow-800/30 via-yellow-900/20 to-gray-900/30 backdrop-blur-md rounded-lg shadow-sm p-4 border border-yellow-500/30">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div>
+                <h3 className="text-sm font-semibold text-yellow-300 mb-1">Información de Precios No Disponible</h3>
+                <p className="text-xs text-yellow-200/80">
+                  Esta solicitud de diseño fue creada antes de que el sistema de precios estuviera implementado.
+                  Los precios finales serán calculados por el equipo administrativo.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Order Overview - Always 2 Column Grid */}
         <div className="grid grid-cols-2 gap-3">
           {/* Payment Summary */}
@@ -437,6 +736,148 @@ export default function OrderSummaryPage({ params }: { params: { slug: string; o
           </div>
         </div>
 
+        {/* Kit Display - Only for design requests with mockups */}
+        {(order as any).is_design_request && (order as any).design_request_data && (() => {
+          const designRequest = (order as any).design_request_data;
+
+          // Parse structured mockups (new JSONB format)
+          const structuredMockups = designRequest.mockups || {};
+          const hasStructuredMockups = structuredMockups.home || structuredMockups.away;
+
+          // Fallback to legacy mockup_urls array
+          let legacyMockups: any = {};
+          if (!hasStructuredMockups && designRequest.mockup_urls && designRequest.mockup_urls.length > 0) {
+            // Assume first mockup is home front, second is away front if available
+            legacyMockups = {
+              home: {
+                front: designRequest.mockup_urls[0] || undefined
+              },
+              away: {
+                front: designRequest.mockup_urls[1] || undefined
+              }
+            };
+          }
+
+          // Final mockup data to pass to component
+          const kitMockups = hasStructuredMockups ? structuredMockups : legacyMockups;
+          const hasAnyMockups = kitMockups.home || kitMockups.away;
+
+          // Team name for display
+          const teamName = designRequest.institution_sub_teams?.name || order.team?.name || 'Equipo';
+
+          return hasAnyMockups ? (
+            <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-2xl border border-gray-700 overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+
+              <div className="relative p-6">
+                <h2 className="text-2xl font-bold text-white mb-6">Diseño Listo para Producción</h2>
+
+                <KitDisplayCard
+                  mockups={kitMockups}
+                  teamName={teamName}
+                  onReorder={() => {
+                    // TODO: Implement reorder functionality
+                    console.log('Reorder clicked for:', teamName);
+                  }}
+                  onModify={() => {
+                    // TODO: Implement modify functionality
+                    console.log('Modify clicked for:', teamName);
+                  }}
+                  onNewKit={() => {
+                    // TODO: Implement new kit functionality
+                    console.log('New kit clicked for:', teamName);
+                  }}
+                  onDetails={() => {
+                    // TODO: Implement details functionality
+                    console.log('Details clicked for:', teamName);
+                  }}
+                />
+
+                {/* Design Details - Below the kit containers */}
+                {designRequest.designs && (
+                  <div className="mt-6 p-4 bg-gray-900/30 rounded-lg border border-gray-700">
+                    <h3 className="text-lg font-semibold text-white mb-2">{designRequest.designs.name}</h3>
+                    {designRequest.designs.description && (
+                      <p className="text-gray-400 text-sm mb-3">{designRequest.designs.description}</p>
+                    )}
+                    {designRequest.designs.designer_name && (
+                      <p className="text-sm text-gray-500">Diseñador: {designRequest.designs.designer_name}</p>
+                    )}
+
+                    {/* Color Palette */}
+                    {(designRequest.primary_color || designRequest.secondary_color || designRequest.accent_color) && (
+                      <div className="mt-4">
+                        <h4 className="text-sm font-semibold text-gray-300 mb-2">Colores del Diseño</h4>
+                        <div className="flex gap-3">
+                          {designRequest.primary_color && (
+                            <div className="flex flex-col items-center gap-1">
+                              <div
+                                className="w-12 h-12 rounded-lg border border-gray-600"
+                                style={{ backgroundColor: designRequest.primary_color }}
+                              ></div>
+                              <span className="text-xs text-gray-500">Principal</span>
+                            </div>
+                          )}
+                          {designRequest.secondary_color && (
+                            <div className="flex flex-col items-center gap-1">
+                              <div
+                                className="w-12 h-12 rounded-lg border border-gray-600"
+                                style={{ backgroundColor: designRequest.secondary_color }}
+                              ></div>
+                              <span className="text-xs text-gray-500">Secundario</span>
+                            </div>
+                          )}
+                          {designRequest.accent_color && (
+                            <div className="flex flex-col items-center gap-1">
+                              <div
+                                className="w-12 h-12 rounded-lg border border-gray-600"
+                                style={{ backgroundColor: designRequest.accent_color }}
+                              ></div>
+                              <span className="text-xs text-gray-500">Acento</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null;
+        })()}
+
+        {/* Size Assignment Tool - Only for design requests with roster */}
+        {isDesignRequest && subTeamId && productBreakdowns.length > 0 && (
+          <SizeAssignmentCard
+            subTeamId={subTeamId}
+            institutionSlug={slug}
+            rosterSize={productBreakdowns[0].total_quantity}
+            currentSizes={currentSizes}
+            onAssignmentComplete={handleSizeAssignmentComplete}
+          />
+        )}
+
+        {/* Jersey Name Configuration - Only for design requests with roster */}
+        {isDesignRequest && subTeamId && productBreakdowns.length > 0 && (
+          <JerseyNameConfigCard
+            subTeamId={subTeamId}
+            institutionSlug={slug}
+            currentStyle={jerseyNameStyle}
+            currentTeamName={jerseyTeamName}
+            onConfigUpdate={handleJerseyConfigUpdate}
+          />
+        )}
+
+        {/* Bulk Name Input - Only when player_name style is selected */}
+        {isDesignRequest && subTeamId && jerseyNameStyle === 'player_name' && rosterMembers.length > 0 && (
+          <BulkNameInputCard
+            subTeamId={subTeamId}
+            institutionSlug={slug}
+            rosterMembers={rosterMembers}
+            onUpdateComplete={handleNameUpdateComplete}
+          />
+        )}
+
         {/* Product Size Breakdown Cards */}
         <div>
           {productBreakdowns.length > 0 ? (
@@ -451,8 +892,18 @@ export default function OrderSummaryPage({ params }: { params: { slug: string; o
           ) : (
             <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-2xl p-8 border border-gray-700 overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-              <div className="relative text-center text-gray-400">
-                No hay productos en esta orden
+              <div className="relative text-center">
+                <p className="text-gray-400 mb-2">
+                  {(order as any).is_design_request
+                    ? 'No hay jugadores registrados en este equipo todavía'
+                    : 'No hay productos en esta orden'
+                  }
+                </p>
+                {(order as any).is_design_request && (
+                  <p className="text-sm text-gray-500">
+                    Agrega jugadores al roster del equipo para ver el desglose de tallas
+                  </p>
+                )}
               </div>
             </div>
           )}

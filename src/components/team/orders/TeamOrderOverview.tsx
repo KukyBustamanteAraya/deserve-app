@@ -45,7 +45,7 @@ export function TeamOrderOverview({ teamId, teamSlug }: TeamOrderOverviewProps) 
       } else {
         // Enhance orders with aggregated data
         const enhancedOrders = await Promise.all(
-          (ordersData || []).map(async (order) => {
+          (ordersData || []).map(async (order: any) => {
             // Get order items count
             const { data: items, count: itemCount } = await supabase
               .from('order_items')
@@ -87,7 +87,7 @@ export function TeamOrderOverview({ teamId, teamSlug }: TeamOrderOverviewProps) 
         setStats({
           totalOrders: enhancedOrders.length,
           activeOrders: activeOrdersData.length,
-          totalValue: enhancedOrders.reduce((sum, o) => sum + (o.total_amount_cents || 0), 0),
+          totalValue: enhancedOrders.reduce((sum, o) => sum + (o.total_amount_clp || 0), 0),
           pendingDesigns: 0, // Will be updated with design requests
         });
       }
@@ -120,7 +120,7 @@ export function TeamOrderOverview({ teamId, teamSlug }: TeamOrderOverviewProps) 
 
         // Update pending designs count
         const pendingCount = (designsData || []).filter(
-          d => d.approval_status === 'approved' && !d.order_id
+          (d: any) => d.approval_status === 'approved' && !d.order_id
         ).length;
 
         setStats(prev => ({ ...prev, pendingDesigns: pendingCount }));
@@ -151,6 +151,11 @@ export function TeamOrderOverview({ teamId, teamSlug }: TeamOrderOverviewProps) 
   const completedOrders = orders.filter(
     o => o.status === 'delivered'
   );
+
+  // Don't show anything if there are no orders at all
+  if (activeOrders.length === 0 && stats.pendingDesigns === 0 && completedOrders.length === 0) {
+    return null;
+  }
 
   return (
     <div className="space-y-6">

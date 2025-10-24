@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface MercadoPagoWebhook {
   action?: string;
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ status: 'ignored' });
     }
 
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Record the webhook event first
     const webhookEventResult = await supabase
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
     });
 
     if (!mpResponse.ok) {
-      logger.error('Failed to fetch payment from Mercado Pago:', mpResponse.status);
+      logger.error('Failed to fetch payment from Mercado Pago', { status: mpResponse.status });
       return NextResponse.json({ error: 'Failed to fetch payment details' }, { status: 500 });
     }
 
@@ -143,7 +144,7 @@ export async function POST(request: Request) {
       .eq('id', payment.id);
 
     if (updateError) {
-      logger.error('Failed to update payment:', updateError);
+      logger.error('Failed to update payment:', toSupabaseError(updateError));
       return NextResponse.json({ error: 'Failed to update payment' }, { status: 500 });
     }
 
@@ -179,7 +180,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    logger.error('Mercado Pago webhook error:', error);
+    logger.error('Mercado Pago webhook error:', toError(error));
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

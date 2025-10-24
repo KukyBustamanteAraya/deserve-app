@@ -2,10 +2,11 @@ import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client'
 import { redirect } from 'next/navigation';
 import CartClient from './CartClient';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export default async function CartPage() {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
     const user = await requireAuth(supabase);
 
     // Get or create active cart
@@ -25,7 +26,7 @@ export default async function CartPage() {
       .single();
 
     if (fetchError) {
-      logger.error('Error fetching cart details:', fetchError);
+      logger.error('Error fetching cart details:', toError(fetchError));
       redirect('/catalog?error=cart_fetch_failed');
     }
 
@@ -45,7 +46,7 @@ export default async function CartPage() {
     );
 
   } catch (error) {
-    logger.error('Cart page error:', error);
+    logger.error('Cart page error:', toError(error));
     redirect('/login?redirect=/cart');
   }
 }

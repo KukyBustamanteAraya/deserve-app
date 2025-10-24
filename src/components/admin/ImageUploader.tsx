@@ -44,7 +44,7 @@ interface ImageUploaderProps {
     heroIndex: number | null;
   }) => void;
   initialImages?: UploadedImage[];
-  initialHeroIndex?: number;
+  initialHeroIndex?: number | null;
 }
 
 // Sortable image item component
@@ -156,9 +156,9 @@ export default function ImageUploader({
     (async () => {
       const res = await supabase.auth.getUser();
       logger.debug('Auth check:', res);
-      logger.debug('Browser user ID:', res.data.user?.id);
+      logger.debug('Browser user ID:', { userId: res.data.user?.id });
       logger.debug('Expected ID: d4688023-0cd9-4875-94ed-33e98b010a15');
-      logger.debug('Match:', res.data.user?.id === 'd4688023-0cd9-4875-94ed-33e98b010a15');
+      logger.debug('Match:', { isMatch: res.data.user?.id === 'd4688023-0cd9-4875-94ed-33e98b010a15' });
     })();
   }, [supabase]);
 

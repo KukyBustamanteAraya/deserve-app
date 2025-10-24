@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     logger.debug('[Payment] Order query result:', { order, orderError });
 
     if (orderError || !order) {
-      logger.error('[Payment] Order not found:', orderId, orderError);
+      logger.error('[Payment] Order not found:', { orderId, error: orderError });
       return NextResponse.json(
         { error: 'Order not found', orderId, details: orderError },
         { status: 404 }

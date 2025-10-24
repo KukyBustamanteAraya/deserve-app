@@ -1,23 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Enable React Strict Mode
-  reactStrictMode: true,
-
-  // Use SWC minifier for better performance
-  swcMinify: true,
-
-  // Minimal experimental config to avoid hanging issues
-  experimental: {},
-
-  // Temporary: allow build to pass with TS errors (will fix in dedicated type PR)
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-
-  // Configure image domains for Next.js Image component
   images: {
     remotePatterns: [
       {
@@ -27,6 +9,18 @@ const nextConfig = {
       },
     ],
   },
+  // Webpack configuration disabled - was causing "Cannot find module vendor-chunks" error
+  // webpack: (config, { dev, isServer }) => {
+  //   if (dev && !isServer) {
+  //     config.optimization.splitChunks = {
+  //       cacheGroups: {
+  //         default: false,
+  //         vendors: false,
+  //       },
+  //     };
+  //   }
+  //   return config;
+  // },
 };
 
 module.exports = nextConfig;

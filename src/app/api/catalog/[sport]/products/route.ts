@@ -5,14 +5,15 @@
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export async function GET(
   request: Request,
-  { params }: { params: { sport: string } }
+  { params }: { params: Promise<{ sport: string }> }
 ) {
   try {
-    const { sport: sportSlug } = params;
-    const supabase = createSupabaseServer();
+    const { sport: sportSlug } = await params;
+    const supabase = await createSupabaseServer();
 
     // 1. Look up sport by slug
     const { data: sport, error: sportError } = await supabase
@@ -22,7 +23,7 @@ export async function GET(
       .single();
 
     if (sportError || !sport) {
-      logger.error('Sport not found:', sportSlug);
+      logger.error('Sport not found', { slug: sportSlug });
       return apiError(`Sport "${sportSlug}" not found`, 404);
     }
 
@@ -107,7 +108,7 @@ export async function GET(
     );
 
   } catch (error) {
-    logger.error('Unexpected error in catalog products API:', error);
+    logger.error('Unexpected error in catalog products API:', toError(error));
     return apiError('An unexpected error occurred');
   }
 }

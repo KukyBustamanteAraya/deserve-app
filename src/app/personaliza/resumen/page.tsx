@@ -8,6 +8,7 @@ import { CustomizeBanner } from '@/components/customize/CustomizeBanner';
 import { TeamSetupModal, type TeamSetupData } from '@/components/team/TeamSetupModal';
 import { TeamSelectionModal } from '@/components/team/TeamSelectionModal';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export default function ResumenPage() {
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function ResumenPage() {
 
   // Check auth status
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
       setUser(user);
     });
   }, [supabase.auth]);
@@ -78,7 +79,7 @@ export default function ResumenPage() {
       alert('¡Link mágico enviado! Revisa tu email para continuar.');
       setShowAuthModal(false);
     } catch (error: any) {
-      logger.error('Error sending magic link:', error);
+      logger.error('Error sending magic link:', toError(error));
       setAuthError(error.message || 'Error al enviar el link. Intenta de nuevo.');
     }
   };
@@ -102,7 +103,7 @@ export default function ResumenPage() {
       // Now submit the design request with the newly setup team
       await submitDesignRequest(selectedTeam);
     } catch (error: any) {
-      logger.error('Error completing team setup:', error);
+      logger.error('Error completing team setup:', toError(error));
       throw error;
     }
   };
@@ -170,7 +171,7 @@ export default function ResumenPage() {
       setSelectedTeam(newTeam);
       setShowTeamSetup(true);
     } catch (error: any) {
-      logger.error('Error creating new team:', error);
+      logger.error('Error creating new team:', toError(error));
       alert(`Error al crear equipo: ${error.message}`);
     }
   };
@@ -222,7 +223,7 @@ export default function ResumenPage() {
       setShowTeamSelection(false);
       await submitDesignRequest(team);
     } catch (error: any) {
-      logger.error('Error joining team:', error);
+      logger.error('Error joining team:', toError(error));
       throw new Error(error.message || 'Error al unirse al equipo');
     }
   };
@@ -280,7 +281,7 @@ export default function ResumenPage() {
       }
 
       // Create design request linked to team and order
-      logger.debug('[Resumen] Creating design request with team_id:', team.id, 'team_slug:', teamSlug);
+      logger.debug('[Resumen] Creating design request:', { teamId: team.id, teamSlug });
       const { data: designRequest, error: designError } = await supabase
         .from('design_requests')
         .insert({
@@ -307,13 +308,13 @@ export default function ResumenPage() {
         .single();
 
       if (designError) throw designError;
-      logger.debug('[Resumen] Design request created successfully:', designRequest.id, 'for team:', designRequest.team_id);
+      logger.debug('[Resumen] Design request created successfully:', { requestId: designRequest.id, teamId: designRequest.team_id });
 
       // Auto-trigger mockup generation in background (fire-and-forget)
       // Don't await - let it process while user views team page
       if (selectedDesign?.images?.[0]) {
         const templateUrl = selectedDesign.images[0];
-        logger.debug('[Resumen] Triggering recolor with template:', templateUrl);
+        logger.debug('[Resumen] Triggering recolor with template:', { templateUrl });
 
         fetch('/api/recolor-boundary', {
           method: 'POST',
@@ -329,7 +330,7 @@ export default function ResumenPage() {
             n: 1,
           }),
         }).catch((err) => {
-          logger.error('Background recolor failed:', err);
+          logger.error('Background recolor failed:', toError(err));
           // Don't block the user flow - admin can regenerate if needed
         });
       }
@@ -337,8 +338,8 @@ export default function ResumenPage() {
       // Navigate to team page
       router.push(`/mi-equipo`);
     } catch (error: any) {
-      logger.error('Error submitting design request:', error);
-      logger.error('Full error details:', JSON.stringify(error, null, 2));
+      logger.error('Error submitting design request', toError(error));
+      logger.error('Full error details', { errorJson: JSON.stringify(error, null, 2) });
       alert(`Error al enviar la solicitud: ${error.message || 'Intenta de nuevo'}`);
     } finally {
       setIsSubmitting(false);
@@ -550,7 +551,7 @@ export default function ResumenPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent text-sm"
                   style={{
-                    focusRing: `2px solid ${teamColors.primary}`
+                    outline: `2px solid ${teamColors.primary}`
                   }}
                   placeholder="tu@email.com"
                   required

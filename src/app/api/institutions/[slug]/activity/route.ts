@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface ActivityEvent {
   id: string;
@@ -13,28 +14,37 @@ interface ActivityEvent {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const { slug } = await params;
+    logger.info(`[Activity API] Fetching activity for slug: "${slug}"`);
+    const supabase = await createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
+      logger.error('[Activity API] Authentication failed:', toError(authError));
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    logger.info(`[Activity API] User authenticated: ${user.id}`);
 
     // Fetch institution team
     const { data: institution, error: teamError } = await supabase
       .from('teams')
       .select('id, name')
-      .eq('slug', params.slug)
+      .eq('slug', slug)
       .eq('team_type', 'institution')
       .single();
 
     if (teamError || !institution) {
+      logger.error(`[Activity API] Institution not found for slug "${slug}":`, toError(teamError));
+      logger.error('[Activity API] Error details:', { code: (teamError as any)?.code, message: (teamError as any)?.message });
       return NextResponse.json({ error: 'Institution not found' }, { status: 404 });
     }
+
+    logger.info(`[Activity API] Institution found: ${institution.name} (ID: ${institution.id})`);
 
     // Verify user has access
     const { data: membership } = await supabase
@@ -74,7 +84,7 @@ export async function GET(
           id: `dr-${dr.id}`,
           type: 'design_request',
           action: dr.status === 'pending' ? 'created' : dr.status,
-          description: `Design request ${dr.status} for ${dr.sub_team?.name || 'team'}`,
+          description: `Design request ${dr.status} for ${(dr.sub_team as any)?.name || 'team'}`,
           timestamp: dr.created_at,
           metadata: {
             design_request_id: dr.id,
@@ -106,7 +116,7 @@ export async function GET(
           id: `order-${order.id}`,
           type: 'order',
           action: order.status,
-          description: `Order ${order.order_number} ${order.status} - ${order.sub_team?.name || 'institution'}`,
+          description: `Order ${order.order_number} ${order.status} - ${(order.sub_team as any)?.name || 'institution'}`,
           timestamp: order.created_at,
           metadata: {
             order_id: order.id,
@@ -139,7 +149,7 @@ export async function GET(
           id: `subteam-${st.id}`,
           type: 'sub_team',
           action: 'created',
-          description: `Program created: ${st.name} (${st.sports?.name})`,
+          description: `Program created: ${st.name} (${(st.sports as any)?.name})`,
           timestamp: st.created_at,
           metadata: {
             sub_team_id: st.id,
@@ -165,7 +175,7 @@ export async function GET(
     });
 
   } catch (error) {
-    logger.error('Error in institution activity GET:', error);
+    logger.error('Error in institution activity GET:', toError(error));
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

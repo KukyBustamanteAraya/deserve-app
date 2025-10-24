@@ -16,8 +16,7 @@ interface DesignApprovalModalProps {
 
 type ExistingOrder = {
   id: string;
-  order_number: string | null;
-  total_amount_cents: number;
+  total_amount_clp: number;
   status: string;
   payment_status: string;
   created_at: string;
@@ -52,7 +51,7 @@ export function DesignApprovalModal({
       // Get orders that can be modified (not shipped, not cancelled)
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('id, order_number, total_amount_cents, status, payment_status, created_at')
+        .select('id, total_amount_clp, status, payment_status, created_at')
         .eq('team_id', teamId)
         .in('status', ['pending', 'paid', 'processing'])
         .order('created_at', { ascending: false });
@@ -61,7 +60,7 @@ export function DesignApprovalModal({
 
       // Get item counts for each order
       const ordersWithCounts = await Promise.all(
-        (ordersData || []).map(async (order) => {
+        (ordersData || []).map(async (order: any) => {
           const { count } = await supabase
             .from('order_items')
             .select('*', { count: 'exact', head: true })
@@ -116,7 +115,10 @@ export function DesignApprovalModal({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al aprobar diseño');
+        const errorMessage = errorData.details
+          ? `${errorData.error}: ${errorData.details}`
+          : errorData.error || 'Error al aprobar diseño';
+        throw new Error(errorMessage);
       }
 
       const { order } = await response.json();
@@ -261,7 +263,7 @@ export function DesignApprovalModal({
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-2">
                             <h3 className="font-semibold text-white">
-                              Orden #{order.order_number || order.id.slice(0, 8)}
+                              Orden #{order.id.slice(0, 8)}
                             </h3>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadge(order.status)}`}>
                               {getStatusText(order.status)}
@@ -270,7 +272,7 @@ export function DesignApprovalModal({
                           <div className="flex items-center gap-4 text-sm text-gray-400">
                             <span>{order.item_count} {order.item_count === 1 ? 'producto' : 'productos'}</span>
                             <span>•</span>
-                            <span>{formatCLP(order.total_amount_cents)}</span>
+                            <span>{formatCLP(order.total_amount_clp)}</span>
                             <span>•</span>
                             <span>{new Date(order.created_at).toLocaleDateString('es-CL')}</span>
                           </div>

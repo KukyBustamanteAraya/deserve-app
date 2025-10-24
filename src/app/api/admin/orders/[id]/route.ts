@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 const OrderStatusUpdateSchema = z.object({
   status: z.enum(['paid', 'cancelled'])
@@ -18,7 +19,7 @@ export async function PATCH(
     const body = await request.json();
 
     const validatedData = OrderStatusUpdateSchema.parse(body);
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Get current order with user info
     const { data: currentOrder, error: fetchError } = await supabase
@@ -76,7 +77,7 @@ export async function PATCH(
       .single();
 
     if (updateError) {
-      logger.error('Order update error:', updateError);
+      logger.error('Order update error:', toSupabaseError(updateError));
       return NextResponse.json(
         { error: 'Failed to update order status' },
         { status: 500 }
@@ -114,7 +115,7 @@ export async function PATCH(
       );
     }
 
-    logger.error('Admin order status update error:', error);
+    logger.error('Admin order status update error:', toError(error));
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

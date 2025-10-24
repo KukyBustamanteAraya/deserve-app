@@ -46,9 +46,9 @@ export function OrderItemsList({ items }: OrderItemsListProps) {
                   )}
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <div className="font-bold text-white">{formatCLP(item.line_total_cents || 0)}</div>
+                  <div className="font-bold text-white">{formatCLP(item.line_total_clp || 0)}</div>
                   <div className="text-xs text-gray-400">
-                    {formatCLP(item.unit_price_cents)} × {item.quantity}
+                    {formatCLP(item.unit_price_clp)} × {item.quantity}
                   </div>
                 </div>
               </div>
@@ -130,7 +130,7 @@ export function OrderItemsList({ items }: OrderItemsListProps) {
           <div className="flex justify-between items-center mt-2">
             <span className="text-sm font-medium text-gray-300">Monto Total:</span>
             <span className="text-xl font-bold text-white">
-              {formatCLP(items.reduce((sum, item) => sum + (item.line_total_cents || 0), 0))}
+              {formatCLP(items.reduce((sum, item) => sum + (item.line_total_clp || 0), 0))}
             </span>
           </div>
         </div>

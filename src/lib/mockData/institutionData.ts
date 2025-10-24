@@ -11,11 +11,13 @@ export interface InstitutionTeam {
   status: 'approved' | 'pending' | 'ready';
   coach: string;
   designStatus: 'approved' | 'pending' | 'ready' | 'none';
+  gender_category?: 'male' | 'female' | 'mixed' | null; // Team gender category for institutions
 }
 
 export interface InstitutionProgram {
   sport: string;
   sportSlug: string;
+  sport_id?: number; // Database sport ID for linking
   emoji: string;
   teams: InstitutionTeam[];
 }
@@ -40,6 +42,8 @@ export interface InstitutionOrder {
   date: string;
   coach?: string;
   paidCents?: number;
+  is_design_request?: boolean; // Whether this order originated from a design request
+  design_request_id?: string | number; // ID of the associated design request
 }
 
 export interface OrderLineItem {

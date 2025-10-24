@@ -2,7 +2,7 @@
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 
 export async function isTeamMember(teamId: string, userId?: string): Promise<boolean> {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   // Get current user if not provided
   let currentUserId = userId;

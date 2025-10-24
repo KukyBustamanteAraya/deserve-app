@@ -5,6 +5,7 @@ import OrderStatusBadge from '@/components/orders/OrderStatusBadge';
 import { formatCurrency } from '@/types/orders';
 import type { Order } from '@/types/orders';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface OrdersPageProps {
   searchParams: { page?: string; limit?: string };
@@ -12,7 +13,7 @@ interface OrdersPageProps {
 
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
     const user = await requireAuth(supabase);
 
     const page = parseInt(searchParams.page || '1');
@@ -33,7 +34,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     // Get orders with pagination
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
-      .select('id, status, currency, subtotal_cents, total_cents, notes, created_at')
+      .select('id, status, currency, subtotal_clp, total_clp, notes, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -76,7 +77,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
               {/* Orders List */}
               <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
                 <div className="divide-y divide-gray-200">
-                  {orders.map((order: Order) => (
+                  {orders.map((order) => (
                     <div key={order.id} className="p-6 hover:bg-gray-50 transition-colors duration-200">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
@@ -103,7 +104,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
                         <div className="text-right">
                           <p className="text-2xl font-bold text-gray-900 mb-2">
-                            {formatCurrency(order.total_cents, order.currency)}
+                            {formatCurrency(order.total_clp, order.currency)}
                           </p>
                           <Link
                             href={`/orders/${order.id}`}
@@ -172,7 +173,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     );
 
   } catch (error) {
-    logger.error('Orders page error:', error);
+    logger.error('Orders page error:', toError(error));
     redirect('/login?redirect=/orders');
   }
 }

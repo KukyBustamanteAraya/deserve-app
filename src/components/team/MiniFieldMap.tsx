@@ -61,7 +61,7 @@ export function MiniFieldMap({ sport, players, onPlayerClick, onPlayerSwap, team
 
   // Render sport-specific field background
   const renderFieldSVG = () => {
-    if (sport === 'soccer') {
+    if (sport === 'soccer' || sport === 'futbol') {
       return (
         <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 150" preserveAspectRatio="none">
           <rect x="2" y="2" width="96" height="146" fill="none" stroke="white" strokeWidth="0.5" opacity="0.6" />
@@ -247,7 +247,8 @@ export function MiniFieldMap({ sport, players, onPlayerClick, onPlayerSwap, team
     if (sport === 'crossfit') return 'bg-red-700';
     if (sport === 'training') return 'bg-purple-700';
     if (sport === 'yoga-pilates') return 'bg-pink-700';
-    return 'bg-green-600'; // Default for soccer/rugby
+    if (sport === 'soccer' || sport === 'futbol' || sport === 'rugby') return 'bg-green-600';
+    return 'bg-green-600'; // Default fallback
   };
 
   return (

@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { ShippingAddressForm } from '@/components/shipping/ShippingAddressForm';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface ShippingAddress {
-  id: string;
+  id?: string;
   recipient_name: string;
   recipient_phone: string;
   street_address: string;
@@ -44,10 +45,10 @@ export default function AddressesClient({ userId, initialAddresses }: AddressesC
   const handleSaved = (savedAddress: ShippingAddress) => {
     if (editingAddress) {
       // Update existing
-      setAddresses(addresses.map(a => a.id === savedAddress.id ? savedAddress : a));
+      setAddresses(addresses.map(a => a.id === savedAddress.id ? savedAddress as ShippingAddress & { id: string } : a));
     } else {
       // Add new
-      setAddresses([savedAddress, ...addresses]);
+      setAddresses([savedAddress as ShippingAddress & { id: string }, ...addresses]);
     }
     setShowForm(false);
     setEditingAddress(null);
@@ -67,7 +68,7 @@ export default function AddressesClient({ userId, initialAddresses }: AddressesC
 
       setAddresses(addresses.filter(a => a.id !== id));
     } catch (error) {
-      logger.error('Error deleting address:', error);
+      logger.error('Error deleting address:', toError(error));
       alert('Error al eliminar la dirección');
     } finally {
       setDeletingId(null);
@@ -89,7 +90,7 @@ export default function AddressesClient({ userId, initialAddresses }: AddressesC
         is_default: a.id === id
       })));
     } catch (error) {
-      logger.error('Error setting default address:', error);
+      logger.error('Error setting default address:', toError(error));
       alert('Error al establecer dirección predeterminada');
     }
   };
@@ -172,7 +173,7 @@ export default function AddressesClient({ userId, initialAddresses }: AddressesC
                   )}
                 </div>
                 <button
-                  onClick={() => handleDelete(address.id)}
+                  onClick={() => handleDelete(address.id!)}
                   disabled={deletingId === address.id}
                   className="text-red-600 hover:text-red-700 disabled:opacity-50"
                   title="Eliminar"
@@ -206,7 +207,7 @@ export default function AddressesClient({ userId, initialAddresses }: AddressesC
                 </button>
                 {!address.is_default && (
                   <button
-                    onClick={() => handleSetDefault(address.id)}
+                    onClick={() => handleSetDefault(address.id!)}
                     className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
                   >
                     Marcar predeterminada

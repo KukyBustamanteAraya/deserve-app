@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
 // POST /api/catalog/products - Create new product (admin only)
 export async function POST(request: NextRequest) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {

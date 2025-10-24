@@ -179,9 +179,9 @@ export default function DesignSelectionPage({ params }: { params: { slug: string
         },
       }));
 
-      logger.info('[Design Selection] Loaded designs for product:', productId, designsArray.length);
+      logger.info('[Design Selection] Loaded designs for product:', { productId, count: designsArray.length });
     } catch (err: any) {
-      logger.error('Error loading designs for product:', productId, err);
+      logger.error('Error loading designs for product:', { productId, error: err });
       setProductDesignsMap(prev => ({
         ...prev,
         [productId]: {

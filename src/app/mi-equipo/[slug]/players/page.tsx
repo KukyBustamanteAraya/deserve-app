@@ -37,14 +37,18 @@ type PlayerInfo = {
   position: string;
   additional_notes?: string;
   created_at: string;
+  confirmed_by_player?: boolean;
+  confirmation_date?: string;
+  confirmation_method?: string;
+  user_id?: string | null;
 };
 
 export default function TeamPlayersPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
   const router = useRouter();
   const [team, setTeam] = useState<any>(null);
   const [players, setPlayers] = useState<PlayerInfo[]>([]);
   const [designRequest, setDesignRequest] = useState<any>(null);
-  const [isManager, setIsManager] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,7 +71,7 @@ export default function TeamPlayersPage({ params }: { params: { slug: string } }
 
   useEffect(() => {
     loadTeamAndPlayers();
-  }, [params.slug]);
+  }, [slug]);
 
   async function loadTeamAndPlayers() {
     try {
@@ -86,7 +90,7 @@ export default function TeamPlayersPage({ params }: { params: { slug: string } }
             name
           )
         `)
-        .eq('slug', params.slug)
+        .eq('slug', slug)
         .single();
 
       if (teamError) throw teamError;
@@ -102,24 +106,8 @@ export default function TeamPlayersPage({ params }: { params: { slug: string } }
       const sportSlug = (teamData as any).sports?.slug || null;
       setTeam({ ...teamData, sport: sportSlug, logo_url: settingsData?.logo_url });
 
-      // Check if user is manager
-      const { data: membership } = await supabase
-        .from('team_memberships')
-        .select('role')
-        .eq('team_id', teamData.id)
-        .eq('user_id', user.id)
-        .single();
-
-      const userRole = membership?.role || (teamData.current_owner_id === user.id ? 'owner' : null);
-      const isManagerUser = userRole === 'owner' || userRole === 'manager';
-      setIsManager(isManagerUser);
-
-      if (!isManagerUser) {
-        throw new Error('Solo los managers pueden acceder a esta página');
-      }
-
-      // Get latest design request
-      let { data: designData } = await supabase
+      // Get latest design request (DO NOT auto-create - users should create via "+ Nueva Solicitud")
+      const { data: designData } = await supabase
         .from('design_requests')
         .select('*')
         .eq('team_id', teamData.id)
@@ -127,33 +115,12 @@ export default function TeamPlayersPage({ params }: { params: { slug: string } }
         .limit(1)
         .maybeSingle();
 
-      // If no design request exists, create a default one for player management
-      if (!designData) {
-        const { data: newDesignRequest, error: createError } = await supabase
-          .from('design_requests')
-          .insert({
-            team_id: teamData.id,
-            requested_by: user.id,
-            user_id: user.id,
-            user_type: 'manager',
-            status: 'pending'
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('Error creating default design request:', createError);
-        } else {
-          designData = newDesignRequest;
-        }
-      }
-
       setDesignRequest(designData);
 
       // Get ALL player info submissions for this team (not just for one design request)
       const { data: playersData, error: playersError } = await supabase
         .from('player_info_submissions')
-        .select('*')
+        .select('*, confirmed_by_player, confirmation_date, confirmation_method, user_id')
         .eq('team_id', teamData.id)
         .order('created_at', { ascending: false });
 
@@ -174,11 +141,6 @@ export default function TeamPlayersPage({ params }: { params: { slug: string } }
       return;
     }
 
-    if (!designRequest) {
-      alert('Primero debes tener una solicitud de diseño activa');
-      return;
-    }
-
     try {
       const supabase = getBrowserClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -187,7 +149,7 @@ export default function TeamPlayersPage({ params }: { params: { slug: string } }
         .from('player_info_submissions')
         .insert({
           team_id: team.id,
-          design_request_id: designRequest.id,
+          design_request_id: designRequest?.id || null, // Optional - can be NULL for manager-only teams
           player_name: formData.player_name.trim(),
           jersey_number: formData.jersey_number.trim() || null,
           size: formData.size,
@@ -258,13 +220,55 @@ export default function TeamPlayersPage({ params }: { params: { slug: string } }
     try {
       const supabase = getBrowserClient();
 
-      const { error } = await supabase
+      // Find the player to get their user_id
+      const player = players.find((p) => p.id === playerId);
+
+      console.log('[Delete Player] Deleting player:', { playerId, userId: player?.user_id });
+
+      // 1. Delete from player_info_submissions (roster table)
+      const { error: submissionError } = await supabase
         .from('player_info_submissions')
         .delete()
         .eq('id', playerId);
 
-      if (error) throw error;
+      if (submissionError) {
+        console.error('[Delete Player] Error deleting from player_info_submissions:', submissionError);
+        throw submissionError;
+      }
 
+      // 2. Delete from team_players (mini field table) if user_id exists
+      if (player?.user_id && team?.id) {
+        const { error: teamPlayerError } = await supabase
+          .from('team_players')
+          .delete()
+          .eq('team_id', team.id)
+          .eq('user_id', player.user_id);
+
+        if (teamPlayerError) {
+          console.error('[Delete Player] Error deleting from team_players:', teamPlayerError);
+          // Don't throw - continue with deletion
+        } else {
+          console.log('[Delete Player] Removed from team_players');
+        }
+      }
+
+      // 3. Delete from team_memberships (team access) if user_id exists
+      if (player?.user_id && team?.id) {
+        const { error: membershipError } = await supabase
+          .from('team_memberships')
+          .delete()
+          .eq('team_id', team.id)
+          .eq('user_id', player.user_id);
+
+        if (membershipError) {
+          console.error('[Delete Player] Error deleting from team_memberships:', membershipError);
+          // Don't throw - continue with deletion
+        } else {
+          console.log('[Delete Player] Removed from team_memberships');
+        }
+      }
+
+      console.log('[Delete Player] Successfully deleted player from all tables');
       setPlayers(players.filter((p) => p.id !== playerId));
     } catch (error: any) {
       alert(`Error al eliminar jugador: ${error.message}`);
@@ -336,7 +340,7 @@ export default function TeamPlayersPage({ params }: { params: { slug: string } }
           <h1 className="text-2xl font-bold text-white mb-4">Error</h1>
           <p className="text-gray-300 mb-6">{error || 'Equipo no encontrado'}</p>
           <button
-            onClick={() => router.push(`/mi-equipo/${params.slug}`)}
+            onClick={() => router.push(`/mi-equipo/${slug}`)}
             className="text-[#e21c21] hover:text-[#c11a1e] font-medium"
           >
             ← Volver al equipo
@@ -355,7 +359,7 @@ export default function TeamPlayersPage({ params }: { params: { slug: string } }
 
           {/* Back Arrow - Top Left */}
           <button
-            onClick={() => router.push(`/mi-equipo/${params.slug}`)}
+            onClick={() => router.push(`/mi-equipo/${slug}`)}
             className="absolute top-2 left-2 p-1.5 rounded-md bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 border border-gray-700 text-gray-400 hover:text-white hover:border-[#e21c21]/50 transition-all z-10"
             style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
           >
@@ -395,28 +399,7 @@ export default function TeamPlayersPage({ params }: { params: { slug: string } }
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {!designRequest ? (
-          <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-2xl p-8 border border-gray-700 overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-            <div className="text-center py-12 relative">
-              <span className="text-6xl mb-4 block">📋</span>
-              <h2 className="text-2xl font-bold text-white mb-4">
-                No hay solicitud de diseño activa
-              </h2>
-              <p className="text-gray-300 mb-6">
-                Necesitas una solicitud de diseño aprobada para agregar información de jugadores
-              </p>
-              <button
-                onClick={() => router.push(`/mi-equipo/${params.slug}`)}
-                className="relative px-6 py-3 bg-gradient-to-br from-blue-600/90 via-blue-700/80 to-blue-800/90 text-white rounded-lg font-medium overflow-hidden group/btn border border-blue-600/50 shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50"
-                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none"></div>
-                <span className="relative">Ver Dashboard del Equipo</span>
-              </button>
-            </div>
-          </div>
-        ) : (
+        {/* NOTE: Collection link works without design request, but adding players manually requires one */}
           <>
             {/* Actions Bar */}
             <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-2xl p-4 mb-6 flex items-center justify-between border border-gray-700 overflow-hidden group">
@@ -458,8 +441,30 @@ export default function TeamPlayersPage({ params }: { params: { slug: string } }
                 </button>
               </div>
 
-              <div className="text-sm text-gray-300 relative">
-                <span className="font-semibold text-white">{players.length}</span> jugadores registrados
+              <div className="text-sm text-gray-300 relative flex items-center gap-4">
+                <span>
+                  <span className="font-semibold text-white">{players.length}</span> jugadores registrados
+                </span>
+                <span className="text-gray-600">|</span>
+                <span className="inline-flex items-center gap-1">
+                  <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="font-semibold text-green-400">{players.filter(p => p.confirmed_by_player).length}</span>
+                  <span>confirmados</span>
+                </span>
+                {players.filter(p => !p.confirmed_by_player).length > 0 && (
+                  <>
+                    <span className="text-gray-600">|</span>
+                    <span className="inline-flex items-center gap-1">
+                      <svg className="w-4 h-4 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <span className="font-semibold text-yellow-400">{players.filter(p => !p.confirmed_by_player).length}</span>
+                      <span>pendientes</span>
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 
@@ -495,6 +500,9 @@ export default function TeamPlayersPage({ params }: { params: { slug: string } }
                           Posición
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Estado
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                           Notas
                         </th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
@@ -518,6 +526,23 @@ export default function TeamPlayersPage({ params }: { params: { slug: string } }
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-gray-300">
                             {player.position || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {player.confirmed_by_player ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/50 rounded">
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Confirmado
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 rounded">
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                Pendiente
+                              </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-300 max-w-xs truncate">
                             {player.additional_notes || '-'}
@@ -544,7 +569,6 @@ export default function TeamPlayersPage({ params }: { params: { slug: string } }
               )}
             </div>
           </>
-        )}
       </div>
 
       {/* Add/Edit Player Modal */}

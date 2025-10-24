@@ -5,31 +5,29 @@ import { useRouter } from 'next/navigation';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { useDesignRequestWizard } from '@/store/design-request-wizard';
 import { WizardLayout } from '@/components/institution/design-request/WizardLayout';
+import { GenderBadge } from '@/components/team/orders/GenderBadge';
 
 export default function QuantitiesPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
   const router = useRouter();
   const {
-    sport_name,
-    gender_category,
-    selectedProducts,
-    quantities,
-    setQuantities,
+    selectedTeams,
+    teamRosterEstimates,
+    setRosterEstimateForTeam,
   } = useDesignRequestWizard();
 
-  const [quantityData, setQuantityData] = useState<{
-    male?: Record<string, number>;
-    female?: Record<string, number>;
-  }>({});
   const [teamType, setTeamType] = useState<'single_team' | 'institution' | null>(null);
 
+  // Local state for roster sizes per team
+  const [localRosterSizes, setLocalRosterSizes] = useState<Record<string, number>>({});
+
   useEffect(() => {
-    // Load team type
     async function loadTeamType() {
       const supabase = getBrowserClient();
       const { data: team } = await supabase
         .from('teams')
         .select('team_type')
-        .eq('slug', params.slug)
+        .eq('slug', slug)
         .single();
 
       if (team) {
@@ -38,97 +36,36 @@ export default function QuantitiesPage({ params }: { params: { slug: string } })
     }
 
     loadTeamType();
-  }, [params.slug]);
+  }, [slug]);
 
   useEffect(() => {
-    // Initialize quantity data structure
-    initializeQuantities();
+    // Initialize local state from store or defaults
+    const initial: Record<string, number> = {};
+    selectedTeams.forEach(team => {
+      const teamId = team.id || team.slug || team.name;
+      initial[teamId] = teamRosterEstimates[teamId] || 20; // Default to 20
+    });
+    setLocalRosterSizes(initial);
+  }, [selectedTeams, teamRosterEstimates]);
 
-    // Load from store if available
-    if (quantities.male || quantities.female) {
-      setQuantityData({
-        male: quantities.male || {},
-        female: quantities.female || {},
-      });
-    }
-  }, []);
+  const handleContinue = () => {
+    // Save roster estimates for each team
+    selectedTeams.forEach(team => {
+      const teamId = team.id || team.slug || team.name;
+      const estimate = localRosterSizes[teamId] || 20;
+      setRosterEstimateForTeam(teamId, estimate);
+    });
 
-  const initializeQuantities = () => {
-    const initial: typeof quantityData = {};
-
-    if (gender_category === 'male' || gender_category === 'both') {
-      const maleProducts = selectedProducts.male || [];
-      initial.male = {};
-      maleProducts.forEach(product => {
-        initial.male![product.slug] = 0;
-      });
-    }
-
-    if (gender_category === 'female' || gender_category === 'both') {
-      const femaleProducts = selectedProducts.female || [];
-      initial.female = {};
-      femaleProducts.forEach(product => {
-        initial.female![product.slug] = 0;
-      });
-    }
-
-    setQuantityData(initial);
+    router.push(`/mi-equipo/${slug}/design-request/new/review`);
   };
 
-  const handleQuantityChange = (
-    gender: 'male' | 'female',
-    productSlug: string,
-    value: string
-  ) => {
-    const numValue = parseInt(value) || 0;
-
-    setQuantityData(prev => ({
+  const updateRosterSize = (teamId: string, size: number) => {
+    setLocalRosterSizes(prev => ({
       ...prev,
-      [gender]: {
-        ...prev[gender],
-        [productSlug]: numValue,
-      },
+      [teamId]: size,
     }));
   };
 
-  const handleContinue = () => {
-    setQuantities(quantityData);
-    router.push(`/mi-equipo/${params.slug}/design-request/new/review`);
-  };
-
-  const getGrandTotal = (): { male: number; female: number; total: number } => {
-    let maleTotal = 0;
-    let femaleTotal = 0;
-
-    if (quantityData.male) {
-      maleTotal = Object.values(quantityData.male).reduce((sum, qty) => sum + qty, 0);
-    }
-
-    if (quantityData.female) {
-      femaleTotal = Object.values(quantityData.female).reduce((sum, qty) => sum + qty, 0);
-    }
-
-    return {
-      male: maleTotal,
-      female: femaleTotal,
-      total: maleTotal + femaleTotal,
-    };
-  };
-
-  const getCategoryName = (slug: string): string => {
-    const nameMap: Record<string, string> = {
-      'camiseta': 'Camisetas',
-      'shorts': 'Shorts',
-      'poleron': 'Polerones',
-      'medias': 'Medias',
-      'chaqueta': 'Chaquetas',
-    };
-    return nameMap[slug] || slug;
-  };
-
-  const totals = getGrandTotal();
-
-  // Adjust step numbers: single teams at quantities (4/5), institutions at quantities (5/6)
   const currentStep = teamType === 'single_team' ? 4 : 5;
   const totalWizardSteps = teamType === 'single_team' ? 5 : 6;
 
@@ -136,108 +73,84 @@ export default function QuantitiesPage({ params }: { params: { slug: string } })
     <WizardLayout
       step={currentStep}
       totalSteps={totalWizardSteps}
-      title={`Cantidades estimadas para ${sport_name}`}
-      subtitle="Opcional - Danos una estimación aproximada de las cantidades que necesitas"
-      onBack={() => router.push(`/mi-equipo/${params.slug}/design-request/new/colors`)}
+      title="Tamaño estimado de los rosters"
+      subtitle="Danos una estimación aproximada del tamaño de cada equipo"
+      onBack={() => router.push(`/mi-equipo/${slug}/design-request/new/colors`)}
       onContinue={handleContinue}
       canContinue={true}
     >
       <div className="space-y-4">
-        {(
-          <>
-            {/* Male Quantities */}
-            {(gender_category === 'male' || gender_category === 'both') && (
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <span>♂️</span>
-                  Hombres
-                </h3>
+        {teamType === 'institution' && (
+          <div className="relative bg-gradient-to-br from-blue-800/30 via-blue-900/20 to-gray-900/30 backdrop-blur-md rounded-lg shadow-sm p-5 border border-blue-500/30">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-semibold text-white">👥</span>
+                <h3 className="text-lg font-semibold text-white">Tamaño estimado de los rosters</h3>
+              </div>
+              <p className="text-sm text-gray-300">
+                ¿Cuántos jugadores aproximadamente tiene cada equipo? Esto nos ayudará a preparar los rosters automáticamente.
+              </p>
 
-                {(selectedProducts.male || []).map(product => (
-                  <div
-                    key={product.id}
-                    className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-sm p-4 border border-gray-700"
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <h4 className="text-base font-semibold text-white">
-                        {getCategoryName(product.slug)}
-                      </h4>
-                      <div className="flex items-center gap-3">
-                        <label className="text-sm text-gray-400">Cantidad (opcional):</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={quantityData.male?.[product.slug] || ''}
-                          onChange={(e) => handleQuantityChange('male', product.slug, e.target.value)}
-                          className="w-24 px-3 py-2 bg-black/50 border border-gray-700 rounded-lg text-white text-center focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                          placeholder="0"
-                        />
+              {/* Per-Team Roster Inputs */}
+              <div className="space-y-3">
+                {selectedTeams.map((team, index) => {
+                  const teamId = team.id || team.slug || team.name;
+                  const rosterSize = localRosterSizes[teamId] || 20;
+
+                  // Determine gender category
+                  // Use team.gender_category directly (teams always have this set now)
+                  // Fallback: parse from name if legacy data lacks gender_category
+                  const teamGenderCategory = team.gender_category ||
+                    (team.name.toLowerCase().includes('women') || team.name.toLowerCase().includes('femenino')
+                      ? 'female'
+                      : 'male');
+
+                  return (
+                    <div
+                      key={teamId}
+                      className="bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-sm p-4 border border-gray-700"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        {/* Team Info */}
+                        <div className="flex items-center gap-3 flex-1">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-base font-semibold text-white">{team.name}</h4>
+                              <GenderBadge
+                                gender={teamGenderCategory as 'male' | 'female' | 'both'}
+                                size="sm"
+                              />
+                            </div>
+                            <p className="text-xs text-gray-400">{team.sport_name}</p>
+                          </div>
+                        </div>
+
+                        {/* Roster Size Input */}
+                        <div className="flex items-center gap-3">
+                          <label className="text-sm text-gray-300 font-medium whitespace-nowrap">
+                            Jugadores:
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="200"
+                            value={rosterSize}
+                            onChange={(e) => updateRosterSize(teamId, parseInt(e.target.value) || 0)}
+                            className="w-24 px-3 py-2 bg-black/50 border border-blue-500/50 rounded-lg text-white text-center text-base font-semibold focus:border-blue-400 focus:ring-2 focus:ring-blue-400/30 outline-none"
+                            placeholder="20"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-            )}
 
-            {/* Female Quantities */}
-            {(gender_category === 'female' || gender_category === 'both') && (
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <span>♀️</span>
-                  Mujeres
-                </h3>
-
-                {(selectedProducts.female || []).map(product => (
-                  <div
-                    key={product.id}
-                    className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-sm p-4 border border-gray-700"
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <h4 className="text-base font-semibold text-white">
-                        {getCategoryName(product.slug)}
-                      </h4>
-                      <div className="flex items-center gap-3">
-                        <label className="text-sm text-gray-400">Cantidad (opcional):</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={quantityData.female?.[product.slug] || ''}
-                          onChange={(e) => handleQuantityChange('female', product.slug, e.target.value)}
-                          className="w-24 px-3 py-2 bg-black/50 border border-gray-700 rounded-lg text-white text-center focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                          placeholder="0"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="text-xs text-blue-300/80 bg-blue-900/20 px-3 py-2 rounded border border-blue-500/20">
+                💡 Estos números se usarán para crear placeholders en los rosters que podrás editar después
               </div>
-            )}
-
-            {/* Grand Total Summary */}
-            {totals.total > 0 && (
-              <div className="relative bg-gradient-to-br from-blue-800/30 via-blue-900/20 to-gray-900/30 backdrop-blur-md rounded-lg shadow-sm p-4 border border-blue-500/30">
-                <h4 className="text-base font-semibold text-white mb-2">Resumen Total</h4>
-                <div className="flex items-center gap-6">
-                  {totals.male > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-300">♂️ Hombres:</span>
-                      <span className="text-lg font-bold text-white">{totals.male}</span>
-                    </div>
-                  )}
-                  {totals.female > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-300">♀️ Mujeres:</span>
-                      <span className="text-lg font-bold text-white">{totals.female}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-300">Total:</span>
-                    <span className="text-xl font-bold text-blue-400">{totals.total}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
+            </div>
+          </div>
         )}
       </div>
     </WizardLayout>

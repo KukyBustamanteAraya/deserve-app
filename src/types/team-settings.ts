@@ -67,3 +67,27 @@ export interface TeamOwnershipHistory {
   transfer_reason?: string;
   created_at: string;
 }
+
+// Unified team member type used in settings
+export type MemberType = 'active_member' | 'roster_only' | 'has_account_not_member';
+export type MemberStatus = 'Active Member' | 'Has Account (Not Member)' | 'Invited (Pending)' | 'Roster Only';
+
+export interface UnifiedTeamMember {
+  id: string;
+  type: MemberType;
+  display_name: string;
+  role: 'owner' | 'manager' | 'player' | null;
+  status: MemberStatus;
+  user_id: string | null;
+  player_submission_id: string | null;
+  invite_id?: string | null;
+  email?: string;
+  created_at: string;
+}
+
+// Profile data from database
+export interface ProfileData {
+  id: string;
+  full_name: string | null;
+  email?: string;
+}

@@ -5,7 +5,7 @@ import DashboardClient from './DashboardClient';
 import { logger } from '@/lib/logger';
 
 export default async function DashboardPage() {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   // Get user on server side
   const { data: { user }, error } = await supabase.auth.getUser();

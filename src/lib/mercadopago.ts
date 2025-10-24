@@ -17,6 +17,7 @@ const client = new MercadoPagoConfig({
 // =====================================================
 
 export interface PaymentItem {
+  id?: string;
   title: string;
   quantity: number;
   unit_price: number;
@@ -73,12 +74,20 @@ export async function createPaymentPreference(
   payload: PreferencePayload
 ): Promise<{ id: string; init_point: string; sandbox_init_point: string }> {
   try {
-    logger.debug('[MercadoPago] Creating preference with payload:', JSON.stringify(payload, null, 2));
+    logger.debug('[MercadoPago] Creating preference with payload', { payload: JSON.stringify(payload, null, 2) });
 
     const preference = new Preference(client);
-    const response = await preference.create({ body: payload });
+    // Ensure all items have IDs (required by MercadoPago SDK)
+    const payloadWithIds = {
+      ...payload,
+      items: payload.items.map((item, idx) => ({
+        ...item,
+        id: item.id || `item-${idx}`
+      }))
+    };
+    const response = await preference.create({ body: payloadWithIds as any });
 
-    logger.debug('[MercadoPago] Preference response:', JSON.stringify(response, null, 2));
+    logger.debug('[MercadoPago] Preference response', { response: JSON.stringify(response, null, 2) });
 
     return {
       id: response.id!,
@@ -86,9 +95,10 @@ export async function createPaymentPreference(
       sandbox_init_point: response.sandbox_init_point || response.init_point!,
     };
   } catch (error: any) {
-    logger.error('[MercadoPago] Error creating preference:', error);
-    logger.error('[MercadoPago] Error details:', JSON.stringify(error, null, 2));
-    logger.error('[MercadoPago] Error response:', error.response?.data || error.response);
+    logger.error('[MercadoPago] Error creating preference', error instanceof Error ? error : new Error(String(error)));
+    if (error.response) {
+      logger.error('[MercadoPago] Error response data', { response: error.response?.data || error.response });
+    }
     throw new Error(
       error.message || 'Failed to create Mercado Pago preference'
     );
@@ -230,7 +240,7 @@ export async function getPaymentDetails(
 
     return await response.json();
   } catch (error: any) {
-    logger.error('[MercadoPago] Error fetching payment:', error);
+    logger.error('[MercadoPago] Error fetching payment', error instanceof Error ? error : new Error(String(error)));
     throw new Error(error.message || 'Failed to fetch payment details');
   }
 }
@@ -282,13 +292,13 @@ export function validateWebhookSignature(
 
     if (!isValid) {
       logger.warn('[MercadoPago] Signature mismatch');
-      logger.warn('Expected:', expectedSignature);
-      logger.warn('Provided:', providedSignature);
+      logger.warn('Expected:', { signature: expectedSignature });
+      logger.warn('Provided:', { signature: providedSignature });
     }
 
     return isValid;
   } catch (error) {
-    logger.error('[MercadoPago] Error validating signature:', error);
+    logger.error('[MercadoPago] Error validating signature', error instanceof Error ? error : new Error(String(error)));
     return false;
   }
 }

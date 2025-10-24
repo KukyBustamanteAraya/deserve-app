@@ -67,6 +67,14 @@ function validateEnv(): Env {
 
   if (isClient) {
     // Client-side validation - only check NEXT_PUBLIC_ variables
+    // On client, manually construct the env object from window-injected values
+    const clientEnv = {
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      NEXT_PUBLIC_MP_PUBLIC_KEY: process.env.NEXT_PUBLIC_MP_PUBLIC_KEY,
+      NODE_ENV: (process.env.NODE_ENV || 'development') as 'development' | 'production' | 'test',
+    };
+
     const clientSchema = z.object({
       NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
       NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
@@ -75,22 +83,22 @@ function validateEnv(): Env {
     });
 
     try {
-      const validated = clientSchema.parse(process.env);
+      const validated = clientSchema.parse(clientEnv);
       // Return a partial env object for client-side
       return validated as Env;
     } catch (error) {
       if (error instanceof z.ZodError) {
-        const missingVars = (error.errors || []).map(
+        const missingVars = (error.issues || []).map(
           (err) => `  ❌ ${err.path.join('.')}: ${err.message}`
         ).join('\n');
 
-        console.error(
-          `\n⚠️  Client Environment Validation Failed!\n\n${missingVars}\n\n` +
-          `Please check your .env.local file.\n`
+        console.warn(
+          `\n⚠️  Client Environment Validation Warning:\n\n${missingVars}\n\n` +
+          `This is normal during build. If you see this in browser, check your .env.local file.\n`
         );
       }
       // On client, return partial object to prevent crash
-      return process.env as Env;
+      return clientEnv as Env;
     }
   }
 
@@ -99,7 +107,7 @@ function validateEnv(): Env {
     return envSchema.parse(process.env);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const missingVars = (error.errors || []).map(
+      const missingVars = (error.issues || []).map(
         (err) => `  ❌ ${err.path.join('.')}: ${err.message}`
       ).join('\n');
 

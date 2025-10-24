@@ -13,7 +13,7 @@ export async function sendMagicLink(formData: FormData) {
   }
 
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
@@ -35,7 +35,7 @@ export async function sendMagicLink(formData: FormData) {
 
 export async function signOut() {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { error } = await supabase.auth.signOut();
 
     if (error) {

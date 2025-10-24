@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { z } from 'zod';
 
 const CreateMemberSchema = z.object({
@@ -9,7 +10,7 @@ const CreateMemberSchema = z.object({
   position: z.string().optional(),
   jersey_number: z.number().int().min(1).max(999).optional(),
   size: z.string().optional(),
-  additional_info: z.record(z.any()).optional(),
+  additional_info: z.record(z.string(), z.any()).optional(),
 });
 
 const UpdateMemberSchema = CreateMemberSchema.partial();
@@ -19,7 +20,7 @@ export async function GET(
   { params }: { params: { slug: string; id: string } }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -39,16 +40,46 @@ export async function GET(
       return NextResponse.json({ error: 'Institution not found' }, { status: 404 });
     }
 
+    // Verify user is a member of the institution
+    const { data: membership, error: membershipError } = await supabase
+      .from('team_memberships')
+      .select('role, institution_role')
+      .eq('team_id', institution.id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (membershipError || !membership) {
+      logger.warn('[Roster GET] User not a member of institution:', {
+        userId: user.id,
+        institutionId: institution.id
+      });
+      return NextResponse.json({ error: 'Access denied - not a member of this institution' }, { status: 403 });
+    }
+
     // Verify sub-team belongs to this institution
     const { data: subTeam, error: subTeamError } = await supabase
       .from('institution_sub_teams')
-      .select('id, name')
+      .select('id, name, head_coach_user_id')
       .eq('id', params.id)
       .eq('institution_team_id', institution.id)
       .single();
 
     if (subTeamError || !subTeam) {
       return NextResponse.json({ error: 'Program not found' }, { status: 404 });
+    }
+
+    // For coaches, verify they have access to this specific sub-team
+    if (membership.institution_role !== 'athletic_director' && membership.institution_role !== 'assistant') {
+      const isCoachOfTeam = subTeam.head_coach_user_id === user.id;
+
+      if (!isCoachOfTeam) {
+        logger.warn('[Roster GET] Coach attempting to access another team roster:', {
+          userId: user.id,
+          subTeamId: params.id,
+          headCoachId: subTeam.head_coach_user_id
+        });
+        return NextResponse.json({ error: 'Access denied - you can only view rosters for your teams' }, { status: 403 });
+      }
     }
 
     // Fetch roster members
@@ -73,7 +104,7 @@ export async function GET(
     });
 
   } catch (error) {
-    logger.error('Error in roster GET:', error);
+    logger.error('Error in roster GET:', toError(error));
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -83,7 +114,7 @@ export async function POST(
   { params }: { params: { slug: string; id: string } }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -154,7 +185,7 @@ export async function POST(
       .single();
 
     if (createError) {
-      logger.error('Error creating roster member:', createError);
+      logger.error('Error creating roster member:', toSupabaseError(createError));
 
       if (createError.code === '23505') {
         return NextResponse.json(
@@ -179,7 +210,7 @@ export async function POST(
       );
     }
 
-    logger.error('Error in roster POST:', error);
+    logger.error('Error in roster POST:', toError(error));
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

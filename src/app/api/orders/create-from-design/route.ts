@@ -3,6 +3,7 @@
 import { NextRequest } from 'next/server';
 import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { apiSuccess, apiError, apiUnauthorized, apiValidationError } from '@/lib/api-response';
 import {
   createOrderFromDesignSchema,
@@ -11,7 +12,7 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Require authentication
     const user = await requireAuth(supabase);
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     const { data: designRequest, error: designError } = await supabase
       .from('design_requests')
-      .select('id, team_id, status, selected_candidate_id')
+      .select('id, team_id, status, selected_candidate_id, sub_team_id, order_id')
       .eq('id', designRequestId)
       .single();
 
@@ -43,6 +44,24 @@ export async function POST(request: NextRequest) {
 
     if (designRequest.team_id !== teamId) {
       return apiError('Design request does not belong to this team', 403);
+    }
+
+    // Fetch sub_team data for gender hierarchy fields (if this is an institution order)
+    let subTeamData: { gender_category: string | null; division_group: string | null } | null = null;
+    if (designRequest.sub_team_id) {
+      const { data: subTeam } = await supabase
+        .from('institution_sub_teams')
+        .select('gender_category, division_group')
+        .eq('id', designRequest.sub_team_id)
+        .single();
+
+      if (subTeam) {
+        subTeamData = {
+          gender_category: subTeam.gender_category || null,
+          division_group: subTeam.division_group || null,
+        };
+        logger.info(`[Order Creation] Sub-team data fetched - gender: ${subTeamData.gender_category}, division_group: ${subTeamData.division_group}`);
+      }
     }
 
     // Verify user is a team member or owner
@@ -115,6 +134,15 @@ export async function POST(request: NextRequest) {
       return apiError('No player info submissions found. Please collect player information first.', 400);
     }
 
+    // Count confirmed vs unconfirmed players (soft enforcement)
+    const unconfirmedPlayers = playerSubmissions.filter(p => !p.confirmed_by_player);
+    const confirmedPlayers = playerSubmissions.filter(p => p.confirmed_by_player);
+
+    if (unconfirmedPlayers.length > 0) {
+      logger.warn(`Order being created with ${unconfirmedPlayers.length} unconfirmed players out of ${playerSubmissions.length} total`);
+      logger.warn('Unconfirmed players:', { players: unconfirmedPlayers.map(p => p.player_name).join(', ') });
+    }
+
     // ========================================================================
     // STEP 4: Calculate order totals
     // ========================================================================
@@ -143,6 +171,11 @@ export async function POST(request: NextRequest) {
         // total_clp is GENERATED ALWAYS - database calculates it
         total_amount_clp: totalClp,
         current_stage: 'pending',
+        has_unconfirmed_players: unconfirmedPlayers.length > 0,
+        unconfirmed_player_count: unconfirmedPlayers.length,
+        // Gender hierarchy fields (for institution orders with gender-divided teams)
+        division_group: subTeamData?.division_group || null,
+        team_gender_category: subTeamData?.gender_category || null,
       })
       .select('id')
       .single();
@@ -196,7 +229,7 @@ export async function POST(request: NextRequest) {
       .eq('id', designRequestId);
 
     if (linkError) {
-      logger.error('Error linking order to design request:', linkError);
+      logger.error('Error linking order to design request:', toError(linkError));
       // Don't fail the request, but log it
     }
 
@@ -212,7 +245,7 @@ export async function POST(request: NextRequest) {
       return apiUnauthorized();
     }
 
-    logger.error('Unexpected error in create order from design:', error);
+    logger.error('Unexpected error in create order from design:', toError(error));
     return apiError('Internal server error');
   }
 }

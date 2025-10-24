@@ -5,9 +5,10 @@ import { addToCartSchema } from '@/types/orders';
 import type { AddToCartRequest, CartResponse } from '@/types/orders';
 import type { ApiResponse } from '@/types/api';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Require authentication
     const user = await requireAuth(supabase);
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     // Verify product exists
     const { data: product, error: productError } = await supabase
       .from('products')
-      .select('id, name, price_cents')
+      .select('id, name, price_clp')
       .eq('id', productId)
       .single();
 
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (fetchError) {
-      logger.error('Error fetching updated cart:', fetchError);
+      logger.error('Error fetching updated cart:', toSupabaseError(fetchError));
       return NextResponse.json(
         { error: 'Failed to fetch updated cart', message: fetchError.message } as ApiResponse<null>,
         { status: 500 }
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    logger.error('Unexpected error in add to cart:', error);
+    logger.error('Unexpected error in add to cart:', toError(error));
     return NextResponse.json(
       { error: 'Internal server error' } as ApiResponse<null>,
       { status: 500 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useFabrics } from '@/hooks/useFabrics';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface Fabric {
   id: string;
@@ -49,7 +50,7 @@ export default function FabricSelector({
           setRecommendedFabricNames(data.recommendations.map((r: any) => r.fabric_name));
         }
       } catch (error) {
-        logger.error('Error fetching fabric recommendations:', error);
+        logger.error('Error fetching fabric recommendations:', toError(error));
         setRecommendedFabricNames([]);
       }
     };

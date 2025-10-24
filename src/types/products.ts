@@ -12,7 +12,7 @@ export interface Product {
   name: string;
   slug: string;
   description?: string;
-  price_cents: number;                    // Custom price set per product
+  price_clp: number;                      // Custom price in Chilean Pesos (full amount, not cents)
   status: ProductStatus;
   hero_path?: string;                     // DEPRECATED: Products display design mockups
   icon_url?: string;                      // Product symbol/icon URL for selection grids

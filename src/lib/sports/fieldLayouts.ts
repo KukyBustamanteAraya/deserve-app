@@ -1,7 +1,7 @@
 // Sport-specific field layouts with position coordinates
 import { toEnglishSlug, isValidSpanishSlug } from './sportsMapping';
 
-export type SportSlug = 'soccer' | 'basketball' | 'volleyball' | 'baseball' | 'rugby' | 'golf' | 'crossfit' | 'training' | 'padel' | 'yoga-pilates';
+export type SportSlug = 'soccer' | 'futbol' | 'basketball' | 'volleyball' | 'baseball' | 'rugby' | 'golf' | 'crossfit' | 'training' | 'padel' | 'yoga-pilates';
 
 export interface FieldPosition {
   name: string;

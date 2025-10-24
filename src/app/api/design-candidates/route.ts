@@ -7,7 +7,7 @@ import { logger } from '@/lib/logger';
  * List design candidates for a team
  */
 export async function GET(request: NextRequest) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
   const { searchParams } = new URL(request.url);
   const team_id = searchParams.get('team_id');
 
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
  * Create new design candidate (captain only)
  */
 export async function POST(request: NextRequest) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   try {
     // Get authenticated user

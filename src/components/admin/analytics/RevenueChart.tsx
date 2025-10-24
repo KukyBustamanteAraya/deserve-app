@@ -102,13 +102,13 @@ export default function RevenueChart({ data }: Props) {
               tick={{ fill: '#9ca3af' }}
             />
             <YAxis
-              tickFormatter={(value) => `$${(value / 100).toLocaleString()}`}
+              tickFormatter={(value: any) => `$${(value / 100).toLocaleString()}`}
               fontSize={12}
               stroke="#9ca3af"
               tick={{ fill: '#9ca3af' }}
             />
             <Tooltip
-              labelFormatter={(label) => formatDate(label)}
+              labelFormatter={(label: any) => formatDate(label)}
               formatter={(value: number) => [formatCurrency(value), 'Revenue']}
               contentStyle={{
                 backgroundColor: 'rgba(17, 24, 39, 0.95)',

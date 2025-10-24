@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -61,12 +62,12 @@ export async function DELETE(request: NextRequest) {
         .eq('id', user.id);
 
       if (profileError) {
-        logger.error('[DeleteAccount] Error deleting profile:', profileError);
+        logger.error('[DeleteAccount] Error deleting profile:', toError(profileError));
       }
 
       logger.debug('[DeleteAccount] Cleaned up related data');
     } catch (cleanupError) {
-      logger.error('[DeleteAccount] Error during data cleanup:', cleanupError);
+      logger.error('[DeleteAccount] Error during data cleanup', toError(cleanupError));
       // Continue anyway - we still want to delete the auth user
     }
 
@@ -74,7 +75,7 @@ export async function DELETE(request: NextRequest) {
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
 
     if (deleteError) {
-      logger.error('[DeleteAccount] Failed to delete auth user:', deleteError);
+      logger.error('[DeleteAccount] Failed to delete auth user:', toSupabaseError(deleteError));
       return NextResponse.json(
         { error: 'Failed to delete account', details: deleteError.message },
         { status: 500 }
@@ -92,7 +93,7 @@ export async function DELETE(request: NextRequest) {
     );
 
   } catch (error: any) {
-    logger.error('[DeleteAccount] Unexpected error:', error);
+    logger.error('[DeleteAccount] Unexpected error:', toError(error));
     return NextResponse.json(
       { error: 'An unexpected error occurred', details: error.message },
       { status: 500 }

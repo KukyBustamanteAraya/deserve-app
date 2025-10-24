@@ -4,11 +4,12 @@ import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client'
 import { ordersQuerySchema } from '@/types/orders';
 import type { OrdersListResponse } from '@/types/orders';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { apiSuccess, apiError, apiUnauthorized, apiValidationError } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Require authentication
     const user = await requireAuth(supabase);
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
     // Get orders with pagination
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
-      .select('id, status, currency, subtotal_cents, total_cents, notes, created_at')
+      .select('id, status, currency, subtotal_clp, total_clp, notes, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
       return apiUnauthorized();
     }
 
-    logger.error('Unexpected error in orders list:', error);
+    logger.error('Unexpected error in orders list:', toError(error));
     return apiError('Internal server error');
   }
 }

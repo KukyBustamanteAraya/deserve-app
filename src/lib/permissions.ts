@@ -1,4 +1,4 @@
-import type { RoleType, TeamWithDetails, UserPermissions } from '@/types/team-hub';
+import type { RoleType, TeamWithDetails, UserPermissions } from '@/types/permissions';
 
 /**
  * Calculate user permissions based on their role and team settings
@@ -59,14 +59,12 @@ export function calculatePermissions(
   // Member permissions (most restrictive)
   const canApprove = teamSettings.approval_mode === 'any_member';
   const canVote = ['voting', 'multi_design_vote', 'any_member'].includes(teamSettings.approval_mode);
-  const canSelfService = teamSettings.self_service_enabled &&
-    (teamSettings.player_info_mode === 'self_service' || teamSettings.player_info_mode === 'hybrid');
 
   return {
     canApproveDesign: canApprove,
     canVoteOnDesign: canVote,
-    canEditRoster: canSelfService, // Can only edit own info
-    canViewFullRoster: false, // Cannot see full roster
+    canEditRoster: true, // All team members can edit roster (player-run teams)
+    canViewFullRoster: true, // All team members can view full roster
     canManagePayments: false,
     canManageMembers: false,
     canAccessSettings: false,

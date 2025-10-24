@@ -3,6 +3,7 @@ import { writeFile, readFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 const SETTINGS_DIR = join(process.cwd(), 'data');
 const SETTINGS_FILE = join(SETTINGS_DIR, 'theme-settings.json');
@@ -28,7 +29,7 @@ async function getSettings(): Promise<ThemeSettings> {
     const data = await readFile(SETTINGS_FILE, 'utf-8');
     return JSON.parse(data);
   } catch (error) {
-    logger.error('Error reading settings:', error);
+    logger.error('Error reading settings:', toError(error));
     return {};
   }
 }
@@ -40,7 +41,7 @@ async function saveSettings(settings: ThemeSettings) {
     }
     await writeFile(SETTINGS_FILE, JSON.stringify(settings, null, 2));
   } catch (error) {
-    logger.error('Error saving settings:', error);
+    logger.error('Error saving settings:', toError(error));
     throw error;
   }
 }
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    logger.error('Error saving logo settings:', error);
+    logger.error('Error saving logo settings:', toError(error));
     return NextResponse.json(
       { error: 'Failed to save logo settings' },
       { status: 500 }
@@ -78,9 +79,12 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const settings = await getSettings();
-    return NextResponse.json(settings.logo || {}, { status: 200 });
+    const response = NextResponse.json(settings.logo || {}, { status: 200 });
+    // Add cache headers to speed up repeated requests
+    response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+    return response;
   } catch (error) {
-    logger.error('Error getting logo settings:', error);
+    logger.error('Error getting logo settings:', toError(error));
     return NextResponse.json(
       { error: 'Failed to get logo settings' },
       { status: 500 }

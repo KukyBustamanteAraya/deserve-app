@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useQuickDesignRequest, UserRole } from '@/store/quick-design-request';
+import { useQuickDesignRequest } from '@/store/quick-design-request';
 import { createClient } from '@/lib/supabase/client';
 
 export default function OrganizationStep() {
@@ -26,18 +26,13 @@ export default function OrganizationStep() {
     logoUrl,
     additionalSpecifications,
     email,
-    role,
-    customRole,
     isAuthenticated,
     setOrganizationType,
     setLogoFile,
     setLogoUrl,
     setAdditionalSpecifications,
     setEmail,
-    setRole,
-    setCustomRole,
     setIsAuthenticated,
-    canProceedToStep3,
     reset,
   } = useQuickDesignRequest();
 
@@ -50,17 +45,17 @@ export default function OrganizationStep() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string>('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [emailExists, setEmailExists] = useState(false);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
   // Accordion state - track which section is expanded
-  const [expandedSection, setExpandedSection] = useState<'organizationType' | 'role' | 'logo'>('organizationType');
+  const [expandedSection, setExpandedSection] = useState<'organizationType' | 'logo'>('organizationType');
 
   // Check if component has mounted
   useEffect(() => {
     setMounted(true);
-    // Clear organization type and role on mount to ensure nothing is pre-selected
+    // Clear organization type on mount to ensure nothing is pre-selected
     setOrganizationType(null);
-    setRole(null);
-    setCustomRole('');
   }, []);
 
   // Check if user is authenticated
@@ -79,19 +74,15 @@ export default function OrganizationStep() {
   useEffect(() => {
     if (!mounted || selectedTeamId) return; // Skip if not mounted or using existing team
 
-    // If both organizationType and role are filled, expand logo
-    if (organizationType && role && (role !== 'other' || customRole.trim())) {
+    // If organizationType is filled, expand logo
+    if (organizationType) {
       setExpandedSection('logo');
-    }
-    // If organizationType is filled, expand role
-    else if (organizationType) {
-      setExpandedSection('role');
     }
     // Otherwise, keep organizationType expanded
     else {
       setExpandedSection('organizationType');
     }
-  }, [organizationType, role, customRole, mounted, selectedTeamId]);
+  }, [organizationType, mounted, selectedTeamId]);
 
   // Check if selected team has a logo
   useEffect(() => {
@@ -140,6 +131,39 @@ export default function OrganizationStep() {
     }
   };
 
+  // Check if email exists when user enters it
+  const handleEmailCheck = async (emailValue: string) => {
+    // Only check if email is valid format
+    if (!isValidEmail(emailValue)) {
+      setEmailExists(false);
+      return;
+    }
+
+    setIsCheckingEmail(true);
+    try {
+      const response = await fetch('/api/check-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: emailValue }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.data?.exists) {
+        setEmailExists(true);
+      } else {
+        setEmailExists(false);
+      }
+    } catch (err) {
+      console.error('Error checking email:', err);
+      setEmailExists(false);
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!canSubmit) return;
 
@@ -164,8 +188,8 @@ export default function OrganizationStep() {
       formData.append('organization_type', organizationType || '');
       formData.append('additional_specifications', additionalSpecifications);
       formData.append('email', email);
-      formData.append('role', role || '');
-      formData.append('custom_role', customRole || '');
+      formData.append('role', 'manager'); // Default to manager since creator always gets manager permissions
+      formData.append('custom_role', '');
       formData.append('is_authenticated', isAuthenticated.toString());
 
       if (logoFile) {
@@ -186,11 +210,39 @@ export default function OrganizationStep() {
       // Success! Show success message briefly, then redirect
       setShowSuccess(true);
       const teamSlug = result.data?.team_slug;
+      const autoLoginToken = result.data?.auto_login_token;
+      const userWasCreated = result.data?.user_created;
+      const redirectUrl = result.data?.redirect_url; // Use the redirect URL from API
+
+      // SECURITY: Only auto-login if this was a NEWLY CREATED user
+      // Never auto-login existing users (that would be a security vulnerability)
+      if (autoLoginToken && !isAuthenticated && userWasCreated) {
+        try {
+          // Use the token to verify and establish session
+          const { error: authError } = await supabase.auth.verifyOtp({
+            token_hash: autoLoginToken,
+            type: 'magiclink',
+          });
+
+          if (authError) {
+            console.error('Auto-login failed:', authError);
+            // Continue with redirect anyway, user can log in manually
+          } else {
+            console.log('Auto-login successful for new user!');
+          }
+        } catch (authErr) {
+          console.error('Error during auto-login:', authErr);
+          // Continue with redirect anyway
+        }
+      }
 
       // Wait 1.5 seconds to show success message, then redirect
       setTimeout(() => {
         reset(); // Clear wizard state
-        if (teamSlug) {
+        // Use redirect_url from API if available (includes onboarding params for institutions)
+        if (redirectUrl) {
+          router.push(redirectUrl);
+        } else if (teamSlug) {
           router.push(`/mi-equipo/${teamSlug}?request_created=true`);
         } else {
           router.push('/catalog?request_created=true');
@@ -213,43 +265,11 @@ export default function OrganizationStep() {
 
   const selectedMockup = mockups[selectedMockupIndex];
 
-  // Base roles for single teams
-  const baseRoles: { value: UserRole; label: string; description: string; icon: string }[] = [
-    {
-      value: 'player',
-      label: 'Jugador',
-      description: 'Soy parte del equipo',
-      icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
-    },
-    {
-      value: 'coach',
-      label: 'Entrenador',
-      description: 'Dirijo y entreno al equipo',
-      icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
-    },
-    {
-      value: 'manager',
-      label: 'Manager',
-      description: 'Gestiono y administro el equipo',
-      icon: 'M12 14l9-5-9-5-9 5 9 5z M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z',
-    },
-  ];
-
-  // Additional role for institutions
-  const otherRole = {
-    value: 'other' as UserRole,
-    label: 'Otro',
-    description: 'Especifica tu rol',
-    icon: 'M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-  };
-
-  // Show "Other" option only for institutions
-  const roles = organizationType === 'institution' ? [...baseRoles, otherRole] : baseRoles;
-
-  // Validation: need org type, role, and email (if not authenticated)
+  // Validation: need org type and email (if not authenticated)
+  // Role is no longer required from user - will default to 'manager' on submission
   const canSubmit = selectedTeamId
     ? true
-    : canProceedToStep3() && (isAuthenticated || (email.trim() && isValidEmail(email)));
+    : organizationType && (isAuthenticated || (email.trim() && isValidEmail(email)));
 
   if (!mounted) {
     return null;
@@ -411,119 +431,6 @@ export default function OrganizationStep() {
             </div>
           )}
 
-          {/* Role Selection - Only show for NEW teams */}
-          {!selectedTeamId && (
-            <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-2xl overflow-hidden">
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-
-              {/* Collapsible Header */}
-              <button
-                onClick={() => setExpandedSection('role')}
-                className="w-full p-2.5 sm:p-3 flex items-center justify-between hover:bg-white/5 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-xs sm:text-sm font-semibold text-gray-300">
-                    ¿Cuál es tu rol? *
-                  </span>
-                  {role && expandedSection !== 'role' && (
-                    <span className="text-[10px] sm:text-xs text-[#e21c21] font-medium">
-                      {role === 'player' && 'Jugador'}
-                      {role === 'coach' && 'Entrenador'}
-                      {role === 'manager' && 'Manager'}
-                      {role === 'other' && (customRole || 'Otro')}
-                    </span>
-                  )}
-                </div>
-                <svg
-                  className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-400 transition-transform ${
-                    expandedSection === 'role' ? 'rotate-180' : ''
-                  }`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {/* Collapsible Content */}
-              <div
-                className={`transition-all duration-300 ease-in-out ${
-                  expandedSection === 'role'
-                    ? 'max-h-[500px] opacity-100'
-                    : 'max-h-0 opacity-0 overflow-hidden'
-                }`}
-              >
-                <div className="px-2.5 sm:px-3 pb-2.5 sm:pb-3">
-                  <p className="text-[10px] sm:text-xs text-gray-400 mb-2">
-                    Selecciona la opción que mejor te describe
-                  </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {roles.map((roleOption) => (
-                    <button
-                      key={roleOption.value}
-                      onClick={() => {
-                        setRole(roleOption.value);
-                        // Clear customRole when switching away from "other"
-                        if (roleOption.value !== 'other') {
-                          setCustomRole('');
-                        }
-                      }}
-                      className={`relative p-2 sm:p-2.5 rounded-lg border-2 transition-all text-left overflow-hidden group ${
-                        role === roleOption.value
-                          ? 'border-[#e21c21] bg-[#e21c21]/10'
-                          : 'border-gray-600 bg-gray-800/50 hover:border-gray-500'
-                      }`}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                      <div className="relative flex items-start gap-2">
-                        <div className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${
-                          role === roleOption.value ? 'bg-[#e21c21]/20' : 'bg-gray-700'
-                        }`}>
-                          <svg
-                            className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${role === roleOption.value ? 'text-[#e21c21]' : 'text-gray-400'}`}
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={roleOption.icon} />
-                          </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className={`font-semibold text-[11px] sm:text-xs mb-0.5 ${role === roleOption.value ? 'text-[#e21c21]' : 'text-white'}`}>
-                            {roleOption.label}
-                          </h4>
-                          <p className="text-[10px] sm:text-xs text-gray-400 leading-tight">
-                            {roleOption.description}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Custom Role Input - Only show when "Other" is selected */}
-                {role === 'other' && (
-                  <div className="mt-2">
-                    <label htmlFor="custom-role" className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1">
-                      Especifica tu rol *
-                    </label>
-                    <input
-                      id="custom-role"
-                      type="text"
-                      value={customRole}
-                      onChange={(e) => setCustomRole(e.target.value)}
-                      placeholder="Ej: Presidente del club..."
-                      className="w-full px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm bg-gray-900/50 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-[#e21c21] focus:ring-2 focus:ring-[#e21c21]/50 transition-all outline-none"
-                    />
-                  </div>
-                )}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Logo Upload - Show for new teams OR existing teams without logo */}
           {(!selectedTeamId || !teamHasLogo) && (
             <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-xl shadow-2xl overflow-hidden">
@@ -637,16 +544,48 @@ export default function OrganizationStep() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    // Clear email exists state when typing
+                    if (emailExists) setEmailExists(false);
+                  }}
+                  onBlur={(e) => handleEmailCheck(e.target.value)}
                   placeholder="tu@email.com"
                   className={`w-full px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm bg-gray-900/50 border rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-[#e21c21]/50 transition-all outline-none ${
                     email && !isValidEmail(email)
                       ? 'border-red-500 focus:border-red-500'
+                      : emailExists
+                      ? 'border-yellow-500 focus:border-yellow-500'
                       : 'border-gray-600 focus:border-[#e21c21]'
                   }`}
                 />
                 {email && !isValidEmail(email) && (
                   <p className="mt-1 text-[10px] sm:text-xs text-red-400">Por favor ingresa un email válido</p>
+                )}
+                {isCheckingEmail && (
+                  <p className="mt-1 text-[10px] sm:text-xs text-gray-400">Verificando email...</p>
+                )}
+                {emailExists && !isCheckingEmail && (
+                  <div className="mt-2 flex items-start gap-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                    <svg className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-yellow-200 text-[10px] sm:text-xs font-semibold mb-1">
+                        Ya tienes una cuenta con este email
+                      </p>
+                      <button
+                        onClick={() => {
+                          // Store current path to return after login
+                          const returnPath = `/designs/${designSlug}/request/organization`;
+                          router.push(`/auth/sign-in?redirect=${encodeURIComponent(returnPath)}`);
+                        }}
+                        className="text-[10px] sm:text-xs text-yellow-300 hover:text-yellow-100 underline font-semibold"
+                      >
+                        Inicia sesión aquí para continuar →
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

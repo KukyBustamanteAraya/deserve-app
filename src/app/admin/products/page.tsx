@@ -23,7 +23,7 @@ interface ProductWithUrl extends Product {
 export default async function AdminProductsPage() {
   await requireAdmin();
 
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   // Fetch all products with sport_ids
   const { data: products, error } = await supabase

@@ -25,7 +25,7 @@ interface Design {
 export default async function AdminDesignsPage() {
   await requireAdmin();
 
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   // Fetch all designs with mockups
   const { data: designs, error } = await supabase
@@ -60,8 +60,8 @@ export default async function AdminDesignsPage() {
   // Transform data: Add summary info
   const transformedDesigns: Design[] = (designs || []).map((design: any) => {
     const mockups = design.design_mockups || [];
-    const availableSports = [...new Set(mockups.map((m: any) => m.sports?.slug).filter(Boolean))];
-    const availableProductTypes = [...new Set(mockups.map((m: any) => m.product_type_slug).filter(Boolean))];
+    const availableSports = [...new Set(mockups.map((m: any) => m.sports?.slug).filter(Boolean))] as string[];
+    const availableProductTypes = [...new Set(mockups.map((m: any) => m.product_type_slug).filter(Boolean))] as string[];
     const primaryMockup = mockups.find((m: any) => m.is_primary) || mockups[0];
 
     return {

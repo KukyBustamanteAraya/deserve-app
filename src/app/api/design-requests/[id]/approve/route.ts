@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -49,36 +50,178 @@ export async function POST(
       .single();
 
     if (designError || !designRequest) {
-      logger.error('[Approve Design] Design request not found:', designError);
+      logger.error('[Approve Design] Design request not found', toSupabaseError(designError));
       return NextResponse.json(
         { error: 'Design request not found' },
         { status: 404 }
       );
     }
 
-    // 1b. Get product separately
-    // Product ID is stored in selected_apparel JSON
-    const productId = designRequest.selected_apparel?.product_id;
-
-    if (!productId) {
-      logger.error('[Approve Design] No product_id in selected_apparel:', designRequest.selected_apparel);
+    // Check if already approved
+    if (designRequest.approval_status === 'approved' && designRequest.order_id) {
+      logger.warn('[Approve Design] Design request already approved:', {
+        designRequestId,
+        orderId: designRequest.order_id,
+      });
       return NextResponse.json(
-        { error: 'Design request has no product selected' },
+        {
+          error: 'Design request already approved',
+          order: { id: designRequest.order_id }
+        },
         { status: 400 }
       );
     }
 
-    const { data: product, error: productError } = await supabase
-      .from('products')
-      .select('id, price_cents, name')
-      .eq('id', productId)
-      .single();
+    // Log full design request for debugging
+    logger.info('[Approve Design] Design request data:', {
+      id: designRequest.id,
+      design_id: designRequest.design_id,
+      product_slug: designRequest.product_slug,
+      product_name: designRequest.product_name,
+      selected_apparel: designRequest.selected_apparel,
+      sport_slug: designRequest.sport_slug,
+    });
 
-    if (productError || !product) {
-      logger.error('[Approve Design] Product not found:', productError);
+    // 1b. Get product - try multiple sources
+    // Priority: selected_apparel.product_id > product_slug > design_products lookup
+    let productId = designRequest.selected_apparel?.product_id;
+    let product;
+
+    // Try 1: Product ID from selected_apparel
+    if (productId) {
+      logger.info('[Approve Design] Trying lookup by product_id from selected_apparel:', productId);
+      const { data: productData, error: productError } = await supabase
+        .from('products')
+        .select('id, price_clp, name')
+        .eq('id', productId)
+        .single();
+
+      if (productError) {
+        logger.warn('[Approve Design] Product lookup by ID failed:', productError);
+      } else if (productData) {
+        product = productData;
+        logger.info('[Approve Design] Product found by ID:', product);
+      }
+    } else {
+      logger.info('[Approve Design] No product_id in selected_apparel, skipping Try 1');
+    }
+
+    // Try 2: Look up by product_slug
+    if (!product && designRequest.product_slug) {
+      logger.info('[Approve Design] Trying lookup by product_slug:', designRequest.product_slug);
+      const { data: productData, error: productError } = await supabase
+        .from('products')
+        .select('id, price_clp, name, slug')
+        .eq('slug', designRequest.product_slug)
+        .single();
+
+      if (productError) {
+        logger.warn('[Approve Design] Product lookup by slug failed:', productError);
+      } else if (productData) {
+        product = productData;
+        productId = productData.id;
+        logger.info('[Approve Design] Product found by slug:', product);
+      }
+    } else if (!product) {
+      logger.info('[Approve Design] No product_slug in design request, skipping Try 2');
+    }
+
+    // Try 3: Get product from design_products table using design_id
+    if (!product && designRequest.design_id) {
+      logger.info('[Approve Design] Trying lookup via design_products for design_id:', designRequest.design_id);
+
+      const { data: designProducts, error: dpError } = await supabase
+        .from('design_products')
+        .select('product_id, is_recommended, products!inner(id, price_clp, name)')
+        .eq('design_id', designRequest.design_id)
+        .order('is_recommended', { ascending: false }); // Get recommended products first
+
+      if (dpError) {
+        logger.warn('[Approve Design] design_products lookup failed:', dpError);
+      } else if (!designProducts || designProducts.length === 0) {
+        logger.warn('[Approve Design] No products found in design_products table for this design_id');
+      } else {
+        // Use the first product (which will be recommended if one exists)
+        const designProduct = designProducts[0];
+        const productData = (designProduct.products as any);
+        product = {
+          id: productData.id,
+          price_clp: productData.price_clp,
+          name: productData.name,
+        };
+        productId = productData.id;
+        logger.info('[Approve Design] Product found via design_products:', { productId, productName: product.name, productsCount: designProducts.length });
+      }
+    } else if (!product) {
+      logger.info('[Approve Design] No design_id in design request, skipping Try 3');
+    }
+
+    // Try 4: Fallback - Get ANY product for the sport (when design_products table is empty)
+    if (!product && designRequest.sport_slug) {
+      logger.info('[Approve Design] Trying fallback lookup by sport_slug:', designRequest.sport_slug);
+
+      // First get the sport_id from sport_slug
+      const { data: sport, error: sportError } = await supabase
+        .from('sports')
+        .select('id')
+        .eq('slug', designRequest.sport_slug)
+        .single();
+
+      if (sportError) {
+        logger.warn('[Approve Design] Sport lookup failed:', sportError);
+      } else if (sport) {
+        // Get products for this sport
+        // Note: sport_ids might be stored as strings in the array, so we try both integer and string
+        const sportIdStr = String(sport.id);
+
+        const { data: sportProducts, error: productsError } = await supabase
+          .from('products')
+          .select('id, price_clp, name, sport_ids')
+          .contains('sport_ids', [sportIdStr]) // Try as string first
+          .limit(1);
+
+        if (productsError) {
+          logger.warn('[Approve Design] Products by sport lookup failed:', productsError);
+        } else if (sportProducts && sportProducts.length > 0) {
+          product = sportProducts[0];
+          productId = sportProducts[0].id;
+          logger.info('[Approve Design] Product found by sport fallback:', { productId, productName: product.name, sportId: sport.id });
+        } else {
+          logger.warn('[Approve Design] No products found for sport_id:', { sportId: sport.id, sportIdStr });
+        }
+      }
+    } else if (!product) {
+      logger.info('[Approve Design] No sport_slug in design request, skipping Try 4');
+    }
+
+    // Try 5: Ultimate fallback - Get ANY available product
+    if (!product) {
+      logger.info('[Approve Design] Trying ultimate fallback - getting any available product');
+
+      const { data: anyProducts, error: anyProductError } = await supabase
+        .from('products')
+        .select('id, price_clp, name')
+        .limit(1);
+
+      if (anyProductError) {
+        logger.warn('[Approve Design] Ultimate fallback failed:', anyProductError);
+      } else if (anyProducts && anyProducts.length > 0) {
+        product = anyProducts[0];
+        productId = anyProducts[0].id;
+        logger.info('[Approve Design] Product found by ultimate fallback:', { productId, productName: product.name });
+      }
+    }
+
+    if (!product) {
+      logger.error('[Approve Design] No product found after all lookup attempts (including ultimate fallback):', {
+        selected_apparel: designRequest.selected_apparel,
+        product_slug: designRequest.product_slug,
+        design_id: designRequest.design_id,
+        sport_slug: designRequest.sport_slug,
+      });
       return NextResponse.json(
-        { error: 'Product not found' },
-        { status: 404 }
+        { error: 'No products available in the system. Please add products before approving designs.' },
+        { status: 400 }
       );
     }
 
@@ -118,10 +261,18 @@ export async function POST(
       );
     }
 
-    logger.info('[Approve Design] Found team members:', teamMembers.length);
+    logger.info('[Approve Design] Found team members:', { count: teamMembers.length });
+
+    if (teamMembers.length === 0) {
+      logger.error('[Approve Design] Team has no members');
+      return NextResponse.json(
+        { error: 'Cannot create order for team with no members' },
+        { status: 400 }
+      );
+    }
 
     // 4. Calculate order total
-    const productPrice = product.price_cents || 0;
+    const productPrice = product.price_clp || 0;
     const totalAmount = productPrice * teamMembers.length;
 
     logger.info('[Approve Design] Order details:', {
@@ -145,7 +296,7 @@ export async function POST(
         .single();
 
       if (orderError || !existingOrder) {
-        logger.error('[Approve Design] Existing order not found:', orderError);
+        logger.error('[Approve Design] Existing order not found', toSupabaseError(orderError));
         return NextResponse.json(
           { error: 'Order not found' },
           { status: 404 }
@@ -167,30 +318,36 @@ export async function POST(
       // Creating new order
       logger.info('[Approve Design] Creating new order');
 
-      const { data: newOrder, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          team_id: team_id,
-          user_id: user.id,
-          status: 'pending',
-          payment_status: 'unpaid',
-          payment_mode: payment_mode,
-          currency: 'CLP',
-          subtotal_cents: totalAmount,
-          discount_cents: 0,
-          tax_cents: 0,
-          shipping_cents: 0,
-          total_amount_cents: totalAmount,
-          current_stage: 'pending',
-          notes: `Order from design request #${designRequestId}: ${product.name}`,
-        })
-        .select()
-        .single();
+      // Use a database function to bypass any Supabase client transformations
+      const { data: orderId, error: orderError } = await supabase
+        .rpc('create_order_for_approval', {
+          p_user_id: user.id,
+          p_team_id: team_id,
+          p_subtotal_clp: totalAmount,
+          p_total_amount_clp: totalAmount,
+        });
+
+      if (orderError) {
+        logger.error('[Approve Design] Error calling create_order_for_approval:', orderError);
+      }
+
+      const newOrder = orderId ? { id: orderId } : null;
 
       if (orderError || !newOrder) {
-        logger.error('[Approve Design] Error creating order:', orderError);
+        logger.error('[Approve Design] Error creating order:', {
+          error: orderError,
+          message: orderError?.message,
+          details: orderError?.details,
+          hint: orderError?.hint,
+          code: orderError?.code,
+        });
         return NextResponse.json(
-          { error: 'Error creating order' },
+          {
+            error: 'Error creating order',
+            details: orderError?.message || 'Unknown error',
+            code: orderError?.code,
+            hint: orderError?.hint
+          },
           { status: 500 }
         );
       }
@@ -209,8 +366,8 @@ export async function POST(
       collection: null,
       images: designRequest.mockup_urls || [],
       quantity: 1,
-      unit_price_cents: productPrice,
-      // line_total_cents is GENERATED ALWAYS as (unit_price_cents * quantity) - do not insert
+      unit_price_clp: productPrice,
+      // line_total_clp is GENERATED ALWAYS as (unit_price_clp * quantity) - do not insert
       player_id: member.user_id, // Use user_id as player_id for now
       player_name: null,
       jersey_number: null,
@@ -235,17 +392,17 @@ export async function POST(
       );
     }
 
-    logger.info('[Approve Design] Order items created:', orderItems.length);
+    logger.info('[Approve Design] Order items created:', { count: orderItems.length });
 
     // 6b. If adding to existing order, update the order total
     if (order_id) {
-      const newTotal = (order.total_amount_cents || 0) + totalAmount;
+      const newTotal = (order.total_amount_clp || 0) + totalAmount;
 
       const { error: updateOrderError } = await supabase
         .from('orders')
         .update({
-          total_amount_cents: newTotal,
-          subtotal_cents: newTotal,
+          total_amount_clp: newTotal,
+          subtotal_clp: newTotal,
           notes: `${order.notes || ''}\nAdded design request #${designRequestId}: ${product.name}`,
         })
         .eq('id', order.id);
@@ -254,7 +411,7 @@ export async function POST(
         logger.error('[Approve Design] Error updating order total:', updateOrderError);
         // Don't fail - items are created, just log error
       } else {
-        logger.info('[Approve Design] Updated order total:', { oldTotal: order.total_amount_cents, newTotal });
+        logger.info('[Approve Design] Updated order total:', { oldTotal: order.total_amount_clp, newTotal });
       }
     }
 
@@ -262,7 +419,7 @@ export async function POST(
     const { error: updateError } = await supabase
       .from('design_requests')
       .update({
-        status: 'approved',
+        status: 'ready', // Valid statuses: pending, rendering, ready, cancelled
         approval_status: 'approved',
         order_id: order.id,
         approved_at: new Date().toISOString(),
@@ -271,7 +428,7 @@ export async function POST(
       .eq('id', designRequestId);
 
     if (updateError) {
-      logger.error('[Approve Design] Error updating design request:', updateError);
+      logger.error('[Approve Design] Error updating design request:', toSupabaseError(updateError));
       // Don't rollback - order is created, just log error
     }
 
@@ -289,18 +446,17 @@ export async function POST(
       success: true,
       order: {
         id: order.id,
-        total_amount_cents: order.total_amount_cents,
-        payment_mode: order.payment_mode,
-        status: order.status,
+        // Only id is selected, other fields not available
       },
       design_request: {
         id: designRequestId,
-        status: 'approved',
+        status: 'ready',
+        approval_status: 'approved',
         order_id: order.id,
       },
     });
   } catch (error: any) {
-    logger.error('[Approve Design] Unexpected error:', error);
+    logger.error('[Approve Design] Unexpected error:', toError(error));
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }

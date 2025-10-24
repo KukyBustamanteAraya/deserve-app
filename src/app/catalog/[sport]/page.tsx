@@ -3,6 +3,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +35,7 @@ async function getCatalogData(sportSlug: string) {
 
     return result.data;
   } catch (error) {
-    logger.error('Error fetching catalog data:', error);
+    logger.error('Error fetching catalog data:', toError(error));
     return null;
   }
 }

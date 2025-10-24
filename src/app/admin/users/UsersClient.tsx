@@ -16,6 +16,7 @@ interface UserSummary {
   full_name?: string;
   avatar_url?: string;
   is_admin: boolean;
+  user_type?: 'player' | 'manager' | 'athletic_director' | 'hybrid' | null;
   created_at: string;
   updated_at: string;
   team_count: number;
@@ -38,7 +39,7 @@ export default function UsersClient() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'admin' | 'with_teams' | 'with_orders'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'admin' | 'with_teams' | 'with_orders' | 'player' | 'manager' | 'athletic_director' | 'hybrid'>('all');
   const [selectedUser, setSelectedUser] = useState<UserSummary | null>(null);
 
   useEffect(() => {
@@ -88,6 +89,18 @@ export default function UsersClient() {
       case 'with_orders':
         filtered = filtered.filter(u => u.order_count > 0);
         break;
+      case 'player':
+        filtered = filtered.filter(u => u.user_type === 'player');
+        break;
+      case 'manager':
+        filtered = filtered.filter(u => u.user_type === 'manager');
+        break;
+      case 'athletic_director':
+        filtered = filtered.filter(u => u.user_type === 'athletic_director');
+        break;
+      case 'hybrid':
+        filtered = filtered.filter(u => u.user_type === 'hybrid');
+        break;
     }
 
     setFilteredUsers(filtered);
@@ -103,6 +116,24 @@ export default function UsersClient() {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  const getUserTypeBadge = (userType?: 'player' | 'manager' | 'athletic_director' | 'hybrid' | null) => {
+    if (!userType) return null;
+
+    const badges = {
+      player: { label: 'PLAYER', color: 'bg-blue-500/20 text-blue-400 border-blue-500/50' },
+      manager: { label: 'MANAGER', color: 'bg-purple-500/20 text-purple-400 border-purple-500/50' },
+      athletic_director: { label: 'ATHLETIC DIR', color: 'bg-green-500/20 text-green-400 border-green-500/50' },
+      hybrid: { label: 'HYBRID', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50' },
+    };
+
+    const badge = badges[userType];
+    return badge ? (
+      <span className={`px-1.5 sm:px-2 py-0.5 ${badge.color} text-[10px] sm:text-xs font-semibold rounded border whitespace-nowrap`}>
+        {badge.label}
+      </span>
+    ) : null;
   };
 
   return (
@@ -143,8 +174,8 @@ export default function UsersClient() {
             />
           </div>
 
-          {/* Filter Buttons */}
-          <div className="flex gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap">
+          {/* Filter Buttons - General */}
+          <div className="flex gap-1.5 sm:gap-2 flex-wrap">
             <button
               onClick={() => setFilterType('all')}
               className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all whitespace-nowrap ${
@@ -187,6 +218,51 @@ export default function UsersClient() {
             </button>
           </div>
         </div>
+
+        {/* User Type Filters */}
+        <div className="flex gap-1.5 sm:gap-2 flex-wrap border-t border-gray-700/50 pt-3 sm:pt-4">
+          <div className="text-gray-400 text-xs font-semibold w-full mb-1">User Types:</div>
+          <button
+            onClick={() => setFilterType('player')}
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all whitespace-nowrap ${
+              filterType === 'player'
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
+            }`}
+          >
+            Players
+          </button>
+          <button
+            onClick={() => setFilterType('manager')}
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all whitespace-nowrap ${
+              filterType === 'manager'
+                ? 'bg-purple-500 text-white'
+                : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
+            }`}
+          >
+            Managers
+          </button>
+          <button
+            onClick={() => setFilterType('athletic_director')}
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all whitespace-nowrap ${
+              filterType === 'athletic_director'
+                ? 'bg-green-500 text-white'
+                : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
+            }`}
+          >
+            Athletic Directors
+          </button>
+          <button
+            onClick={() => setFilterType('hybrid')}
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all whitespace-nowrap ${
+              filterType === 'hybrid'
+                ? 'bg-yellow-500 text-white'
+                : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
+            }`}
+          >
+            Hybrid
+          </button>
+        </div>
       </div>
 
       {/* Users List */}
@@ -227,7 +303,7 @@ export default function UsersClient() {
 
                   {/* Details */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="text-white font-semibold truncate text-sm sm:text-base">
                         {user.full_name || user.email}
                       </h3>
@@ -236,6 +312,7 @@ export default function UsersClient() {
                           ADMIN
                         </span>
                       )}
+                      {getUserTypeBadge(user.user_type)}
                     </div>
                     {user.full_name && (
                       <p className="text-gray-400 text-xs sm:text-sm truncate">{user.email}</p>

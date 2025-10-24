@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 interface Sport {
@@ -42,7 +43,16 @@ interface CatalogWithSportSelectorProps {
 }
 
 export function CatalogWithSportSelector({ sports }: CatalogWithSportSelectorProps) {
-  const [selectedSport, setSelectedSport] = useState<Sport | null>(sports[0] || null);
+  const searchParams = useSearchParams();
+  const sportFromUrl = searchParams.get('sport');
+
+  const [selectedSport, setSelectedSport] = useState<Sport | null>(() => {
+    if (sportFromUrl) {
+      const matchedSport = sports.find(s => s.slug === sportFromUrl);
+      return matchedSport || sports[0] || null;
+    }
+    return sports[0] || null;
+  });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [designs, setDesigns] = useState<Design[]>([]);
@@ -61,7 +71,7 @@ export function CatalogWithSportSelector({ sports }: CatalogWithSportSelectorPro
       setDesigns([]);
 
       try {
-        const productsResponse = await fetch(`/api/catalog/${selectedSport.slug}/products`);
+        const productsResponse = await fetch(`/api/catalog/${selectedSport!.slug}/products`);
         if (!productsResponse.ok) {
           throw new Error('Failed to fetch products');
         }
@@ -98,7 +108,7 @@ export function CatalogWithSportSelector({ sports }: CatalogWithSportSelectorPro
 
       try {
         const designsResponse = await fetch(
-          `/api/catalog/${selectedSport.slug}/${selectedProduct.product_type_slug}/designs`
+          `/api/catalog/${selectedSport!.slug}/${selectedProduct!.product_type_slug}/designs`
         );
 
         if (designsResponse.ok) {

@@ -1,6 +1,7 @@
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { redirect } from 'next/navigation';
 import AdminNav from './AdminNav';
+import { Toaster } from 'sonner';
 
 export default async function AdminLayout({
   children,
@@ -19,6 +20,7 @@ export default async function AdminLayout({
       <main className="max-w-7xl mx-auto py-3 sm:py-6 px-3 sm:px-6 lg:px-8">
         {children}
       </main>
+      <Toaster position="top-right" richColors closeButton />
     </div>
   );
 }

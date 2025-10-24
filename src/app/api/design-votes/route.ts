@@ -7,7 +7,7 @@ import { logger } from '@/lib/logger';
  * Get votes for a specific design candidate
  */
 export async function GET(request: NextRequest) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
   const { searchParams } = new URL(request.url);
   const candidate_id = searchParams.get('candidate_id');
 
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
  * Cast a vote on a design candidate (team members only, one vote per user)
  */
 export async function POST(request: NextRequest) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   try {
     // Get authenticated user

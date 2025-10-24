@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { z } from 'zod';
+import { autoPopulateRoster } from '@/lib/roster/auto-populate';
 
 const CreateSubTeamSchema = z.object({
   name: z.string().min(1).max(255),
@@ -11,18 +13,22 @@ const CreateSubTeamSchema = z.object({
   level: z.string().optional(),
   head_coach_user_id: z.string().uuid().optional(),
   coordinator_user_id: z.string().uuid().optional(),
-  colors: z.record(z.any()).optional(),
+  coach_name: z.string().optional(), // NEW: Coach name as text (before user account exists)
+  colors: z.record(z.string(), z.any()).optional(),
   logo_url: z.string().url().optional(),
   season_year: z.string().optional(),
   notes: z.string().optional(),
+  design_request_id: z.number().int().positive().optional(),
+  auto_populate_roster: z.boolean().optional(),
 });
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const { slug } = await params;
+    const supabase = await createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -34,7 +40,7 @@ export async function GET(
     const { data: institution, error: teamError } = await supabase
       .from('teams')
       .select('id')
-      .eq('slug', params.slug)
+      .eq('slug', slug)
       .eq('team_type', 'institution')
       .single();
 
@@ -77,7 +83,7 @@ export async function GET(
     return NextResponse.json({ sub_teams: subTeams || [] });
 
   } catch (error) {
-    logger.error('Error in sub-teams GET:', error);
+    logger.error('Error in sub-teams GET:', toError(error));
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -87,10 +93,11 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const { slug } = await params;
+    const supabase = await createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -102,7 +109,7 @@ export async function POST(
     const { data: institution, error: teamError } = await supabase
       .from('teams')
       .select('id')
-      .eq('slug', params.slug)
+      .eq('slug', slug)
       .eq('team_type', 'institution')
       .single();
 
@@ -130,7 +137,7 @@ export async function POST(
     const validatedData = CreateSubTeamSchema.parse(body);
 
     // Generate slug if not provided
-    const slug = validatedData.slug || validatedData.name.toLowerCase()
+    const subTeamSlug = validatedData.slug || validatedData.name.toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
 
@@ -140,12 +147,13 @@ export async function POST(
       .insert({
         institution_team_id: institution.id,
         name: validatedData.name,
-        slug,
+        slug: subTeamSlug,
         sport_id: validatedData.sport_id,
         gender_category: validatedData.gender_category || 'male',
         level: validatedData.level,
         head_coach_user_id: validatedData.head_coach_user_id,
         coordinator_user_id: validatedData.coordinator_user_id,
+        coach_name: validatedData.coach_name, // NEW: Store coach name as text
         colors: validatedData.colors || {},
         logo_url: validatedData.logo_url,
         season_year: validatedData.season_year,
@@ -155,7 +163,7 @@ export async function POST(
       .single();
 
     if (createError) {
-      logger.error('Error creating sub-team:', createError);
+      logger.error('Error creating sub-team:', toSupabaseError(createError));
 
       if (createError.code === '23505') {
         return NextResponse.json(
@@ -170,6 +178,48 @@ export async function POST(
       );
     }
 
+    // Auto-populate roster if requested
+    if (validatedData.auto_populate_roster && validatedData.design_request_id) {
+      logger.info('[SubTeam POST] Auto-populating roster:', {
+        subTeamId: subTeam.id,
+        designRequestId: validatedData.design_request_id,
+      });
+
+      // Fetch design request to get estimated roster size
+      const { data: designRequest, error: drError } = await supabase
+        .from('design_requests')
+        .select('estimated_roster_size')
+        .eq('id', validatedData.design_request_id)
+        .single();
+
+      if (drError || !designRequest) {
+        logger.warn('[SubTeam POST] Could not fetch design request for auto-population:', drError);
+      } else if (designRequest.estimated_roster_size && designRequest.estimated_roster_size > 0) {
+        // Call auto-populate function
+        const result = await autoPopulateRoster(
+          supabase,
+          subTeam.id,
+          designRequest.estimated_roster_size,
+          user.id
+        );
+
+        if (result.success) {
+          logger.info('[SubTeam POST] Auto-population successful:', {
+            subTeamId: subTeam.id,
+            playersCreated: result.count,
+          });
+        } else {
+          logger.error('[SubTeam POST] Auto-population failed:', {
+            subTeamId: subTeam.id,
+            error: result.error,
+          });
+          // Don't fail the request - sub-team was created successfully
+        }
+      } else {
+        logger.info('[SubTeam POST] No roster size estimate, skipping auto-population');
+      }
+    }
+
     return NextResponse.json({ sub_team: subTeam }, { status: 201 });
 
   } catch (error) {
@@ -180,7 +230,7 @@ export async function POST(
       );
     }
 
-    logger.error('Error in sub-teams POST:', error);
+    logger.error('Error in sub-teams POST:', toError(error));
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

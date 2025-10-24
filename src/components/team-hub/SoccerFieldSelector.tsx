@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 interface SoccerFieldSelectorProps {
   selectedPosition: string;
@@ -28,6 +28,18 @@ const POSITIONS = [
 
 export function SoccerFieldSelector({ selectedPosition, onPositionChange }: SoccerFieldSelectorProps) {
   const [hoveredPosition, setHoveredPosition] = useState<string | null>(null);
+
+  const handlePositionClick = useCallback((positionName: string) => {
+    onPositionChange(positionName);
+  }, [onPositionChange]);
+
+  const handleMouseEnter = useCallback((positionName: string) => {
+    setHoveredPosition(positionName);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setHoveredPosition(null);
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -67,9 +79,9 @@ export function SoccerFieldSelector({ selectedPosition, onPositionChange }: Socc
             <button
               key={pos.name}
               type="button"
-              onClick={() => onPositionChange(pos.name)}
-              onMouseEnter={() => setHoveredPosition(pos.name)}
-              onMouseLeave={() => setHoveredPosition(null)}
+              onClick={() => handlePositionClick(pos.name)}
+              onMouseEnter={() => handleMouseEnter(pos.name)}
+              onMouseLeave={handleMouseLeave}
               className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${
                 isSelected
                   ? 'w-10 h-10 bg-yellow-400 border-4 border-white shadow-lg scale-110 z-10'
@@ -114,7 +126,7 @@ export function SoccerFieldSelector({ selectedPosition, onPositionChange }: Socc
             <button
               key={pos.name}
               type="button"
-              onClick={() => onPositionChange(pos.name)}
+              onClick={() => handlePositionClick(pos.name)}
               className={`px-3 py-2 text-sm rounded-md transition-colors ${
                 selectedPosition === pos.name
                   ? 'bg-blue-600 text-white font-medium'

@@ -3,6 +3,7 @@ import { useAuth } from '@/app/components/AuthProvider';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import type { UserProfile } from '@/types/user';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export function useUserProfile() {
   const { user, loading: authLoading } = useAuth();
@@ -30,14 +31,14 @@ export function useUserProfile() {
         if (!mounted) return;
 
         if (fetchError) {
-          logger.error('Error fetching profile:', fetchError);
+          logger.error('Error fetching profile:', toError(fetchError));
           setError(fetchError.message);
         } else {
           setProfile(data as UserProfile);
         }
       } catch (err) {
         if (!mounted) return;
-        logger.error('Unexpected error fetching profile:', err);
+        logger.error('Unexpected error fetching profile:', toError(err));
         setError('Failed to load profile');
       } finally {
         if (mounted) {

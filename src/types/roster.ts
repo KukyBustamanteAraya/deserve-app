@@ -67,4 +67,12 @@ export interface RosterPreviewResponse {
 // Aliases for backwards compatibility
 export type RosterCommitResult = RosterCommitResponse;
 export type CSVPreview = RosterPreviewResponse;
-export type ColumnMapping = any; // TODO: define proper type
+
+// Column mapping type for CSV import (maps CSV headers to database fields)
+export type ColumnMapping = {
+  csvNameField: string;
+  csvNumberField?: string;
+  csvSizeField?: string;
+  csvEmailField?: string;
+  csvPhoneField?: string;
+};

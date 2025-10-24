@@ -14,7 +14,7 @@ export async function getFabricRecommendations(
   productTypeSlug: string,
   sportSlug?: string | null
 ): Promise<FabricRecommendation[]> {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   // 1. Get universal recommendations for this product type
   const { data: universalRecs, error: universalError } = await supabase
@@ -64,7 +64,7 @@ export async function getFabricRecommendations(
  * @returns Canonical fabric name
  */
 export async function normalizeFabricName(fabricName: string): Promise<string> {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   const { data: alias } = await supabase
     .from('fabric_aliases')
@@ -79,7 +79,7 @@ export async function normalizeFabricName(fabricName: string): Promise<string> {
  * Get all available fabrics with details
  */
 export async function getAllFabrics() {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   const { data: fabrics, error } = await supabase
     .from('fabrics')

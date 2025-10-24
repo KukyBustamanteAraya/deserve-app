@@ -6,6 +6,7 @@
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export async function GET(
   request: Request,
@@ -13,7 +14,7 @@ export async function GET(
 ) {
   try {
     const { slug } = params;
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Parse query parameters
     const { searchParams } = new URL(request.url);
@@ -28,7 +29,7 @@ export async function GET(
       .single();
 
     if (designError || !design) {
-      logger.error('Design not found:', slug);
+      logger.error('Design not found', { slug });
       return apiError(`Design "${slug}" not found`, 404);
     }
 
@@ -106,7 +107,7 @@ export async function GET(
     });
 
     // Convert sets/maps to arrays
-    const sportsArray = Array.from(availableSports).map(s => JSON.parse(s));
+    const sportsArray = Array.from(availableSports).map((s: unknown) => JSON.parse(s as string));
     
     const mockupsGrouped = Array.from(mockupsBySport.entries()).map(([sportId, mockups]) => {
       const sport = sportsArray.find(s => s.id === sportId);
@@ -120,7 +121,7 @@ export async function GET(
 
     // 4. If sport filter is provided, filter mockups
     let filteredMockups = mockupsGrouped;
-    let currentSport = null;
+    let currentSport: { id: number; slug: string; name: string } | null = null;
 
     if (selectedSportSlug) {
       const selectedSport = sportsArray.find(s => s.slug === selectedSportSlug);
@@ -132,7 +133,7 @@ export async function GET(
       // Default to first available sport
       currentSport = sportsArray[0] || null;
       if (currentSport) {
-        filteredMockups = mockupsGrouped.filter(g => g.sport_id === currentSport.id);
+        filteredMockups = mockupsGrouped.filter(g => g.sport_id === currentSport!.id);
       }
     }
 
@@ -161,7 +162,7 @@ export async function GET(
     );
 
   } catch (error) {
-    logger.error('Unexpected error in design detail API:', error);
+    logger.error('Unexpected error in design detail API:', toError(error));
     return apiError('An unexpected error occurred');
   }
 }

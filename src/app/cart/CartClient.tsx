@@ -9,6 +9,7 @@ import CartSummary from '@/components/orders/CartSummary';
 import { formatCurrency } from '@/types/orders';
 import type { CartWithItems, CartItem } from '@/types/orders';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface CartClientProps {
   initialCart: CartWithItems;
@@ -38,7 +39,7 @@ export default function CartClient({ initialCart }: CartClientProps) {
         logger.error('Error updating cart item');
       }
     } catch (error) {
-      logger.error('Error updating cart item:', error);
+      logger.error('Error updating cart item:', toError(error));
     } finally {
       setUpdatingItems(prev => {
         const newSet = new Set(prev);
@@ -63,7 +64,7 @@ export default function CartClient({ initialCart }: CartClientProps) {
         logger.error('Error removing cart item');
       }
     } catch (error) {
-      logger.error('Error removing cart item:', error);
+      logger.error('Error removing cart item:', toError(error));
     } finally {
       setUpdatingItems(prev => {
         const newSet = new Set(prev);
@@ -135,7 +136,7 @@ export default function CartClient({ initialCart }: CartClientProps) {
                       {item.product_name}
                     </h3>
                     <p className="text-sm text-gray-500 mb-2">
-                      {formatCurrency(item.product_price_cents || 0, 'CLP')} por unidad
+                      {formatCurrency(item.product_price_clp || 0, 'CLP')} por unidad
                     </p>
 
                     <div className="flex items-center justify-between">
@@ -151,7 +152,7 @@ export default function CartClient({ initialCart }: CartClientProps) {
                       {/* Line Total */}
                       <div className="text-right">
                         <p className="text-lg font-semibold text-gray-900">
-                          {formatCurrency(item.line_total_cents || 0, 'CLP')}
+                          {formatCurrency(item.line_total_clp || 0, 'CLP')}
                         </p>
                       </div>
                     </div>

@@ -9,7 +9,7 @@ import { formatCurrency } from '@/types/orders';
 import type { CartWithItems } from '@/types/orders';
 
 interface ShippingAddress {
-  id: string;
+  id?: string;
   recipient_name: string;
   recipient_phone: string;
   street_address: string;
@@ -197,7 +197,7 @@ export default function CheckoutClient({ cart, userId, shippingAddresses }: Chec
                       name="shipping_address"
                       value={address.id}
                       checked={selectedAddressId === address.id}
-                      onChange={() => setSelectedAddressId(address.id)}
+                      onChange={() => setSelectedAddressId(address.id ?? null)}
                       className="mt-1 w-4 h-4 text-blue-600"
                     />
                     <div className="ml-3 flex-1">
@@ -270,7 +270,7 @@ export default function CheckoutClient({ cart, userId, shippingAddresses }: Chec
 
                   {/* Line Total */}
                   <div className="text-sm font-medium text-gray-900">
-                    {formatCurrency(item.line_total_cents || 0, 'CLP')}
+                    {formatCurrency(item.line_total_clp || 0, 'CLP')}
                   </div>
                 </div>
               ))}

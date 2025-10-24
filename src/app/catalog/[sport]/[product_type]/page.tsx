@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { DesignBrowserClient } from './DesignBrowserClient';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +47,7 @@ async function getCatalogData(sportSlug: string, productTypeSlug: string, search
 
     return result.data;
   } catch (error) {
-    logger.error('Error fetching design browser data:', error);
+    logger.error('Error fetching design browser data:', toError(error));
     return null;
   }
 }
@@ -68,7 +69,7 @@ async function getProductInfo(sportSlug: string, productTypeSlug: string) {
 
     return product || null;
   } catch (error) {
-    logger.error('Error fetching product info:', error);
+    logger.error('Error fetching product info:', toError(error));
     return null;
   }
 }

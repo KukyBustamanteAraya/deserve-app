@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 const CreateProductSchema = z.object({
   sport_ids: z.array(z.number().int().positive()),
@@ -21,7 +22,7 @@ const UpdateProductSchema = CreateProductSchema.partial();
 export async function GET() {
   try {
     await requireAdmin();
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     const { data: products, error } = await supabase
       .from('products')
@@ -29,7 +30,7 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      logger.error('Error fetching products:', error);
+      logger.error('Error fetching products:', toError(error));
       return NextResponse.json(
         { error: 'Failed to fetch products' },
         { status: 500 }
@@ -38,7 +39,7 @@ export async function GET() {
 
     return NextResponse.json({ products });
   } catch (error) {
-    logger.error('Admin products GET error:', error);
+    logger.error('Admin products GET error:', toError(error));
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const validatedData = CreateProductSchema.parse(body);
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Check if all sports exist
     const { data: sports, error: sportsError } = await supabase
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      logger.error('Error creating product:', error);
+      logger.error('Error creating product:', toError(error));
       return NextResponse.json(
         { error: 'Failed to create product', details: error.message },
         { status: 500 }
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    logger.error('Admin products POST error:', error);
+    logger.error('Admin products POST error:', toError(error));
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

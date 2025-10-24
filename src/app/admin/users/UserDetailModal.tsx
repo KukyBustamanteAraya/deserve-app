@@ -16,6 +16,7 @@ interface UserSummary {
   full_name?: string;
   avatar_url?: string;
   is_admin: boolean;
+  user_type?: 'player' | 'manager' | 'athletic_director' | 'hybrid' | null;
   created_at: string;
   updated_at: string;
   team_count: number;
@@ -47,6 +48,24 @@ export default function UserDetailModal({ user, isOpen, onClose, onRefresh }: Us
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const getUserTypeBadge = (userType?: 'player' | 'manager' | 'athletic_director' | 'hybrid' | null) => {
+    if (!userType) return null;
+
+    const badges = {
+      player: { label: 'PLAYER', color: 'bg-blue-500/20 text-blue-400 border-blue-500/50' },
+      manager: { label: 'MANAGER', color: 'bg-purple-500/20 text-purple-400 border-purple-500/50' },
+      athletic_director: { label: 'ATHLETIC DIRECTOR', color: 'bg-green-500/20 text-green-400 border-green-500/50' },
+      hybrid: { label: 'HYBRID', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50' },
+    };
+
+    const badge = badges[userType];
+    return badge ? (
+      <span className={`px-3 py-1 ${badge.color} text-sm font-semibold rounded-lg border`}>
+        {badge.label}
+      </span>
+    ) : null;
   };
 
   const handleToggleAdmin = async () => {
@@ -111,7 +130,7 @@ export default function UserDetailModal({ user, isOpen, onClose, onRefresh }: Us
 
                 {/* User Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <h2 className="text-2xl font-black text-white truncate">
                       {user.full_name || user.email}
                     </h2>
@@ -120,6 +139,7 @@ export default function UserDetailModal({ user, isOpen, onClose, onRefresh }: Us
                         ADMIN
                       </span>
                     )}
+                    {getUserTypeBadge(user.user_type)}
                   </div>
                   {user.full_name && (
                     <p className="text-gray-400 mb-1">{user.email}</p>

@@ -5,11 +5,12 @@ import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client'
 import { ProductDetailClientSimplified } from './ProductDetailClientSimplified';
 import type { ProductDetail } from '@/types/catalog';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export const dynamic = 'force-dynamic'; // Force dynamic rendering to use cookies()
 
 async function getProduct(slug: string): Promise<ProductDetail | null> {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   try {
     await requireAuth(supabase);
@@ -43,7 +44,7 @@ async function getProduct(slug: string): Promise<ProductDetail | null> {
       .single();
 
     if (error) {
-      logger.error('Error fetching product:', error);
+      logger.error('Error fetching product:', toError(error));
       return null;
     }
 
@@ -62,14 +63,15 @@ async function getProduct(slug: string): Promise<ProductDetail | null> {
     // Transform to expected format
     return {
       id: product.id,
+      sport_ids: [],
       sport_id: product.sport_id,
       slug: product.slug,
       name: product.name,
       description: product.description,
-      price_cents: product.price_cents,
-      base_price_cents: product.base_price_cents ?? null,
-      retail_price_cents: product.retail_price_cents ?? null,
-      display_price_cents,
+      price_clp: product.price_cents || 0,
+      base_price_clp: product.base_price_cents ?? null,
+      retail_price_clp: product.retail_price_cents ?? null,
+      display_price_clp: display_price_cents,
       active: product.status === 'active',
       product_type_slug: product.product_type_slug ?? null,
       created_at: product.created_at,
@@ -95,14 +97,14 @@ async function getProduct(slug: string): Promise<ProductDetail | null> {
         }),
     };
   } catch (error) {
-    logger.error('Error in getProduct:', error);
+    logger.error('Error in getProduct:', toError(error));
     return null;
   }
 }
 
 // Get related products from the same sport
 async function getRelatedProducts(sportId: string, currentProductId: string, limit = 4) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   try {
     const { data: products, error } = await supabase
@@ -122,7 +124,7 @@ async function getRelatedProducts(sportId: string, currentProductId: string, lim
       .limit(limit);
 
     if (error) {
-      logger.error('Error fetching related products:', error);
+      logger.error('Error fetching related products:', toError(error));
       return [];
     }
 
@@ -139,8 +141,8 @@ async function getRelatedProducts(sportId: string, currentProductId: string, lim
         id: product.id,
         slug: product.slug,
         name: product.name,
-        price_cents: product.price_cents,
-        display_price_cents: product.price_cents || 0,
+        price_clp: product.price_cents || 0,
+        display_price_clp: product.price_cents || 0,
         active: true,
         thumbnail_url: thumbnailUrl,
         thumbnail_alt: thumbnailImage?.alt || product.name,
@@ -149,7 +151,7 @@ async function getRelatedProducts(sportId: string, currentProductId: string, lim
       };
     });
   } catch (error) {
-    logger.error('Error in getRelatedProducts:', error);
+    logger.error('Error in getRelatedProducts:', toError(error));
     return [];
   }
 }
@@ -164,7 +166,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const { slug } = params;
 
   // Check authentication server-side
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
   try {
     await requireAuth(supabase);
   } catch (error) {
@@ -179,7 +181,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
   }
 
   // Fetch related products
-  const relatedProducts = await getRelatedProducts(product.sport_id, product.id);
+  const relatedProducts = await getRelatedProducts(product.sport_id || '', product.id);
 
   return (
     <ProductDetailClientSimplified

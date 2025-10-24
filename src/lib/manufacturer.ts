@@ -12,7 +12,7 @@ export async function assignManufacturerToOrder(
   orderId: string, // UUID
   manufacturerId: number // BIGINT
 ) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   // Verify order exists
   const { data: order, error: orderError } = await supabase
@@ -71,7 +71,7 @@ export async function assignManufacturerToOrder(
  * @returns Assignment record or null if not assigned
  */
 export async function getManufacturerForOrder(orderId: string) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   const { data, error } = await supabase
     .from('manufacturer_order_assignments')
@@ -103,7 +103,7 @@ export async function getManufacturerForOrder(orderId: string) {
  * @returns Array of order assignments
  */
 export async function getOrdersForManufacturer(manufacturerId: number) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   const { data, error } = await supabase
     .from('manufacturer_order_assignments')
@@ -139,7 +139,7 @@ export async function getOrdersForManufacturer(manufacturerId: number) {
  * @returns True if unassigned, false if no assignment existed
  */
 export async function unassignManufacturerFromOrder(orderId: string) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   const { data, error } = await supabase
     .from('manufacturer_order_assignments')

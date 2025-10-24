@@ -4,6 +4,7 @@ import { useAuth } from '@/app/components/AuthProvider';
 import type { CatalogPreviewResponse, SportSlug } from '@/types/catalog';
 import type { ApiResponse } from '@/types/api';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface UseCatalogOptions {
   sport?: SportSlug | string | null;
@@ -47,11 +48,11 @@ export function useCatalog(options: UseCatalogOptions = {}): UseCatalogReturn {
         throw new Error(result.error || 'Failed to fetch catalog');
       }
 
-      setData(result.data);
+      setData(result.data ?? null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
-      logger.error('Error fetching catalog:', err);
+      logger.error('Error fetching catalog:', toError(err));
     } finally {
       setLoading(false);
     }

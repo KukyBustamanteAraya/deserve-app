@@ -2,13 +2,41 @@ import { Suspense } from 'react';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import ClientsGrid from './ClientsGrid';
-import type { ClientSummary } from '@/types/clients';
+import type { ClientSummary, OrderItemCustomization } from '@/types/clients';
+import { createClient } from '@supabase/supabase-js';
+
+interface TeamMembershipData {
+  user_id: string;
+  role: string;
+}
+
+interface SportData {
+  name: string;
+}
+
+interface TeamData {
+  id: string;
+  name: string;
+  slug: string;
+  sport: string | null;
+  sport_id: number | null;
+  colors: {
+    primary?: string;
+    secondary?: string;
+    tertiary?: string;
+  } | null;
+  logo_url: string | null;
+  created_at: string;
+  team_memberships: TeamMembershipData[] | null;
+  sports: SportData[] | null;
+}
 
 async function getClients(): Promise<ClientSummary[]> {
   try {
     await requireAdmin();
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Fetch all teams with related data
     const { data: teams, error: teamsError } = await supabase
@@ -45,7 +73,7 @@ async function getClients(): Promise<ClientSummary[]> {
     const teamIds = teams.map(t => t.id);
     const { data: allOrders, error: ordersError } = await supabase
       .from('orders')
-      .select('id, team_id, status, payment_status, total_amount_cents')
+      .select('id, team_id, status, payment_status, total_clp')
       .in('team_id', teamIds);
 
     if (ordersError) {
@@ -73,30 +101,40 @@ async function getClients(): Promise<ClientSummary[]> {
       logger.error('Error fetching order items:', itemsError);
     }
 
-    // Fetch all team memberships with profiles for manager emails
-    const membershipUserIds = teams
-      .flatMap(t => t.team_memberships?.map((m: any) => m.user_id) || [])
-      .filter((id, index, self) => self.indexOf(id) === index); // unique
+    // Fetch emails from auth.users using admin API with service role key
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
 
-    const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('id, email')
-      .in('id', membershipUserIds);
+    const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers();
 
-    if (profilesError) {
-      logger.error('Error fetching profiles:', profilesError);
+    if (authError) {
+      logger.error('Error fetching auth users:', authError);
     }
 
-    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+    // Create a map of user emails
+    const emailMap = new Map<string, string>();
+    authUsers?.users?.forEach(user => {
+      if (user.id && user.email) {
+        emailMap.set(user.id, user.email);
+      }
+    });
 
     // Build client summaries
-    const clients: ClientSummary[] = teams.map((team: any) => {
+    const clients: ClientSummary[] = teams.map((team: TeamData) => {
       // Get orders for this team
       const teamOrders = allOrders?.filter(o => o.team_id === team.id) || [];
 
       // Calculate stats
       const totalOrders = teamOrders.length;
-      const totalRevenueCents = teamOrders.reduce((sum, o) => sum + (o.total_amount_cents || 0), 0);
+      const totalRevenueCents = teamOrders.reduce((sum, o) => sum + (o.total_clp || 0), 0);
       const pendingOrders = teamOrders.filter(o => o.status === 'pending').length;
       const activeOrders = teamOrders.filter(o =>
         ['design_review', 'design_approved', 'production', 'quality_check'].includes(o.status)
@@ -106,7 +144,7 @@ async function getClients(): Promise<ClientSummary[]> {
       ).length;
       const unpaidAmountCents = teamOrders
         .filter(o => o.payment_status !== 'paid')
-        .reduce((sum, o) => sum + (o.total_amount_cents || 0), 0);
+        .reduce((sum, o) => sum + (o.total_clp || 0), 0);
 
       // Get design requests for this team
       const teamDesignRequests = allDesignRequests?.filter(dr => dr.team_id === team.id) || [];
@@ -120,7 +158,7 @@ async function getClients(): Promise<ClientSummary[]> {
       const teamOrderItems = allOrderItems?.filter(item => teamOrderIds.includes(item.order_id)) || [];
 
       const missingPlayerInfoCount = teamOrderItems.filter(item => {
-        const customization = item.customization as any;
+        const customization = item.customization as OrderItemCustomization;
         // If item has size_breakdown (bulk order) but no player_name or jersey_number, it's missing info
         if (customization?.size_breakdown) {
           return !customization.player_name && !customization.jersey_number;
@@ -129,8 +167,8 @@ async function getClients(): Promise<ClientSummary[]> {
       }).length;
 
       // Get manager email
-      const manager = team.team_memberships?.find((m: any) => m.role === 'owner' || m.role === 'manager');
-      const managerProfile = manager ? profileMap.get(manager.user_id) : null;
+      const manager = team.team_memberships?.find((m) => m.role === 'owner' || m.role === 'manager');
+      const managerEmail = manager ? emailMap.get(manager.user_id) ?? undefined : undefined;
 
       // Get member count
       const memberCount = team.team_memberships?.length || 0;
@@ -140,12 +178,12 @@ async function getClients(): Promise<ClientSummary[]> {
         name: team.name,
         slug: team.slug,
         sport: team.sport || '',
-        sport_name: team.sports?.name || team.sport || '',
-        sport_id: team.sport_id,
+        sport_name: team.sports?.[0]?.name || team.sport || '',
+        sport_id: team.sport_id || undefined,
         colors: team.colors || {},
-        logo_url: team.logo_url,
+        logo_url: team.logo_url || undefined,
         created_at: team.created_at,
-        manager_email: managerProfile?.email,
+        manager_email: managerEmail,
         member_count: memberCount,
         total_orders: totalOrders,
         total_revenue_cents: totalRevenueCents,
@@ -160,7 +198,7 @@ async function getClients(): Promise<ClientSummary[]> {
 
     return clients;
   } catch (error) {
-    logger.error('Error fetching clients:', error);
+    logger.error('Error fetching clients:', toError(error));
     return [];
   }
 }

@@ -2,17 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import type { ClientDetail, OrderWithDetails, OrderItemWithBreakdown } from '@/types/clients';
 import { getProgressStage, calculateTotalUnits } from '@/types/clients';
+import { createClient } from '@supabase/supabase-js';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await requireAdmin();
-    const supabase = createSupabaseServer();
-    const clientId = params.id;
+    const supabase = await createSupabaseServer();
+    const clientId = id;
 
     // Fetch team with memberships
     const { data: team, error: teamError } = await supabase
@@ -31,32 +34,45 @@ export async function GET(
       .single();
 
     if (teamError || !team) {
-      logger.error('Error fetching team:', teamError);
+      logger.error('Error fetching team:', toError(teamError));
       return NextResponse.json(
         { error: 'Client not found' },
         { status: 404 }
       );
     }
 
-    // Fetch member profiles
-    const memberUserIds = team.team_memberships?.map((m: any) => m.user_id) || [];
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, email')
-      .in('id', memberUserIds);
+    // Fetch emails from auth.users using admin API with service role key
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
 
-    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+    const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers();
+
+    // Create a map of user emails
+    const emailMap = new Map<string, string>();
+    authUsers?.users?.forEach(user => {
+      if (user.id && user.email) {
+        emailMap.set(user.id, user.email);
+      }
+    });
 
     // Build members array
     const members = team.team_memberships?.map((m: any) => ({
       user_id: m.user_id,
       role: m.role,
-      email: profileMap.get(m.user_id)?.email,
+      email: emailMap.get(m.user_id),
     })) || [];
 
     // Get manager
     const managerMembership = team.team_memberships?.find((m: any) => m.role === 'owner' || m.role === 'manager');
-    const managerProfile = managerMembership ? profileMap.get(managerMembership.user_id) : null;
+    const managerEmail = managerMembership ? emailMap.get(managerMembership.user_id) || undefined : undefined;
 
     // Fetch orders with all related data
     const { data: orders, error: ordersError } = await supabase
@@ -68,10 +84,10 @@ export async function GET(
           order_id,
           product_id,
           product_name,
-          unit_price_cents,
+          unit_price_clp,
           quantity,
           customization,
-          line_total_cents,
+          line_total_clp,
           opted_out
         )
       `)
@@ -83,9 +99,33 @@ export async function GET(
     }
 
     // Fetch ALL design requests for this team (both linked and unlinked to orders)
+    // Join with institution_sub_teams to get team name, gender, sport info
     const { data: allDesignRequests } = await supabase
       .from('design_requests')
-      .select('id, order_id, status, mockup_urls, created_at, product_name, primary_color, secondary_color, accent_color')
+      .select(`
+        id,
+        order_id,
+        status,
+        mockup_urls,
+        mockup_preference,
+        mockups,
+        created_at,
+        product_name,
+        primary_color,
+        secondary_color,
+        accent_color,
+        sub_team_id,
+        institution_sub_teams (
+          name,
+          coach_name,
+          gender_category,
+          sport_id,
+          division_group,
+          sports (
+            name
+          )
+        )
+      `)
       .eq('team_id', clientId)
       .order('created_at', { ascending: false });
 
@@ -111,19 +151,10 @@ export async function GET(
       `)
       .in('order_id', orderIds);
 
-    // Get contributor profiles
-    const contributorIds = [...new Set(paymentContributions?.map(pc => pc.user_id) || [])];
-    const { data: contributorProfiles } = await supabase
-      .from('profiles')
-      .select('id, email')
-      .in('id', contributorIds);
-
-    const contributorProfileMap = new Map(contributorProfiles?.map(p => [p.id, p]) || []);
-
-    // Build payment contributions with profiles
+    // Build payment contributions with emails
     const paymentsWithProfiles = paymentContributions?.map(pc => ({
       ...pc,
-      profiles: contributorProfileMap.get(pc.user_id) ? { email: contributorProfileMap.get(pc.user_id)!.email } : undefined,
+      profiles: emailMap.has(pc.user_id) ? { email: emailMap.get(pc.user_id)! } : undefined,
     })) || [];
 
     // Group payments by order
@@ -142,10 +173,10 @@ export async function GET(
         order_id: item.order_id,
         product_id: item.product_id,
         product_name: item.product_name,
-        unit_price_cents: item.unit_price_cents,
+        unit_price_clp: item.unit_price_clp,
         quantity: item.quantity,
         customization: item.customization || {},
-        line_total_cents: item.line_total_cents || (item.unit_price_cents * item.quantity),
+        line_total_clp: item.line_total_clp || (item.unit_price_clp * item.quantity),
         opted_out: item.opted_out || false,
       }));
 
@@ -170,7 +201,7 @@ export async function GET(
         status: order.status,
         payment_status: order.payment_status,
         payment_mode: order.payment_mode || 'individual',
-        total_amount_cents: order.total_amount_cents || 0,
+        total_amount_cents: order.total_clp || 0,
         currency: order.currency || 'CLP',
         created_at: order.created_at,
         estimated_delivery_date: order.estimated_delivery_date,
@@ -199,15 +230,20 @@ export async function GET(
       colors: team.colors || {},
       logo_url: team.logo_url,
       created_at: team.created_at,
-      manager_email: managerProfile?.email,
+      manager_email: managerEmail,
       member_count: members.length,
-      manager: managerProfile ? {
+      manager: managerEmail ? {
         id: managerMembership.user_id,
-        email: managerProfile.email,
+        email: managerEmail,
       } : undefined,
       members,
       orders: ordersWithDetails,
-      design_requests: allDesignRequests || [],
+      design_requests: (allDesignRequests || []).map((dr: any) => ({
+        ...dr,
+        institution_sub_teams: Array.isArray(dr.institution_sub_teams)
+          ? dr.institution_sub_teams[0]
+          : dr.institution_sub_teams
+      })) as any,
 
       // Aggregated stats
       total_orders: ordersWithDetails.length,
@@ -220,11 +256,15 @@ export async function GET(
       unpaid_amount_cents: ordersWithDetails
         .filter(o => o.payment_status !== 'paid')
         .reduce((sum, o) => sum + o.total_amount_cents, 0),
+      pending_design_requests: (allDesignRequests || []).filter(dr =>
+        dr.status === 'pending' || dr.status === 'in_review'
+      ).length,
+      missing_player_info_count: 0, // TODO: Calculate from order_items
     };
 
     return NextResponse.json({ client: clientDetail });
   } catch (error) {
-    logger.error('Admin client detail GET error:', error);
+    logger.error('Admin client detail GET error:', toError(error));
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

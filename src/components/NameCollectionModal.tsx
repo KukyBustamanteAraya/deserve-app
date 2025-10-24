@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface NameCollectionModalProps {
   isOpen: boolean;
@@ -53,7 +54,7 @@ export default function NameCollectionModal({
       logger.info('User name updated successfully');
       onComplete();
     } catch (err) {
-      logger.error('Error updating name:', err);
+      logger.error('Error updating name:', toError(err));
       setError('Error al guardar tu nombre. Por favor intenta de nuevo.');
     } finally {
       setSaving(false);

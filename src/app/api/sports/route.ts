@@ -3,7 +3,7 @@ import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
 
 export async function GET() {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   const { data: sports, error } = await supabase
     .from('sports')

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -13,7 +14,7 @@ export async function POST() {
     const { error: deleteError } = await supabase.rpc('delete_duplicate_player_info');
 
     if (deleteError) {
-      logger.error('Error deleting duplicates:', deleteError);
+      logger.error('Error deleting duplicates:', toSupabaseError(deleteError));
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 

@@ -63,7 +63,7 @@ export function ProductDetailClientSimplified({ product }: ProductDetailClientSi
     setDesign({
       slug: product.slug,
       name: product.name,
-      sport: product.sport_slug,
+      sport: product.sport_slug || '',
       images: product.images?.map(img => img.url) || []
     });
 

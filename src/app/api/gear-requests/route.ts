@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface ApparelSelection {
   apparel_type: string;
@@ -15,7 +16,7 @@ interface GearRequestPayload {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (createError) {
-      logger.error('Error creating gear request:', createError);
+      logger.error('Error creating gear request:', toSupabaseError(createError));
       return NextResponse.json(
         { error: 'Failed to create gear request', details: createError.message },
         { status: 500 }
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
 // GET endpoint to retrieve gear requests for a team
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -219,7 +220,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (fetchError) {
-      logger.error('Error fetching gear requests:', fetchError);
+      logger.error('Error fetching gear requests:', toSupabaseError(fetchError));
       return NextResponse.json(
         { error: 'Failed to fetch gear requests', details: fetchError.message },
         { status: 500 }

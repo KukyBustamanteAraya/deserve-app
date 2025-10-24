@@ -3,6 +3,12 @@
 import { useRouter } from 'next/navigation';
 import type { InstitutionOrder } from '@/lib/mockData/institutionData';
 
+// Extend the InstitutionOrder type to include design request fields
+interface ExtendedInstitutionOrder extends InstitutionOrder {
+  is_design_request?: boolean;
+  design_request_id?: string | number;
+}
+
 interface ActiveOrdersSummaryProps {
   orders: InstitutionOrder[];
   institutionSlug: string;
@@ -88,11 +94,19 @@ export function ActiveOrdersSummary({ orders, institutionSlug }: ActiveOrdersSum
             const groupItems = orderGroup.reduce((sum, o) => sum + o.items, 0);
             const isMultiTeam = orderGroup.length > 1;
 
+            // Check if this is a design request
+            const isDesignRequest = orderGroup[0].is_design_request;
+            const designRequestId = orderGroup[0].design_request_id;
+
             return (
               <button
                 key={orderNumber}
                 onClick={() => {
-                  router.push(`/mi-equipo/${institutionSlug}/orders`);
+                  if (isDesignRequest && designRequestId) {
+                    router.push(`/mi-equipo/${institutionSlug}/design-requests/${designRequestId}`);
+                  } else {
+                    router.push(`/mi-equipo/${institutionSlug}/orders`);
+                  }
                 }}
                 className="relative bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 rounded-lg p-3 text-left transition-all border border-gray-700 hover:border-[#e21c21]/50 overflow-hidden group/card"
                 style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}

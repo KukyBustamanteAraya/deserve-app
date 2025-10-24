@@ -1,4 +1,5 @@
 // Client management types for admin panel
+import type { MockupPreference, DesignRequestMockups } from './design-request';
 
 export interface SizeBreakdown {
   varones: {
@@ -36,10 +37,10 @@ export interface OrderItemWithBreakdown {
   product_name: string;
   product_type?: string;
   sport?: string;
-  unit_price_cents: number;
+  unit_price_clp: number;
   quantity: number;
   customization: OrderItemCustomization;
-  line_total_cents: number;
+  line_total_clp: number;
   opted_out: boolean;
 }
 
@@ -132,6 +133,19 @@ export interface DesignRequestDetail {
   primary_color?: string;
   secondary_color?: string;
   accent_color?: string;
+  mockup_preference?: MockupPreference;
+  mockups?: DesignRequestMockups;
+  sub_team_id?: string;
+  institution_sub_teams?: {
+    name: string;
+    coach_name?: string;
+    gender_category?: 'male' | 'female' | 'both';
+    sport_id?: number;
+    division_group?: string;
+    sports?: {
+      name: string;
+    };
+  };
 }
 
 export interface ClientDetail extends ClientSummary {

@@ -13,6 +13,7 @@ interface Sport {
 }
 
 export default function SportSelectionPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
   const router = useRouter();
   const { setSport, setInstitutionContext, sport_id } = useDesignRequestWizard();
   const [sports, setSports] = useState<Sport[]>([]);
@@ -69,14 +70,14 @@ export default function SportSelectionPage({ params }: { params: { slug: string 
       const { data: institution } = await supabase
         .from('teams')
         .select('id')
-        .eq('slug', params.slug)
+        .eq('slug', slug)
         .single();
 
       if (!institution) {
         throw new Error('Institution not found');
       }
 
-      setInstitutionContext(institution.id, params.slug);
+      setInstitutionContext(institution.id, slug);
 
       // Get all sports
       const { data: sportsData, error: sportsError } = await supabase
@@ -226,7 +227,7 @@ export default function SportSelectionPage({ params }: { params: { slug: string 
 
   const handleContinue = () => {
     if (selectedSportId) {
-      router.push(`/mi-equipo/${params.slug}/design-request/new/teams`);
+      router.push(`/mi-equipo/${slug}/design-request/new/teams`);
     }
   };
 
@@ -247,7 +248,7 @@ export default function SportSelectionPage({ params }: { params: { slug: string 
       totalSteps={6}
       title="¿Para qué deporte es este pedido?"
       subtitle="Selecciona el deporte para filtrar productos y diseños relevantes"
-      onBack={() => router.push(`/mi-equipo/${params.slug}`)}
+      onBack={() => router.push(`/mi-equipo/${slug}`)}
       onContinue={handleContinue}
       canContinue={selectedSportId !== null}
     >

@@ -24,7 +24,7 @@ import { apiSuccess, apiError } from '@/lib/api-response';
  * }
  */
 export async function GET() {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   try {
     const { data: fabrics, error } = await supabase

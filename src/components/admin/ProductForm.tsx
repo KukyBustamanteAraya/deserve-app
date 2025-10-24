@@ -14,7 +14,7 @@ interface ProductFormData {
   sport_ids: string[];                    // Array of sport IDs
   category: string;
   name: string;
-  price_cents: number | string;           // Custom price for this product
+  price_clp: number | string;             // Custom price for this product in CLP
   status: string;
 }
 
@@ -47,7 +47,7 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
     sport_ids: initialData?.sport_ids || [],
     category: initialData?.category || '',
     name: initialData?.name || '',
-    price_cents: initialData?.price_cents || '',
+    price_clp: initialData?.price_clp || '',
     status: initialData?.status || 'draft',
   });
   const [loading, setLoading] = useState(false);
@@ -82,7 +82,7 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
       if (!formData.category || !formData.name) {
         throw new Error('Please fill in all required fields');
       }
-      if (!formData.price_cents || Number(formData.price_cents) <= 0) {
+      if (!formData.price_clp || Number(formData.price_clp) <= 0) {
         throw new Error('Please enter a valid price');
       }
 
@@ -94,9 +94,9 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
       const typeSlug = selectedCategory?.typeSlug || formData.category;
 
       // Convert price to number (Chilean Pesos - no decimal conversion needed)
-      const priceCents = typeof formData.price_cents === 'string'
-        ? Math.round(parseFloat(formData.price_cents))
-        : formData.price_cents;
+      const priceClp = typeof formData.price_clp === 'string'
+        ? Math.round(parseFloat(formData.price_clp))
+        : formData.price_clp;
 
       // Prepare payload with deduplication
       const sportIdsNumbers = formData.sport_ids.map(id => parseInt(id));
@@ -107,7 +107,7 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
         category: formData.category,
         name: formData.name,
         slug,
-        price_cents: priceCents,
+        price_clp: priceClp,
         status: formData.status,
         product_type_slug: typeSlug,
       };
@@ -274,8 +274,8 @@ export default function ProductForm({ initialData, productId, mode }: ProductFor
               type="number"
               step="1"
               min="0"
-              value={formData.price_cents}
-              onChange={(e) => setFormData({ ...formData, price_cents: e.target.value })}
+              value={formData.price_clp}
+              onChange={(e) => setFormData({ ...formData, price_clp: e.target.value })}
               className="w-full pl-8 pr-4 py-2 bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 backdrop-blur-md border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-[#e21c21]/50 focus:border-[#e21c21]/50"
               placeholder="50000"
               required

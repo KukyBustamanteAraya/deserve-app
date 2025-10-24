@@ -30,7 +30,7 @@ const DISCOUNT_BANDS = [
  * All prices in CLP (integer pesos, zero decimals)
  */
 export async function GET(request: NextRequest) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   try {
     const { searchParams } = new URL(request.url);

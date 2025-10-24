@@ -3,12 +3,12 @@ import { createSupabaseServer } from '@/lib/supabase/server-client';
 import dynamic from 'next/dynamic';
 import { notFound } from 'next/navigation';
 
-const ProductForm = dynamic(() => import('@/components/admin/ProductForm'), { ssr: false });
+const ProductForm = dynamic(() => import('@/components/admin/ProductForm'));
 
 export default async function EditProductPage({ params }: { params: { id: string } }) {
   await requireAdmin();
 
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   // Fetch product data
   const { data: product, error } = await supabase
@@ -32,7 +32,7 @@ export default async function EditProductPage({ params }: { params: { id: string
         sport_ids: sportIdsAsStrings,
         category: product.category,
         name: product.name,
-        price_cents: product.price_cents, // Already in CLP, no conversion needed
+        price_clp: product.price_clp, // Already in CLP, no conversion needed
         status: product.status,
       }}
     />

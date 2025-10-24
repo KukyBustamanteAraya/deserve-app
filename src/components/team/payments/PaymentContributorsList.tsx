@@ -64,7 +64,7 @@ export function PaymentContributorsList({
                 </div>
                 <div className="text-right">
                   <div className="font-semibold text-green-400">
-                    {formatCLP(contribution.amount_cents)}
+                    {formatCLP(contribution.amount_clp)}
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${getPaymentStatusColor(contribution.payment_status)}`}>
                     {getPaymentStatusLabel(contribution.payment_status)}
@@ -104,7 +104,7 @@ export function PaymentContributorsList({
                 </div>
                 <div className="text-right">
                   <div className="font-semibold text-yellow-400">
-                    {formatCLP(contribution.amount_cents)}
+                    {formatCLP(contribution.amount_clp)}
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${getPaymentStatusColor(contribution.payment_status)}`}>
                     {getPaymentStatusLabel(contribution.payment_status)}
@@ -144,7 +144,7 @@ export function PaymentContributorsList({
                 </div>
                 <div className="text-right">
                   <div className="font-semibold text-gray-300">
-                    {formatCLP(contribution.amount_cents)}
+                    {formatCLP(contribution.amount_clp)}
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${getPaymentStatusColor(contribution.payment_status)}`}>
                     {getPaymentStatusLabel(contribution.payment_status)}

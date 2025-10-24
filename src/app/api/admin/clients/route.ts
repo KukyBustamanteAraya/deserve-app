@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import type { ClientSummary } from '@/types/clients';
 
 export async function GET() {
   try {
     await requireAdmin();
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Fetch all teams with related data
     const { data: teams, error: teamsError } = await supabase
@@ -47,7 +48,7 @@ export async function GET() {
     const teamIds = teams.map(t => t.id);
     const { data: allOrders, error: ordersError } = await supabase
       .from('orders')
-      .select('id, team_id, status, payment_status, total_amount_cents')
+      .select('id, team_id, status, payment_status, total_amount_clp')
       .in('team_id', teamIds);
 
     if (ordersError) {
@@ -77,7 +78,7 @@ export async function GET() {
 
       // Calculate stats
       const totalOrders = teamOrders.length;
-      const totalRevenueCents = teamOrders.reduce((sum, o) => sum + (o.total_amount_cents || 0), 0);
+      const totalRevenueCents = teamOrders.reduce((sum, o) => sum + (o.total_amount_clp || 0), 0);
       const pendingOrders = teamOrders.filter(o => o.status === 'pending').length;
       const activeOrders = teamOrders.filter(o =>
         ['design_review', 'design_approved', 'production', 'quality_check'].includes(o.status)
@@ -87,7 +88,7 @@ export async function GET() {
       ).length;
       const unpaidAmountCents = teamOrders
         .filter(o => o.payment_status !== 'paid')
-        .reduce((sum, o) => sum + (o.total_amount_cents || 0), 0);
+        .reduce((sum, o) => sum + (o.total_amount_clp || 0), 0);
 
       // Get manager email
       const manager = team.team_memberships?.find((m: any) => m.role === 'owner' || m.role === 'manager');
@@ -114,12 +115,14 @@ export async function GET() {
         active_orders: activeOrders,
         completed_orders: completedOrders,
         unpaid_amount_cents: unpaidAmountCents,
+        pending_design_requests: 0, // TODO: Calculate from design_requests table
+        missing_player_info_count: 0, // TODO: Calculate from order_items
       };
     });
 
     return NextResponse.json({ clients });
   } catch (error) {
-    logger.error('Admin clients GET error:', error);
+    logger.error('Admin clients GET error:', toError(error));
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

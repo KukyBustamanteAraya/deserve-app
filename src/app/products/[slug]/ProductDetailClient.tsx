@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { formatPrice, centsToCLP, formatCLPInteger } from '@/lib/currency';
 import { CompactProductCard, FabricSelector, QuantitySlider, TeamPricing } from '@/components/catalog';
 import type { ProductDetail, ProductListItem } from '@/types/catalog';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface PricingResponse {
   unit_price: number;  // CLP integer
@@ -43,7 +44,7 @@ interface ProductDetailClientProps {
   relatedProducts: ProductListItem[];
 }
 
-export function ProductDetailClient({ product, relatedProducts }: ProductDetailClientProps) {
+const ProductDetailClient = memo(function ProductDetailClient({ product, relatedProducts }: ProductDetailClientProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState(new Set<string>());
   const [selectedFabricId, setSelectedFabricId] = useState<string | null>(null);
@@ -127,7 +128,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
           bundleCode: selectedBundleCode,
           quantity: quantity.toString(),
           fabricModifier: fabricModifier.toString(),
-          sportSlug: product.sport_slug
+          sportSlug: product.sport_slug || ''
         });
 
         logger.debug('Fetching bundle pricing with params:', {
@@ -191,7 +192,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
         setTimeout(() => setPriceOpacity(1), 50);
       }
     } catch (error) {
-      logger.error('Pricing error:', error);
+      logger.error('Pricing error:', toError(error));
       setPriceOpacity(1);
     } finally {
       setLoadingPrice(false);
@@ -232,7 +233,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
       // Success - redirect to cart
       window.location.href = '/cart';
     } catch (error) {
-      logger.error('Error adding to cart:', error);
+      logger.error('Error adding to cart:', toError(error));
       alert(error instanceof Error ? error.message : 'Error al agregar al carrito');
     } finally {
       setAddingToCart(false);
@@ -428,7 +429,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
                   <div className="space-y-1">
                     <div className="text-sm text-gray-600">Precio por unidad</div>
                     <div className="text-4xl font-bold text-red-600">
-                      {pricing ? centsToCLP(pricing.unit_price) : centsToCLP(product.price_cents ?? 0)}
+                      {pricing ? centsToCLP(pricing.unit_price) : centsToCLP(product.price_clp ?? 0)}
                     </div>
 
                     {/* Quantity Discount Notice */}
@@ -453,7 +454,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
                         Total ({quantity} {quantity === 1 ? 'unidad' : 'unidades'})
                       </span>
                       <span className="text-xl font-semibold text-gray-900">
-                        {pricing ? centsToCLP(pricing.total) : centsToCLP((product.price_cents ?? 0) * quantity)}
+                        {pricing ? centsToCLP(pricing.total) : centsToCLP((product.price_clp ?? 0) * quantity)}
                       </span>
                     </div>
                   </div>
@@ -561,4 +562,6 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
       )}
     </div>
   );
-}
+});
+
+export default ProductDetailClient;

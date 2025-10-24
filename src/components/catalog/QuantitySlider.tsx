@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
-// TODO: Pricing animation transition still has minor visual artifacts during fade
+// NOTE: Known limitation - Pricing animation has minor visual artifacts during fade
 // - Container shrinks slightly when transitioning 9→10
 // - Small dark boxes appear during crossfade
-// - Consider alternative animation approach or accept as acceptable for v1
+// - Acceptable for v1; future: consider CSS-only transitions or Framer Motion
 
 interface QuantitySliderProps {
   min?: number;
@@ -37,11 +37,11 @@ export default function QuantitySlider({
     onQuantityChange(quantity);
   }, [quantity, onQuantityChange]);
 
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuantity(parseInt(e.target.value));
-  };
+  }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setInputValue(value);
 
@@ -54,28 +54,29 @@ export default function QuantitySlider({
     if (!isNaN(numValue) && numValue >= min) {
       setQuantity(numValue);
     }
-  };
+  }, [min]);
 
-  const handleInputBlur = () => {
+  const handleInputBlur = useCallback(() => {
     // On blur, if input is empty or invalid, reset to min value
     if (inputValue === '' || parseInt(inputValue) < min) {
       setQuantity(min);
       setInputValue(min.toString());
     }
-  };
+  }, [inputValue, min]);
 
-  const increment = () => {
-    setQuantity(quantity + 1);
-  };
+  const increment = useCallback(() => {
+    setQuantity(prev => prev + 1);
+  }, []);
 
-  const decrement = () => {
-    if (quantity > min) {
-      setQuantity(quantity - 1);
-    }
-  };
+  const decrement = useCallback(() => {
+    setQuantity(prev => (prev > min ? prev - 1 : prev));
+  }, [min]);
 
   // Calculate percentage for visual indicator (cap at 100% when quantity exceeds max)
-  const percentage = Math.min(((quantity - min) / (max - min)) * 100, 100);
+  const percentage = useMemo(() =>
+    Math.min(((quantity - min) / (max - min)) * 100, 100),
+    [quantity, min, max]
+  );
 
   return (
     <div className={className}>

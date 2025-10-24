@@ -3,6 +3,7 @@ import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { revalidateTag, revalidatePath } from 'next/cache';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 function parseStoragePathFromUrl(url: string): string | null {
   try {
@@ -10,7 +11,7 @@ function parseStoragePathFromUrl(url: string): string | null {
     const match = url.match(/\/object\/public\/product-images\/(.+)$/);
     return match ? match[1] : null;
   } catch (error) {
-    logger.error('Error parsing storage path:', error);
+    logger.error('Error parsing storage path:', toError(error));
     return null;
   }
 }
@@ -21,7 +22,7 @@ export async function DELETE(
 ) {
   try {
     const { user } = await requireAdmin();
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Get the image record first
     const { data: imageRecord, error: fetchError } = await supabase
@@ -69,7 +70,7 @@ export async function DELETE(
           logger.warn('Storage delete warning (non-critical):', storageError);
         }
       } catch (error) {
-        logger.warn('Storage delete failed (non-critical):', error);
+        logger.warn('Storage delete failed (non-critical):', toError(error));
       }
     }
 
@@ -95,7 +96,7 @@ export async function DELETE(
     }, { status: 200 });
 
   } catch (error) {
-    logger.error('Product image delete error:', error);
+    logger.error('Product image delete error:', toError(error));
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

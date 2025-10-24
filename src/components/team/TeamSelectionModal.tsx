@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
 
@@ -64,7 +64,7 @@ export function TeamSelectionModal({
           return;
         }
 
-        const teamIds = memberships.map((m) => m.team_id);
+        const teamIds = memberships.map((m: any) => m.team_id);
 
         // Get team details
         const { data: teamsData, error: teamsError } = await supabase
@@ -86,16 +86,16 @@ export function TeamSelectionModal({
     loadUserTeams();
   }, [isOpen, userId, supabase]);
 
-  const handleConfirm = () => {
+  const handleConfirm = useCallback(() => {
     if (!selectedTeamId) return;
 
     const team = teams.find((t) => t.id === selectedTeamId);
     if (team) {
       onTeamSelected(team);
     }
-  };
+  }, [selectedTeamId, teams, onTeamSelected]);
 
-  const handleJoinTeam = async () => {
+  const handleJoinTeam = useCallback(async () => {
     if (!joinTeamSlug.trim()) {
       setJoinError('Por favor ingresa un código de equipo');
       return;
@@ -112,7 +112,15 @@ export function TeamSelectionModal({
     } finally {
       setJoiningTeam(false);
     }
-  };
+  }, [joinTeamSlug, onJoinTeam]);
+
+  const handleTeamSelect = useCallback((teamId: string) => {
+    setSelectedTeamId(teamId);
+  }, []);
+
+  const handleJoinSlugChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setJoinTeamSlug(e.target.value);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -165,7 +173,7 @@ export function TeamSelectionModal({
                   {teams.map((team) => (
                     <button
                       key={team.id}
-                      onClick={() => setSelectedTeamId(team.id)}
+                      onClick={() => handleTeamSelect(team.id)}
                       className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
                         selectedTeamId === team.id
                           ? 'border-blue-600 bg-blue-50'
@@ -230,7 +238,7 @@ export function TeamSelectionModal({
                     <input
                       type="text"
                       value={joinTeamSlug}
-                      onChange={(e) => setJoinTeamSlug(e.target.value)}
+                      onChange={handleJoinSlugChange}
                       placeholder="codigo-del-equipo"
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     />

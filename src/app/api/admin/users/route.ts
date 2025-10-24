@@ -1,43 +1,45 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export async function GET() {
   try {
     await requireAdmin();
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
+    const supabaseAdmin = createSupabaseServiceClient();
 
-    // Fetch all profiles with user data
-    const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // Fetch ALL auth users first (this is the source of truth)
+    // Use service role client for admin API access
+    const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers();
 
-    if (profilesError) {
-      logger.error('Error fetching profiles:', profilesError);
+    if (authError) {
+      logger.error('Error fetching auth users:', toError(authError));
       return NextResponse.json(
         { error: 'Failed to fetch users' },
         { status: 500 }
       );
     }
 
-    // Get user IDs
-    const userIds = profiles?.map(p => p.id) || [];
+    // Get all user IDs from auth
+    const userIds = authUsers?.users?.map(u => u.id) || [];
 
-    // Fetch emails from auth.users using admin API
-    const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+    // Fetch profiles for these users
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', userIds);
 
-    if (authError) {
-      logger.error('Error fetching auth users:', authError);
+    if (profilesError) {
+      logger.error('Error fetching profiles:', profilesError);
     }
 
-    // Create a map of user emails
-    const emailMap = new Map<string, string>();
-    authUsers?.users?.forEach(user => {
-      if (user.id && user.email) {
-        emailMap.set(user.id, user.email);
-      }
+    // Create a map of profiles by user ID
+    const profileMap = new Map<string, any>();
+    profiles?.forEach(profile => {
+      profileMap.set(profile.id, profile);
     });
 
     // Fetch team memberships for all users
@@ -57,7 +59,7 @@ export async function GET() {
     // Fetch orders for all users
     const { data: orders } = await supabase
       .from('orders')
-      .select('user_id, total_amount_cents, status, created_at')
+      .select('user_id, total_amount_clp, status, created_at')
       .in('user_id', userIds);
 
     // Group memberships and orders by user
@@ -78,22 +80,24 @@ export async function GET() {
       ordersByUser.get(order.user_id)!.push(order);
     });
 
-    // Build user summaries
-    const users = profiles?.map(profile => {
-      const userMemberships = membershipsByUser.get(profile.id) || [];
-      const userOrders = ordersByUser.get(profile.id) || [];
+    // Build user summaries - iterate through ALL auth users
+    const users = authUsers?.users?.map(authUser => {
+      const profile = profileMap.get(authUser.id);
+      const userMemberships = membershipsByUser.get(authUser.id) || [];
+      const userOrders = ordersByUser.get(authUser.id) || [];
 
-      const totalSpent = userOrders.reduce((sum, order) => sum + (order.total_amount_cents || 0), 0);
+      const totalSpent = userOrders.reduce((sum, order) => sum + (order.total_amount_clp || 0), 0);
       const completedOrders = userOrders.filter(o => o.status === 'delivered').length;
 
       return {
-        id: profile.id,
-        email: emailMap.get(profile.id) || 'No email',
-        full_name: profile.full_name,
-        avatar_url: profile.avatar_url,
-        is_admin: profile.is_admin || false,
-        created_at: profile.created_at,
-        updated_at: profile.updated_at,
+        id: authUser.id,
+        email: authUser.email || 'No email',
+        full_name: profile?.full_name || null,
+        avatar_url: profile?.avatar_url || null,
+        is_admin: profile?.is_admin || false,
+        user_type: profile?.user_type || null,
+        created_at: authUser.created_at || profile?.created_at,
+        updated_at: authUser.updated_at || profile?.updated_at,
 
         // Aggregated data
         team_count: userMemberships.length,
@@ -120,7 +124,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    logger.error('Admin users GET error:', error);
+    logger.error('Admin users GET error:', toError(error));
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

@@ -3,10 +3,11 @@
 import { useAuth } from './AuthProvider';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, memo } from 'react';
 import { useUserProfile, getDisplayName } from '@/hooks/useUserProfile';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface Team {
   id: string;
@@ -26,7 +27,7 @@ interface LogoSettings {
   secondaryLogoUrl: string | null;
 }
 
-export default function Header() {
+const Header = memo(function Header() {
   const { user, loading } = useAuth();
   const { profile } = useUserProfile();
   const pathname = usePathname();
@@ -79,7 +80,7 @@ export default function Header() {
           setTeams([]);
         }
       } catch (error) {
-        logger.error('Error fetching teams:', error);
+        logger.error('Error fetching teams:', toError(error));
         setTeams([]);
       } finally {
         setLoadingTeams(false);
@@ -119,7 +120,7 @@ export default function Header() {
           }
         }
       } catch (error) {
-        logger.error('Error loading logo settings:', error);
+        logger.error('Error loading logo settings:', toError(error));
       }
     }
     loadLogoSettings();
@@ -248,19 +249,25 @@ export default function Header() {
     const isAdmin = profile?.is_admin || false;
 
     return [
-      { href: '/', label: 'Inicio' },
-      { href: '/catalog', label: 'Productos' },
+      { href: '/', label: 'Inicio', action: null },
+      { href: '/catalog', label: 'Productos', action: null },
       // Show Admin for admins, Orders for regular users
       isAdmin
-        ? { href: '/admin', label: 'Admin' }
-        : { href: '/orders', label: 'Pedidos' },
-      { href: '/dashboard', label: 'Ajustes' },
+        ? { href: '/admin', label: 'Admin', action: null }
+        : { href: '/orders', label: 'Pedidos', action: null },
+      { href: '/dashboard', label: 'Ajustes', action: null },
+      { href: '#', label: 'Cerrar Sesión', action: 'logout' }, // Logout button
     ];
   }, [profile]);
 
-  const handleMenuItemClick = (href: string) => {
+  const handleMenuItemClick = (href: string, action?: string | null) => {
     setIsMenuOpen(false);
-    router.push(href);
+
+    if (action === 'logout') {
+      handleLogout();
+    } else {
+      router.push(href);
+    }
   };
 
   return (
@@ -405,18 +412,21 @@ export default function Header() {
               </button>
 
               {/* Menu Cards */}
-              <div className="flex-1 grid grid-cols-4 gap-2">
+              <div className="flex-1 grid grid-cols-5 gap-2">
                 {menuItems.map((item, index) => {
                   const isActive = pathname === item.href ||
                                   (item.href !== '/' && pathname?.startsWith(item.href));
                   const isAdminButton = item.label === 'Admin';
+                  const isLogoutButton = item.action === 'logout';
 
                   return (
                     <button
-                      key={item.href}
-                      onClick={() => handleMenuItemClick(item.href)}
+                      key={item.href + item.label}
+                      onClick={() => handleMenuItemClick(item.href, item.action)}
                       className={`relative flex flex-col items-center justify-center gap-0.5 py-2.5 px-2 rounded-lg transition-all overflow-hidden group animate-slide-in-from-right ${
-                        isAdminButton
+                        isLogoutButton
+                          ? 'bg-gradient-to-br from-red-900/30 via-red-800/20 to-red-900/30 text-red-400 border border-red-500/50 hover:border-red-500 hover:text-red-300'
+                          : isAdminButton
                           ? 'bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 text-white font-bold shadow-lg shadow-[#e21c21]/30 border border-[#e21c21]/50'
                           : isActive
                           ? 'bg-gradient-to-br from-[#e21c21]/90 via-[#c11a1e]/80 to-[#a01519]/90 text-white font-semibold shadow-lg shadow-[#e21c21]/30 border border-[#e21c21]/50'
@@ -516,4 +526,6 @@ export default function Header() {
       </div>
     </div>
   );
-}
+});
+
+export default Header;

@@ -1,8 +1,9 @@
 // Design Detail Page - Shows design with sport switcher
 // Example: /designs/elevate?sport=futbol
 import { notFound } from 'next/navigation';
-import { DesignDetailClient } from './DesignDetailClient';
+import DesignDetailClient from './DesignDetailClient';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,7 @@ interface PageProps {
 
 async function getDesignData(slug: string, sportSlug?: string) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // 1. Get design by slug
     const { data: design, error: designError } = await supabase
@@ -29,7 +30,7 @@ async function getDesignData(slug: string, sportSlug?: string) {
       .single();
 
     if (designError || !design) {
-      logger.error('Design not found:', slug);
+      logger.error('Design not found', { slug });
       return null;
     }
 
@@ -107,7 +108,7 @@ async function getDesignData(slug: string, sportSlug?: string) {
     });
 
     // Convert sets/maps to arrays
-    const sportsArray = Array.from(availableSports).map(s => JSON.parse(s));
+    const sportsArray = Array.from(availableSports).map((s: unknown) => JSON.parse(s as string));
 
     const mockupsGrouped = Array.from(mockupsBySport.entries()).map(([sportId, mockups]) => {
       const sport = sportsArray.find(s => s.id === sportId);
@@ -121,7 +122,7 @@ async function getDesignData(slug: string, sportSlug?: string) {
 
     // 4. If sport filter is provided, filter mockups
     let filteredMockups = mockupsGrouped;
-    let currentSport = null;
+    let currentSport: { id: number; slug: string; name: string } | null = null;
 
     if (sportSlug) {
       const selectedSport = sportsArray.find(s => s.slug === sportSlug);
@@ -133,7 +134,7 @@ async function getDesignData(slug: string, sportSlug?: string) {
       // Default to first available sport
       currentSport = sportsArray[0] || null;
       if (currentSport) {
-        filteredMockups = mockupsGrouped.filter(g => g.sport_id === currentSport.id);
+        filteredMockups = mockupsGrouped.filter(g => g.sport_id === currentSport!.id);
       }
     }
 
@@ -159,14 +160,14 @@ async function getDesignData(slug: string, sportSlug?: string) {
     };
 
   } catch (error) {
-    logger.error('Error fetching design data:', error);
+    logger.error('Error fetching design data:', toError(error));
     return null;
   }
 }
 
 export default async function DesignDetailPage({ params, searchParams }: PageProps) {
-  const { slug } = params;
-  const { sport } = searchParams;
+  const { slug } = await params;
+  const { sport } = await searchParams;
 
   // Fetch design data (no authentication required - catalog is public)
   const designData = await getDesignData(slug, sport);
@@ -202,7 +203,9 @@ export default async function DesignDetailPage({ params, searchParams }: PagePro
 
 // Generate metadata
 export async function generateMetadata({ params, searchParams }: PageProps) {
-  const designData = await getDesignData(params.slug, searchParams.sport);
+  const { slug } = await params;
+  const { sport } = await searchParams;
+  const designData = await getDesignData(slug, sport);
 
   if (!designData) {
     return {

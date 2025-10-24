@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface PaymentContribution {
   user_id: string;
-  amount_cents: number;
+  amount_clp: number;
   payment_status: string;
   paid_at?: string;
   profiles?: {
@@ -17,11 +18,11 @@ interface PaymentContribution {
 
 interface PaymentStatusTrackerProps {
   orderId: string;
-  totalAmountCents: number;
+  totalAmountClp: number;
   teamId: string;
 }
 
-export function PaymentStatusTracker({ orderId, totalAmountCents, teamId }: PaymentStatusTrackerProps) {
+export function PaymentStatusTracker({ orderId, totalAmountClp, teamId }: PaymentStatusTrackerProps) {
   const supabase = getBrowserClient();
   const [contributions, setContributions] = useState<PaymentContribution[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,7 +57,7 @@ export function PaymentStatusTracker({ orderId, totalAmountCents, teamId }: Paym
     try {
       const { data, error } = await supabase
         .from('payment_contributions')
-        .select('user_id, amount_cents, payment_status, paid_at, profiles(email, full_name)')
+        .select('user_id, amount_clp, payment_status, paid_at, profiles(email, full_name)')
         .eq('order_id', orderId)
         .order('created_at', { ascending: true });
 
@@ -66,13 +67,13 @@ export function PaymentStatusTracker({ orderId, totalAmountCents, teamId }: Paym
 
       // Calculate progress
       const paidAmount = (data || [])
-        .filter((c) => c.payment_status === 'paid')
-        .reduce((sum, c) => sum + c.amount_cents, 0);
+        .filter((c: any) => c.payment_status === 'paid')
+        .reduce((sum: number, c: any) => sum + c.amount_clp, 0);
 
-      const progressPercent = totalAmountCents > 0 ? (paidAmount / totalAmountCents) * 100 : 0;
+      const progressPercent = totalAmountClp > 0 ? (paidAmount / totalAmountClp) * 100 : 0;
       setProgress(progressPercent);
     } catch (error) {
-      logger.error('Error loading contributions:', error);
+      logger.error('Error loading contributions:', toError(error));
     } finally {
       setLoading(false);
     }
@@ -126,8 +127,8 @@ export function PaymentStatusTracker({ orderId, totalAmountCents, teamId }: Paym
           />
         </div>
         <div className="flex items-center justify-between text-xs text-gray-400 mt-1">
-          <span>{formatCLP((progress / 100) * totalAmountCents)}</span>
-          <span>{formatCLP(totalAmountCents)}</span>
+          <span>{formatCLP((progress / 100) * totalAmountClp)}</span>
+          <span>{formatCLP(totalAmountClp)}</span>
         </div>
       </div>
 
@@ -157,7 +158,7 @@ export function PaymentStatusTracker({ orderId, totalAmountCents, teamId }: Paym
                 <p className="font-medium text-white">
                   {contribution.profiles?.full_name || contribution.profiles?.email?.split('@')[0] || 'Miembro'}
                 </p>
-                <p className="text-xs text-gray-300">{formatCLP(contribution.amount_cents)}</p>
+                <p className="text-xs text-gray-300">{formatCLP(contribution.amount_clp)}</p>
               </div>
             </div>
 

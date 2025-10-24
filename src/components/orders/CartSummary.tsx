@@ -21,7 +21,7 @@ export default function CartSummary({ cart, className = '' }: CartSummaryProps) 
             Artículos ({itemCount} {itemCount === 1 ? 'producto' : 'productos'})
           </span>
           <span className="text-gray-900 font-medium">
-            {formatCurrency(cart.total_cents, 'CLP')}
+            {formatCurrency(cart.total_clp, 'CLP')}
           </span>
         </div>
 
@@ -35,7 +35,7 @@ export default function CartSummary({ cart, className = '' }: CartSummaryProps) 
         <div className="flex justify-between text-lg font-semibold">
           <span className="text-gray-900">Total</span>
           <span className="text-red-600">
-            {formatCurrency(cart.total_cents, 'CLP')}
+            {formatCurrency(cart.total_clp, 'CLP')}
           </span>
         </div>
       </div>

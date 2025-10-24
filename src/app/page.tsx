@@ -50,7 +50,7 @@ export default function Home() {
         const res = await fetch('/api/admin/theme/sport-icons');
         if (res.ok) {
           const data = await res.json();
-          logger.info('Loaded custom sport icons:', data);
+          logger.debug('Loaded custom sport icons:', data);
           setCustomIcons({
             futbol: data.futbolIconUrl || null,
             basquetbol: data.basquetbolIconUrl || null,

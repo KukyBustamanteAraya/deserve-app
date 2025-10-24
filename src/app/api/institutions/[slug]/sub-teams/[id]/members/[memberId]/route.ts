@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { z } from 'zod';
 
 const UpdateMemberSchema = z.object({
@@ -9,7 +10,7 @@ const UpdateMemberSchema = z.object({
   position: z.string().nullable().optional(),
   jersey_number: z.number().int().min(1).max(999).nullable().optional(),
   size: z.string().nullable().optional(),
-  additional_info: z.record(z.any()).optional(),
+  additional_info: z.record(z.string(), z.any()).optional(),
 });
 
 export async function PATCH(
@@ -17,7 +18,7 @@ export async function PATCH(
   { params }: { params: { slug: string; id: string; memberId: string } }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -81,7 +82,7 @@ export async function PATCH(
       .single();
 
     if (updateError) {
-      logger.error('Error updating roster member:', updateError);
+      logger.error('Error updating roster member:', toSupabaseError(updateError));
 
       if (updateError.code === '23505') {
         return NextResponse.json(
@@ -110,7 +111,7 @@ export async function PATCH(
       );
     }
 
-    logger.error('Error in roster member PATCH:', error);
+    logger.error('Error in roster member PATCH:', toError(error));
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -120,7 +121,7 @@ export async function DELETE(
   { params }: { params: { slug: string; id: string; memberId: string } }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -178,7 +179,7 @@ export async function DELETE(
       .eq('sub_team_id', params.id);
 
     if (deleteError) {
-      logger.error('Error deleting roster member:', deleteError);
+      logger.error('Error deleting roster member:', toSupabaseError(deleteError));
       return NextResponse.json(
         { error: 'Failed to remove roster member', details: deleteError.message },
         { status: 500 }
@@ -188,7 +189,7 @@ export async function DELETE(
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    logger.error('Error in roster member DELETE:', error);
+    logger.error('Error in roster member DELETE:', toError(error));
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

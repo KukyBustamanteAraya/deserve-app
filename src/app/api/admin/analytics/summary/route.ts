@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export const revalidate = 60; // Cache for 1 minute
 
 export async function GET() {
   try {
     await requireAdmin();
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Call all analytics functions in parallel
     const [countsResult, revenueResult, productsResult] = await Promise.all([
@@ -54,7 +55,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    logger.error('Admin analytics summary error:', error);
+    logger.error('Admin analytics summary error:', toError(error));
 
     if (error instanceof Error && error.message.includes('Forbidden')) {
       return NextResponse.json(

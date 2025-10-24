@@ -6,12 +6,13 @@ import { updateCartItemSchema } from '@/types/orders';
 import type { UpdateCartItemRequest, CartResponse } from '@/types/orders';
 import type { ApiResponse } from '@/types/api';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Require authentication
     const user = await requireAuth(supabase);
@@ -38,7 +39,7 @@ export async function PATCH(
         .eq('id', itemId);
 
       if (deleteError) {
-        logger.error('Error deleting cart item:', deleteError);
+        logger.error('Error deleting cart item:', toSupabaseError(deleteError));
         return NextResponse.json(
           { error: 'Failed to remove item from cart', message: deleteError.message } as ApiResponse<null>,
           { status: 500 }
@@ -52,7 +53,7 @@ export async function PATCH(
         .eq('id', itemId);
 
       if (updateError) {
-        logger.error('Error updating cart item:', updateError);
+        logger.error('Error updating cart item:', toSupabaseError(updateError));
         return NextResponse.json(
           { error: 'Failed to update cart item', message: updateError.message } as ApiResponse<null>,
           { status: 500 }
@@ -80,7 +81,7 @@ export async function PATCH(
       .single();
 
     if (fetchError) {
-      logger.error('Error fetching updated cart:', fetchError);
+      logger.error('Error fetching updated cart:', toSupabaseError(fetchError));
       return NextResponse.json(
         { error: 'Failed to fetch updated cart', message: fetchError.message } as ApiResponse<null>,
         { status: 500 }
@@ -100,7 +101,7 @@ export async function PATCH(
       );
     }
 
-    logger.error('Unexpected error in cart item update:', error);
+    logger.error('Unexpected error in cart item update:', toError(error));
     return NextResponse.json(
       { error: 'Internal server error' } as ApiResponse<null>,
       { status: 500 }
@@ -113,7 +114,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Require authentication
     const user = await requireAuth(supabase);
@@ -127,7 +128,7 @@ export async function DELETE(
       .eq('id', itemId);
 
     if (deleteError) {
-      logger.error('Error deleting cart item:', deleteError);
+      logger.error('Error deleting cart item:', toSupabaseError(deleteError));
       return NextResponse.json(
         { error: 'Failed to remove item from cart', message: deleteError.message } as ApiResponse<null>,
         { status: 500 }
@@ -154,7 +155,7 @@ export async function DELETE(
       .single();
 
     if (fetchError) {
-      logger.error('Error fetching updated cart:', fetchError);
+      logger.error('Error fetching updated cart:', toSupabaseError(fetchError));
       return NextResponse.json(
         { error: 'Failed to fetch updated cart', message: fetchError.message } as ApiResponse<null>,
         { status: 500 }
@@ -174,7 +175,7 @@ export async function DELETE(
       );
     }
 
-    logger.error('Unexpected error in cart item deletion:', error);
+    logger.error('Unexpected error in cart item deletion:', toError(error));
     return NextResponse.json(
       { error: 'Internal server error' } as ApiResponse<null>,
       { status: 500 }

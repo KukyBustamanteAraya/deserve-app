@@ -28,9 +28,11 @@ type OrderWithDetails = Order & {
   })[];
   total_paid_cents: number;
   total_pending_cents: number;
+  payment_mode?: string | null;
 };
 
 export default function TeamPaymentsPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
   const router = useRouter();
   const [team, setTeam] = useState<Team | null>(null);
   const [isManager, setIsManager] = useState(false);
@@ -40,9 +42,9 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
   const [error, setError] = useState<string | null>(null);
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadPaymentData() {
-      try {
+  // Extract loadPaymentData as a refetchable function
+  const loadPaymentData = async () => {
+    try {
         const supabase = getBrowserClient();
 
         // Get current user
@@ -54,7 +56,7 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
         const { data: teamData, error: teamError } = await supabase
           .from('teams')
           .select('id, name, slug, sport')
-          .eq('slug', params.slug)
+          .eq('slug', slug)
           .single();
 
         if (teamError) throw teamError;
@@ -100,7 +102,7 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
 
         // For each order, fetch items and contributions
         const ordersWithDetails = await Promise.all(
-          ordersData.map(async (order) => {
+          ordersData.map(async (order: any) => {
             // Get order items
             const { data: items } = await supabase
               .from('order_items')
@@ -122,10 +124,10 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
 
             // Calculate total paid and pending
             const total_paid_cents = contributions
-              ?.filter(c => c.payment_status === 'approved')
-              .reduce((sum, c) => sum + c.amount_cents, 0) || 0;
+              ?.filter((c: any) => c.payment_status === 'approved')
+              .reduce((sum: number, c: any) => sum + c.amount_cents, 0) || 0;
 
-            const total_pending_cents = Math.max(0, order.total_amount_cents - total_paid_cents);
+            const total_pending_cents = Math.max(0, order.total_amount_clp - total_paid_cents);
 
             return {
               ...order,
@@ -144,10 +146,11 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
       } finally {
         setLoading(false);
       }
-    }
+  };
 
+  useEffect(() => {
     loadPaymentData();
-  }, [params.slug]);
+  }, [slug]);
 
   // Handler for full order payment (simplified - uses payment_contributions)
   const handleFullOrderPayment = async (orderId: string, totalAmountCents: number) => {
@@ -214,7 +217,7 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
           <h1 className="text-2xl font-bold text-white mb-4">Error</h1>
           <p className="text-gray-300 mb-6">{error || 'Equipo no encontrado'}</p>
           <button
-            onClick={() => router.push(`/mi-equipo/${params.slug}`)}
+            onClick={() => router.push(`/mi-equipo/${slug}`)}
             className="text-[#e21c21] hover:text-[#c11a1e] font-medium"
           >
             ← Volver
@@ -226,7 +229,7 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
 
   // Calculate aggregate stats
   const totalOrders = orders.length;
-  const totalAmountCents = orders.reduce((sum, o) => sum + o.total_amount_cents, 0);
+  const totalAmountCents = orders.reduce((sum, o) => sum + o.total_amount_clp, 0);
   const totalPaidCents = orders.reduce((sum, o) => sum + o.total_paid_cents, 0);
   const totalPendingCents = orders.reduce((sum, o) => sum + o.total_pending_cents, 0);
 
@@ -239,7 +242,7 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
 
           {/* Back Arrow - Top Left */}
           <button
-            onClick={() => router.push(`/mi-equipo/${params.slug}`)}
+            onClick={() => router.push(`/mi-equipo/${slug}`)}
             className="absolute top-2 left-2 p-1.5 rounded-md bg-gradient-to-br from-gray-800/50 via-black/40 to-gray-900/50 border border-gray-700 text-gray-400 hover:text-white hover:border-[#e21c21]/50 transition-all z-10"
             style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
           >
@@ -289,7 +292,7 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
               Crea un pedido desde un diseño aprobado para comenzar a gestionar pagos
             </p>
             <button
-              onClick={() => router.push(`/mi-equipo/${params.slug}`)}
+              onClick={() => router.push(`/mi-equipo/${slug}`)}
               className="relative px-6 py-3 bg-gradient-to-br from-blue-600/90 via-blue-700/80 to-blue-800/90 text-white rounded-lg font-medium overflow-hidden group/btn border border-blue-600/50 shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50"
               style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
             >
@@ -301,7 +304,7 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
 
         {/* Orders List */}
         {orders.map((order) => {
-          const paidCount = order.contributions.filter(c => c.payment_status === 'approved').length;
+          const paidCount = order.contributions.filter((c: any) => c.payment_status === 'approved').length;
           const contributorCount = order.items.length; // One contributor per item/player
 
           return (
@@ -359,7 +362,7 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
 
               {/* Payment Progress */}
               <PaymentProgressCard
-                totalCents={order.total_amount_cents}
+                totalCents={order.total_amount_clp}
                 paidCents={order.total_paid_cents}
                 pendingCents={order.total_pending_cents}
                 contributorCount={contributorCount}
@@ -392,7 +395,7 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
                             </div>
                             <div>
                               <div className="text-sm text-gray-300 mb-1">Monto</div>
-                              <div className="text-xl font-bold text-white">{formatCLP(myItem.line_total_cents || myItem.unit_price_cents)}</div>
+                              <div className="text-xl font-bold text-white">{formatCLP(myItem.line_total_clp || myItem.unit_price_clp)}</div>
                             </div>
                           </div>
                           <p className="text-sm text-gray-300 mt-3 relative">
@@ -406,7 +409,7 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
                             <div className="flex items-center justify-between mb-4 relative">
                               <div>
                                 <div className="text-sm text-gray-300 mb-1">Tu Parte</div>
-                                <div className="text-3xl font-bold text-white">{formatCLP(myItem.line_total_cents || myItem.unit_price_cents)}</div>
+                                <div className="text-3xl font-bold text-white">{formatCLP(myItem.line_total_clp || myItem.unit_price_clp)}</div>
                               </div>
                               <div className="text-right">
                                 <div className="text-sm text-gray-300 mb-1">Producto</div>
@@ -439,8 +442,8 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
                                 }
 
                                 alert('Has cancelado tu participación en este pedido. El total del pedido se ha actualizado.');
-                                // Refresh the page to show updated data
-                                window.location.reload();
+                                // Refresh data to show updated order
+                                await loadPaymentData();
                               } catch (err: any) {
                                 alert(`Error: ${err.message}`);
                               }
@@ -462,7 +465,7 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
                                   body: JSON.stringify({
                                     orderId: order.id,
                                     userId: currentUserId,
-                                    amountCents: myItem.line_total_cents || myItem.unit_price_cents,
+                                    amountCents: myItem.line_total_clp || myItem.unit_price_clp,
                                   }),
                                 });
 
@@ -487,7 +490,7 @@ export default function TeamPaymentsPage({ params }: { params: { slug: string } 
                             {processingPayment === order.id ? (
                               <span className="relative">Procesando...</span>
                             ) : (
-                              <span className="relative">💳 Pagar Mi Parte ({formatCLP(myItem.line_total_cents || myItem.unit_price_cents)})</span>
+                              <span className="relative">💳 Pagar Mi Parte ({formatCLP(myItem.line_total_clp || myItem.unit_price_clp)})</span>
                             )}
                           </button>
                         </div>

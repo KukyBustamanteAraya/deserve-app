@@ -6,6 +6,7 @@ import {
 } from '@/lib/supabase/route';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { apiSuccess, apiError, apiUnauthorized, apiNotFound, apiValidationError } from '@/lib/api-response';
 
 export async function POST(req: NextRequest) {
@@ -36,13 +37,13 @@ export async function POST(req: NextRequest) {
   // 1) Auth check
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr || !userData?.user) {
-    logger.error('[profile] getUser error:', userErr);
+    logger.error('[profile] getUser error', toError(userErr));
     return jsonWithCarriedCookies(carrier, { error: 'Unauthorized' }, { status: 401 });
   }
 
   const userId = userData.user.id;
-  logger.debug('[profile] User authenticated:', userId);
-  logger.debug('[profile] Update data:', updateData);
+  logger.debug('[profile] User authenticated:', { userId });
+  logger.debug('[profile] Update data:', { updateData });
 
   // 2) Update (RLS will allow only own row)
   const { data, error } = await supabase
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
 
   if (!data) {
     // This usually means the profile row didn't exist (fixed by backfill SQL)
-    logger.warn('[profile] No row updated for user:', userId);
+    logger.warn('[profile] No row updated for user:', { userId });
     return jsonWithCarriedCookies(
       carrier,
       { error: 'Profile not found for current user.' },
@@ -76,14 +77,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  logger.debug('[profile] Update successful for user:', userId);
+  logger.debug('[profile] Update successful for user:', { userId });
   return jsonWithCarriedCookies(carrier, { ok: true, profile: data }, { status: 200 });
 }
 
 // GET /api/profile - Get current user profile
 export async function GET() {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -99,14 +100,14 @@ export async function GET() {
       .single();
 
     if (error) {
-      logger.error('Error fetching profile:', error);
+      logger.error('Error fetching profile:', toError(error));
       return apiError('Failed to fetch profile', 500);
     }
 
     return apiSuccess(profile, 'Profile retrieved successfully');
 
   } catch (error) {
-    logger.error('Unexpected error in profile fetch:', error);
+    logger.error('Unexpected error in profile fetch:', toError(error));
     return apiError('Internal server error');
   }
 }

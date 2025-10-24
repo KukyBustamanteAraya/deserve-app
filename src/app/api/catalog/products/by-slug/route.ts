@@ -4,6 +4,7 @@ import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client'
 import type { ProductDetail } from '@/types/catalog';
 import type { ApiResponse } from '@/types/api';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 interface RouteParams {
   params: {
     slug: string;
@@ -17,7 +18,7 @@ export async function GET(
   { params }: RouteParams
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
     const { slug } = params;
 
     // Require authentication
@@ -42,7 +43,7 @@ export async function GET(
         slug,
         name,
         description,
-        price_cents,
+        price_clp,
         status,
         created_at,
         updated_at,
@@ -71,7 +72,7 @@ export async function GET(
         );
       }
 
-      logger.error('Error fetching product:', error);
+      logger.error('Error fetching product:', toError(error));
       return NextResponse.json(
         {
           error: 'Failed to fetch product',
@@ -102,7 +103,7 @@ export async function GET(
     // Map sport_ids to sport data
     const productSports = (product.sport_ids || [])
       .map((sportId: number) => sportsMap.get(sportId))
-      .filter((sport): sport is { slug: string; name: string } => !!sport);
+      .filter((sport: { slug: string; name: string } | undefined): sport is { slug: string; name: string } => !!sport);
 
     // Transform to expected format (updated for multi-sport support)
     const productDetail: ProductDetail = {
@@ -112,7 +113,7 @@ export async function GET(
       slug: product.slug,
       name: product.name,
       description: product.description,
-      price_cents: product.price_cents,
+      price_clp: product.price_clp,
       active: product.status === 'active',
       created_at: product.created_at,
       updated_at: product.updated_at,
@@ -155,7 +156,7 @@ export async function GET(
       );
     }
 
-    logger.error('Unexpected error in product detail endpoint:', error);
+    logger.error('Unexpected error in product detail endpoint:', toError(error));
     return NextResponse.json(
       {
         error: 'Internal server error',

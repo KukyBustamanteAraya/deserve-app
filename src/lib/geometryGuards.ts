@@ -42,7 +42,7 @@ export async function assertGeometry(
     const editedAlpha = editedData.data[i];
 
     // Consider pixels different if alpha differs by more than 10 (out of 255)
-    if (Math.abs(baseAlpha - editedAlpha) > 10) {
+    if (Math.abs(basealpha - editedAlpha) > 10) {
       diffs++;
     }
   }

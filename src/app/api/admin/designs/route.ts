@@ -3,13 +3,14 @@
 import { requireAdmin } from '@/lib/auth/admin-guard';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(request: Request) {
   try {
     await requireAdmin();
 
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
     const { searchParams } = new URL(request.url);
 
     // Filters
@@ -73,7 +74,7 @@ export async function GET(request: Request) {
     const { data: designs, error } = await query;
 
     if (error) {
-      logger.error('Error fetching designs:', error);
+      logger.error('Error fetching designs:', toError(error));
       return apiError('Failed to fetch designs', 500);
     }
 
@@ -107,7 +108,7 @@ export async function GET(request: Request) {
     }, `Found ${transformedDesigns.length} designs`);
 
   } catch (error) {
-    logger.error('Unexpected error in designs endpoint:', error);
+    logger.error('Unexpected error in designs endpoint:', toError(error));
     return apiError('An unexpected error occurred while fetching designs');
   }
 }
@@ -116,7 +117,7 @@ export async function POST(request: Request) {
   try {
     await requireAdmin();
 
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
     const body = await request.json();
 
     const {
@@ -197,7 +198,7 @@ export async function POST(request: Request) {
     return apiSuccess(design, 'Design created successfully', 201);
 
   } catch (error) {
-    logger.error('Unexpected error creating design:', error);
+    logger.error('Unexpected error creating design:', toError(error));
     return apiError('An unexpected error occurred while creating design');
   }
 }

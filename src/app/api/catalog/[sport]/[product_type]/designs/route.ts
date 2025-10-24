@@ -5,6 +5,7 @@
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export async function GET(
   request: Request,
@@ -12,7 +13,7 @@ export async function GET(
 ) {
   try {
     const { sport: sportSlug, product_type: productTypeSlug } = params;
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Parse query parameters for filtering/sorting
     const { searchParams } = new URL(request.url);
@@ -28,7 +29,7 @@ export async function GET(
       .single();
 
     if (sportError || !sport) {
-      logger.error('Sport not found:', sportSlug);
+      logger.error('Sport not found', { slug: sportSlug });
       return apiError(`Sport "${sportSlug}" not found`, 404);
     }
 
@@ -161,7 +162,7 @@ export async function GET(
     );
 
   } catch (error) {
-    logger.error('Unexpected error in design browser API:', error);
+    logger.error('Unexpected error in design browser API:', toError(error));
     return apiError('An unexpected error occurred');
   }
 }

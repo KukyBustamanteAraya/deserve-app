@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import {
   createSplitPayPreference,
   generateExternalReference,
@@ -122,7 +123,7 @@ export async function POST(request: Request) {
       .single();
 
     if (contributionError || !contribution) {
-      logger.error('[Split-Payment] Error creating contribution:', contributionError);
+      logger.error('[Split-Payment] Error creating contribution', toSupabaseError(contributionError));
       return NextResponse.json(
         { error: 'Failed to create payment record' },
         { status: 500 }
@@ -155,7 +156,7 @@ export async function POST(request: Request) {
       sandboxInitPoint: preference.sandbox_init_point,
     });
   } catch (error: any) {
-    logger.error('[Split-Payment] Error:', error);
+    logger.error('[Split-Payment] Error:', toError(error));
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface BannerImage {
   src: string;
@@ -42,7 +43,7 @@ export default function RotatingBanner() {
           setBannerImages(banners);
         }
       } catch (error) {
-        logger.error('Error loading banner settings:', error);
+        logger.error('Error loading banner settings:', toError(error));
       } finally {
         setLoading(false);
       }

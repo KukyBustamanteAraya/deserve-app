@@ -6,10 +6,11 @@ import { randomBytes } from 'crypto';
 // Returns the existing collection link or generates a new one
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const { id: teamId } = await params;
+    const supabase = await createSupabaseServer();
 
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -20,25 +21,17 @@ export async function GET(
       );
     }
 
-    // Verify user is manager of this team
+    // Verify user is a member of this team
     const { data: membership } = await supabase
       .from('team_memberships')
       .select('role')
-      .eq('team_id', params.id)
+      .eq('team_id', teamId)
       .eq('user_id', user.id)
       .single();
 
-    const { data: team } = await supabase
-      .from('teams')
-      .select('current_owner_id')
-      .eq('id', params.id)
-      .single();
-
-    const isManager = membership?.role === 'owner' || membership?.role === 'manager' || team?.current_owner_id === user.id;
-
-    if (!isManager) {
+    if (!membership) {
       return NextResponse.json(
-        { error: 'Only team managers can access collection links' },
+        { error: 'You must be a team member to access collection links' },
         { status: 403 }
       );
     }
@@ -47,7 +40,7 @@ export async function GET(
     const { data: settings } = await supabase
       .from('team_settings')
       .select('info_collection_token')
-      .eq('team_id', params.id)
+      .eq('team_id', teamId)
       .maybeSingle();
 
     let token = settings?.info_collection_token;
@@ -59,7 +52,7 @@ export async function GET(
       const { error: insertError } = await supabase
         .from('team_settings')
         .insert({
-          team_id: params.id,
+          team_id: teamId,
           info_collection_token: token,
           approval_mode: 'any_member',
           player_info_mode: 'hybrid',
@@ -79,7 +72,7 @@ export async function GET(
       const { error: updateError } = await supabase
         .from('team_settings')
         .update({ info_collection_token: token })
-        .eq('team_id', params.id);
+        .eq('team_id', teamId);
 
       if (updateError) {
         throw new Error('Failed to generate collection token');
@@ -90,7 +83,7 @@ export async function GET(
     const { data: teamData } = await supabase
       .from('teams')
       .select('name, slug')
-      .eq('id', params.id)
+      .eq('id', teamId)
       .single();
 
     const baseUrl = request.nextUrl.origin;
@@ -115,10 +108,11 @@ export async function GET(
 // Regenerates the collection token (invalidates old link)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const { id: teamId } = await params;
+    const supabase = await createSupabaseServer();
 
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -129,25 +123,17 @@ export async function POST(
       );
     }
 
-    // Verify user is manager of this team
+    // Verify user is a member of this team (any member can regenerate)
     const { data: membership } = await supabase
       .from('team_memberships')
       .select('role')
-      .eq('team_id', params.id)
+      .eq('team_id', teamId)
       .eq('user_id', user.id)
       .single();
 
-    const { data: team } = await supabase
-      .from('teams')
-      .select('current_owner_id')
-      .eq('id', params.id)
-      .single();
-
-    const isManager = membership?.role === 'owner' || membership?.role === 'manager' || team?.current_owner_id === user.id;
-
-    if (!isManager) {
+    if (!membership) {
       return NextResponse.json(
-        { error: 'Only team managers can regenerate collection links' },
+        { error: 'You must be a team member to regenerate collection links' },
         { status: 403 }
       );
     }
@@ -158,7 +144,7 @@ export async function POST(
     const { error: updateError } = await supabase
       .from('team_settings')
       .update({ info_collection_token: newToken })
-      .eq('team_id', params.id);
+      .eq('team_id', teamId);
 
     if (updateError) {
       throw new Error('Failed to regenerate collection token');
@@ -168,7 +154,7 @@ export async function POST(
     const { data: teamData } = await supabase
       .from('teams')
       .select('name, slug')
-      .eq('id', params.id)
+      .eq('id', teamId)
       .single();
 
     const baseUrl = request.nextUrl.origin;

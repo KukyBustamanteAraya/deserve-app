@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export async function POST(request: NextRequest) {
   try {
     await requireAdmin();
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     const { userId, isAdmin } = await request.json();
 
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
       .eq('id', userId);
 
     if (updateError) {
-      logger.error('Error updating admin status:', updateError);
+      logger.error('Error updating admin status:', toSupabaseError(updateError));
       return NextResponse.json(
         { error: 'Failed to update admin status' },
         { status: 500 }
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    logger.error('Toggle admin POST error:', error);
+    logger.error('Toggle admin POST error:', toError(error));
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

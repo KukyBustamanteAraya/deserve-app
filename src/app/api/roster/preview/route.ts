@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 // Simple CSV parser (no external dependencies)
 function parseCSV(text: string): { headers: string[]; rows: string[][] } {
@@ -19,7 +20,7 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
   
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error) {
-    logger.error('CSV parsing error:', error);
+    logger.error('CSV parsing error:', toError(error));
     return NextResponse.json(
       { error: 'Failed to parse CSV file' },
       { status: 500 }

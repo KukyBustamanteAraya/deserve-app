@@ -61,7 +61,7 @@ export function OrderPipelineCard({ order, teamSlug }: OrderPipelineCardProps) {
   // Calculate payment progress (assuming total_paid is available from join)
   const totalPaid = 0; // TODO: Get from payment_contributions join
   const { percentage: paymentPercentage } = calculatePaymentProgress(
-    order.total_amount_cents || 0,
+    order.total_amount_clp || 0,
     totalPaid
   );
 
@@ -137,7 +137,7 @@ export function OrderPipelineCard({ order, teamSlug }: OrderPipelineCardProps) {
         <div className="flex items-center justify-between pt-3 border-t border-gray-700">
           <span className="text-xs text-gray-400">Total</span>
           <span className="text-lg font-bold text-white">
-            {formatCLP(order.total_amount_cents || 0)}
+            {formatCLP(order.total_amount_clp || 0)}
           </span>
         </div>
 

@@ -4,16 +4,16 @@ import { notFound } from 'next/navigation';
 import DesignForm from '@/components/admin/DesignForm';
 
 interface EditDesignPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function EditDesignPage({ params }: EditDesignPageProps) {
   await requireAdmin();
 
-  const { id } = params;
-  const supabase = createSupabaseServer();
+  const { id } = await params;
+  const supabase = await createSupabaseServer();
 
   // Fetch design with mockups
   const { data: design, error } = await supabase

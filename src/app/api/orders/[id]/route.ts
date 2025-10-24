@@ -4,12 +4,13 @@ import { createSupabaseServer, requireAuth } from '@/lib/supabase/server-client'
 import type { OrderDetailResponse } from '@/types/orders';
 import type { ApiResponse } from '@/types/api';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Require authentication
     const user = await requireAuth(supabase);
@@ -61,7 +62,7 @@ export async function GET(
       );
     }
 
-    logger.error('Unexpected error in order details:', error);
+    logger.error('Unexpected error in order details:', toError(error));
     return NextResponse.json(
       { error: 'Internal server error' } as ApiResponse<null>,
       { status: 500 }

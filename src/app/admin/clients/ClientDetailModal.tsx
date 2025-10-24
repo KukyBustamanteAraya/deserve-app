@@ -17,6 +17,7 @@ export default function ClientDetailModal({ clientId, isOpen, onClose }: ClientD
   const [loading, setLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithDetails | null>(null);
   const [activeTab, setActiveTab] = useState<'orders' | 'designs'>('designs');
+  const [expandedDesignRequestId, setExpandedDesignRequestId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && clientId) {
@@ -213,6 +214,10 @@ export default function ClientDetailModal({ clientId, isOpen, onClose }: ClientD
                         key={request.id}
                         request={request}
                         onRefresh={fetchClientDetail}
+                        isExpanded={expandedDesignRequestId === request.id}
+                        onToggleExpand={() => setExpandedDesignRequestId(
+                          expandedDesignRequestId === request.id ? null : request.id
+                        )}
                       />
                     ))}
                   </div>

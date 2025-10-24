@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
+import GoogleSignInButton from '@/app/components/GoogleSignInButton';
 
 type Mode = 'password' | 'magic';
 
@@ -82,8 +83,8 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
           password
         });
         if (error) throw error;
-        logger.debug('[LoginForm] Sign-in successful, session:', data.session ? 'present' : 'missing');
-        logger.debug('[LoginForm] User:', data.user ? data.user.email : 'missing');
+        logger.debug('[LoginForm] Sign-in successful, session:', { status: data.session ? 'present' : 'missing' });
+        logger.debug('[LoginForm] User:', { email: data.user ? data.user.email : 'missing' });
         localStorage.setItem('auth:lastEmail', normalizedEmail);
 
         // Use server redirect to ensure cookies are set before rendering dashboard
@@ -129,6 +130,18 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
         >
           {mode === 'password' ? 'Use magic link' : 'Use password'}
         </button>
+      </div>
+
+      {/* Google Sign-In Button */}
+      <div className="mb-6 relative">
+        <GoogleSignInButton text="Sign in with Google" />
+      </div>
+
+      {/* Divider */}
+      <div className="relative flex items-center my-6">
+        <div className="flex-grow border-t border-gray-600"></div>
+        <span className="flex-shrink mx-4 text-sm text-gray-400">OR</span>
+        <div className="flex-grow border-t border-gray-600"></div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 relative">

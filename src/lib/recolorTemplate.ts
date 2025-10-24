@@ -93,7 +93,7 @@ async function createColorLayer(
 export async function recolorTemplate(options: RecolorOptions): Promise<Buffer> {
   const { templateBuffer, colors, masks } = options;
 
-  logger.debug('[TemplateMode] Starting recolor with masks:', Object.keys(masks));
+  logger.debug('[TemplateMode] Starting recolor with masks', { masks: Object.keys(masks) });
 
   // Load template and get dimensions
   const template = sharp(templateBuffer);
@@ -113,7 +113,7 @@ export async function recolorTemplate(options: RecolorOptions): Promise<Buffer> 
   const layers: sharp.OverlayOptions[] = [];
 
   // Layer 1: Body (primary color) - REQUIRED
-  logger.debug('[TemplateMode] Creating body layer:', colors.primary);
+  logger.debug('[TemplateMode] Creating body layer', { color: colors.primary });
   const bodyLayer = await createColorLayer(masks.body, colors.primary, width, height);
   layers.push({
     input: bodyLayer,
@@ -121,7 +121,7 @@ export async function recolorTemplate(options: RecolorOptions): Promise<Buffer> 
   });
 
   // Layer 2: Sleeves (secondary color) - REQUIRED
-  logger.debug('[TemplateMode] Creating sleeves layer:', colors.secondary);
+  logger.debug('[TemplateMode] Creating sleeves layer', { color: colors.secondary });
   const sleevesLayer = await createColorLayer(masks.sleeves, colors.secondary, width, height);
   layers.push({
     input: sleevesLayer,
@@ -130,7 +130,7 @@ export async function recolorTemplate(options: RecolorOptions): Promise<Buffer> 
 
   // Layer 3: Trims (tertiary color) - OPTIONAL
   if (masks.trims && colors.tertiary) {
-    logger.debug('[TemplateMode] Creating trims layer:', colors.tertiary);
+    logger.debug('[TemplateMode] Creating trims layer', { color: colors.tertiary });
     const trimsLayer = await createColorLayer(masks.trims, colors.tertiary, width, height);
     layers.push({
       input: trimsLayer,

@@ -40,7 +40,7 @@ interface ComponentPricing {
  * Returns itemized pricing for each component in the bundle
  */
 export async function GET(request: NextRequest) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
 
   try {
     const { searchParams } = new URL(request.url);
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
       // Get component base price from component_pricing table
       const { data: componentPricing } = await supabase
         .from('component_pricing')
-        .select('base_price_cents, component_name')
+        .select('base_price_clp, component_name')
         .eq('component_type_slug', comp.type_slug)
         .single();
 
@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Base price without any discounts
-      const basePrice = componentPricing.base_price_cents;
+      const basePrice = componentPricing.base_price_clp;
       const originalUnitPrice = basePrice + fabricModifier;
       const originalSubtotal = originalUnitPrice * comp.qty * quantity;
 

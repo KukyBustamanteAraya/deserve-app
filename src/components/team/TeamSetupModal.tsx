@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { useSports } from '@/hooks/api/useSports';
 import { getSportInfo } from '@/lib/sports/sportsMapping';
 
@@ -68,7 +69,7 @@ export function TeamSetupModal({ isOpen, onComplete, preSelectedSport }: TeamSet
         sports: selectedSports,
       });
     } catch (error) {
-      logger.error('Error completing team setup:', error);
+      logger.error('Error completing team setup:', toError(error));
       alert('Error setting up team. Please try again.');
     } finally {
       setIsSubmitting(false);

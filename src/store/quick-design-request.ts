@@ -154,11 +154,8 @@ export const useQuickDesignRequest = create<QuickDesignRequestState>()(
 
       canProceedToStep3: () => {
         const state = get();
-        // Need organization type and role selected
+        // Only need organization type - role is no longer required
         if (!state.organizationType) return false;
-        if (!state.role) return false;
-        // If role is "other", also need customRole filled
-        if (state.role === 'other' && !state.customRole.trim()) return false;
         return true;
       },
 

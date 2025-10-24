@@ -1,20 +1,33 @@
 'use client';
 
 import { useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabaseBrowser } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export default function LogoutButton() {
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
 
   const onLogout = () => {
     startTransition(async () => {
       try {
-        await fetch('/logout', { method: 'GET' });
-        window.location.href = '/login';
+        // Use Supabase signOut
+        const { error } = await supabaseBrowser.auth.signOut();
+
+        if (error) {
+          throw error;
+        }
+
+        logger.info('User logged out successfully');
+
+        // Redirect to homepage after successful logout
+        router.push('/');
       } catch (error) {
-        logger.error('Logout error:', error);
-        // Fallback: redirect anyway
-        window.location.href = '/login';
+        logger.error('Logout error:', toError(error));
+        // Fallback: still try to redirect
+        router.push('/');
       }
     });
   };

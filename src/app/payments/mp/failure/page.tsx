@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface OrderStatus {
   id: string;
@@ -46,7 +47,7 @@ export default function PaymentFailurePage() {
         setOrder(data);
         setLoading(false);
       } catch (err) {
-        logger.error('Error fetching order:', err);
+        logger.error('Error fetching order:', toError(err));
         setError('Failed to fetch order details');
         setLoading(false);
       }

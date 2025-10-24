@@ -3,32 +3,31 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getBrowserClient } from '@/lib/supabase/client';
-import { useDesignRequestWizard } from '@/store/design-request-wizard';
+import { useDesignRequestWizard, type ColorCustomization } from '@/store/design-request-wizard';
 import { WizardLayout } from '@/components/institution/design-request/WizardLayout';
 
 export default function ColorsCustomizationPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
   const router = useRouter();
   const {
-    sport_name,
-    gender_category,
-    both_config,
-    colorCustomization,
-    setColorCustomization,
     selectedTeams,
-    updateTeam,
+    teamProducts,
+    setBaseColors,
+    setColorOverride,
+    baseColors: storedBaseColors,
+    colorOverrides: storedColorOverrides,
+    setMockupPreference,
   } = useDesignRequestWizard();
 
-  const [teamColors, setTeamColors] = useState<{ primary: string; secondary: string; accent?: string } | null>(null);
   const [teamType, setTeamType] = useState<'single_team' | 'institution' | null>(null);
 
-  // Home colors (Local)
+  // Base colors (apply to all teams/products by default)
   const [homeColors, setHomeColors] = useState({
     primary: '#FFFFFF',
     secondary: '#FFFFFF',
     accent: '#FFFFFF',
   });
 
-  // Away colors (Visita)
   const [awayColors, setAwayColors] = useState({
     primary: '#FFFFFF',
     secondary: '#FFFFFF',
@@ -38,14 +37,22 @@ export default function ColorsCustomizationPage({ params }: { params: { slug: st
   // Which designs to create: 'local', 'visit', or 'both'
   const [selectedDesigns, setSelectedDesigns] = useState<'local' | 'visit' | 'both'>('both');
 
+  // Track which team-product combinations have custom colors
+  const [expandedOverrides, setExpandedOverrides] = useState<Set<string>>(new Set());
+
+  // Local overrides state (teamId:productId -> colors)
+  const [localOverrides, setLocalOverrides] = useState<Record<string, {
+    home?: { primary: string; secondary: string; accent: string };
+    away?: { primary: string; secondary: string; accent: string };
+  }>>({});
+
   useEffect(() => {
-    // Load team type
     async function loadTeamType() {
       const supabase = getBrowserClient();
       const { data: team } = await supabase
         .from('teams')
         .select('team_type')
-        .eq('slug', params.slug)
+        .eq('slug', slug)
         .single();
 
       if (team) {
@@ -54,75 +61,69 @@ export default function ColorsCustomizationPage({ params }: { params: { slug: st
     }
 
     loadTeamType();
-  }, [params.slug]);
+  }, [slug]);
 
   useEffect(() => {
-    loadTeamColors();
+    loadInitialColors();
+  }, [selectedTeams]);
 
-    // Initialize from store if available
-    if (gender_category && colorCustomization[gender_category]) {
-      const saved = colorCustomization[gender_category]!;
-      if (saved.home_colors) {
-        setHomeColors(saved.home_colors);
-      }
-      if (saved.away_colors) {
-        setAwayColors(saved.away_colors);
-      }
-    }
-  }, []);
-
-  // Auto-sync away colors when home colors change
-  useEffect(() => {
-    // Only auto-sync if we haven't loaded custom away colors from store
-    const hasCustomAwayColors = gender_category && colorCustomization[gender_category]?.away_colors;
-
-    if (!hasCustomAwayColors) {
-      setAwayColors({
-        primary: homeColors.secondary,
-        secondary: homeColors.primary,
-        accent: homeColors.accent,
-      });
-    }
-  }, [homeColors.primary, homeColors.secondary, homeColors.accent]);
-
-  const loadTeamColors = () => {
-    // Get colors from the first selected team
+  const loadInitialColors = () => {
+    // Load from first team's colors
     if (selectedTeams && selectedTeams.length > 0 && selectedTeams[0].colors) {
       const teamColors = selectedTeams[0].colors;
-
-      // Team has colors set - use them
-      // Support both 'accent' and 'tertiary' for backwards compatibility
       const colors = {
         primary: teamColors.primary || '#FFFFFF',
         secondary: teamColors.secondary || '#FFFFFF',
         accent: teamColors.accent || teamColors.tertiary || '#FFFFFF',
       };
 
-      setTeamColors(colors);
-
-      // Set home colors to team colors
       setHomeColors(colors);
-
-      // Set away colors to inverted team colors
       setAwayColors({
         primary: colors.secondary,
         secondary: colors.primary,
         accent: colors.accent,
       });
     } else {
-      // Team has no colors set - default to white
+      // Default white
       const defaultColors = {
         primary: '#FFFFFF',
         secondary: '#FFFFFF',
         accent: '#FFFFFF',
       };
-
       setHomeColors(defaultColors);
       setAwayColors(defaultColors);
     }
+
+    // Load from store if available
+    if (storedBaseColors) {
+      const basePrimary = storedBaseColors.primary_color || homeColors.primary;
+      const baseSecondary = storedBaseColors.secondary_color || homeColors.secondary;
+      const baseAccent = storedBaseColors.tertiary_color || homeColors.accent;
+
+      setHomeColors({
+        primary: basePrimary,
+        secondary: baseSecondary,
+        accent: baseAccent,
+      });
+
+      // For simplicity, assume away is inverted (can be enhanced later)
+      setAwayColors({
+        primary: baseSecondary,
+        secondary: basePrimary,
+        accent: baseAccent,
+      });
+    }
   };
 
-  // Prevent Enter key from triggering any navigation
+  // Auto-sync away colors when home colors change
+  useEffect(() => {
+    setAwayColors({
+      primary: homeColors.secondary,
+      secondary: homeColors.primary,
+      accent: homeColors.accent,
+    });
+  }, [homeColors.primary, homeColors.secondary, homeColors.accent]);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -130,7 +131,6 @@ export default function ColorsCustomizationPage({ params }: { params: { slug: st
     }
   };
 
-  // Swap functions for away colors
   const swapAwayPrimarySecondary = () => {
     setAwayColors({
       primary: awayColors.secondary,
@@ -147,78 +147,110 @@ export default function ColorsCustomizationPage({ params }: { params: { slug: st
     });
   };
 
-  const handleContinue = () => {
-    // Save colors to team (official team colors)
-    if (selectedTeams && selectedTeams.length > 0) {
-      updateTeam(0, {
-        colors: {
-          primary: homeColors.primary,
-          secondary: homeColors.secondary,
-          tertiary: homeColors.accent,
-        }
+  const toggleOverride = (key: string) => {
+    const newExpanded = new Set(expandedOverrides);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
+      // Remove override
+      const newOverrides = { ...localOverrides };
+      delete newOverrides[key];
+      setLocalOverrides(newOverrides);
+    } else {
+      newExpanded.add(key);
+      // Initialize with base colors
+      setLocalOverrides({
+        ...localOverrides,
+        [key]: {
+          home: { ...homeColors },
+          away: { ...awayColors },
+        },
       });
     }
-
-    // Prepare color config based on selected designs
-    let colorConfig: any = {};
-
-    if (selectedDesigns === 'both') {
-      colorConfig = {
-        home_colors: homeColors,
-        away_colors: awayColors,
-      };
-    } else if (selectedDesigns === 'local') {
-      colorConfig = {
-        home_colors: homeColors,
-      };
-    } else if (selectedDesigns === 'visit') {
-      colorConfig = {
-        away_colors: awayColors,
-      };
-    }
-
-    if (gender_category === 'both') {
-      if (both_config?.same_colors) {
-        // Same colors for both genders
-        setColorCustomization({
-          male: colorConfig,
-          female: colorConfig,
-        });
-      } else {
-        // Set male colors; female can be customized separately later
-        setColorCustomization({
-          male: colorConfig,
-        });
-      }
-    } else if (gender_category === 'male') {
-      setColorCustomization({
-        male: colorConfig,
-      });
-    } else if (gender_category === 'female') {
-      setColorCustomization({
-        female: colorConfig,
-      });
-    }
-
-    router.push(`/mi-equipo/${params.slug}/design-request/new/quantities`);
+    setExpandedOverrides(newExpanded);
   };
 
-  // Adjust step numbers: single teams at colors (3/5), institutions at colors (4/6)
+  const updateOverrideColors = (key: string, type: 'home' | 'away', colors: { primary: string; secondary: string; accent: string }) => {
+    setLocalOverrides({
+      ...localOverrides,
+      [key]: {
+        ...localOverrides[key],
+        [type]: colors,
+      },
+    });
+  };
+
+  const handleContinue = () => {
+    // Save base colors to store
+    const baseColorCustomization: ColorCustomization = {
+      primary_color: homeColors.primary,
+      secondary_color: homeColors.secondary,
+      tertiary_color: homeColors.accent,
+      color_hierarchy: 'primary',
+    };
+
+    setBaseColors(baseColorCustomization);
+
+    // Save mockup preference
+    const mockupPref = selectedDesigns === 'local' ? 'home' : selectedDesigns === 'visit' ? 'away' : 'both';
+    setMockupPreference(mockupPref);
+
+    // Save overrides for each team-product combination
+    Object.entries(localOverrides).forEach(([key, colors]) => {
+      const [teamId, productId] = key.split(':');
+
+      if (colors.home) {
+        const homeOverride: ColorCustomization = {
+          primary_color: colors.home.primary,
+          secondary_color: colors.home.secondary,
+          tertiary_color: colors.home.accent,
+          color_hierarchy: 'primary',
+        };
+        setColorOverride(teamId, productId, homeOverride);
+      }
+    });
+
+    // Navigate based on team type
+    if (teamType === 'single_team') {
+      router.push(`/mi-equipo/${slug}/design-request/new/review`);
+    } else if (teamType === 'institution') {
+      router.push(`/mi-equipo/${slug}/design-request/new/quantities`);
+    } else {
+      console.warn('[Colors] Team type not loaded, defaulting to quantities page');
+      router.push(`/mi-equipo/${slug}/design-request/new/quantities`);
+    }
+  };
+
+  // Calculate all team-product combinations
+  const teamProductCombinations: Array<{ teamId: string; teamName: string; productId: string; productName: string; key: string }> = [];
+  selectedTeams.forEach(team => {
+    const teamId = team.id || team.slug || team.name;
+    const products = teamProducts[teamId] || [];
+    products.forEach(product => {
+      teamProductCombinations.push({
+        teamId,
+        teamName: team.name,
+        productId: product.id,
+        productName: product.name,
+        key: `${teamId}:${product.id}`,
+      });
+    });
+  });
+
   const currentStep = teamType === 'single_team' ? 3 : 4;
-  const totalWizardSteps = teamType === 'single_team' ? 5 : 6;
+  const totalWizardSteps = teamType === 'single_team' ? 4 : 6;
 
   return (
     <WizardLayout
       step={currentStep}
       totalSteps={totalWizardSteps}
-      title={`Personaliza los colores para ${sport_name}`}
-      subtitle="Define los colores de local y visita"
-      onBack={() => router.push(`/mi-equipo/${params.slug}/design-request/new/designs`)}
+      title="Personaliza los colores"
+      subtitle="Define colores base y personalizaciones opcionales"
+      onBack={() => router.push(`/mi-equipo/${slug}/design-request/new/designs`)}
       onContinue={handleContinue}
       canContinue={true}
     >
       <div className="space-y-6">
-        {/* Selection: Which designs to create */}
+        {/* Design Selection */}
         <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-sm p-4 border border-gray-700">
           <h3 className="text-sm md:text-base font-semibold text-white mb-3">¿Qué diseños deseas crear?</h3>
           <div className="flex gap-3">
@@ -255,210 +287,287 @@ export default function ColorsCustomizationPage({ params }: { params: { slug: st
           </div>
         </div>
 
-        {/* 2-Column Layout for Home and Away Colors */}
-        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:gap-6 items-start">
-          {/* LEFT COLUMN - Home Colors (Colores de Local) */}
-          <div className={`relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-sm p-3 md:p-4 border-2 transition-all h-full ${
-            selectedDesigns === 'local' || selectedDesigns === 'both'
-              ? 'border-blue-500'
-              : 'border-gray-700 opacity-50'
-          }`}>
-            <h3 className="text-sm md:text-base lg:text-lg font-semibold text-white mb-3 md:mb-4">Colores de Local</h3>
+        {/* Base Colors */}
+        <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-sm p-4 border-2 border-blue-500">
+          <h3 className="text-sm md:text-base font-semibold text-white mb-2">Colores Base</h3>
+          <p className="text-xs text-gray-400 mb-4">Estos colores se aplicarán a todos los equipos y productos</p>
 
-            <div className="space-y-2">
-              {/* Primary Color */}
+          <div className="grid grid-cols-2 gap-3 md:gap-4 lg:gap-6 items-start">
+            {/* Home Colors */}
+            <div className={`space-y-2 ${selectedDesigns === 'local' || selectedDesigns === 'both' ? '' : 'opacity-50'}`}>
+              <h4 className="text-xs md:text-sm font-semibold text-white mb-2">Local</h4>
+
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-300 mb-1.5">
-                  Primario
-                </label>
+                <label className="block text-xs font-medium text-gray-300 mb-1.5">Primario</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
                     value={homeColors.primary}
                     onChange={(e) => setHomeColors({ ...homeColors, primary: e.target.value })}
-                    className="w-8 h-8 md:w-10 md:h-10 rounded border-2 border-gray-600 cursor-pointer flex-shrink-0"
+                    className="w-8 h-8 rounded border-2 border-gray-600 cursor-pointer"
                   />
                   <input
                     type="text"
                     value={homeColors.primary}
                     onChange={(e) => setHomeColors({ ...homeColors, primary: e.target.value })}
                     onKeyDown={handleKeyDown}
-                    className="w-20 md:w-24 px-1.5 md:px-2 py-1 md:py-1.5 bg-black/50 border border-gray-700 rounded text-white text-[10px] md:text-xs uppercase focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                    placeholder="#FFFFFF"
+                    className="w-20 px-2 py-1 bg-black/50 border border-gray-700 rounded text-white text-xs uppercase focus:border-blue-500 outline-none"
                   />
                 </div>
               </div>
 
-              {/* Spacer matching swap button height */}
-              <div className="h-6"></div>
-
-              {/* Secondary Color */}
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-300 mb-1.5">
-                  Secundario
-                </label>
+                <label className="block text-xs font-medium text-gray-300 mb-1.5">Secundario</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
                     value={homeColors.secondary}
                     onChange={(e) => setHomeColors({ ...homeColors, secondary: e.target.value })}
-                    className="w-8 h-8 md:w-10 md:h-10 rounded border-2 border-gray-600 cursor-pointer flex-shrink-0"
+                    className="w-8 h-8 rounded border-2 border-gray-600 cursor-pointer"
                   />
                   <input
                     type="text"
                     value={homeColors.secondary}
                     onChange={(e) => setHomeColors({ ...homeColors, secondary: e.target.value })}
                     onKeyDown={handleKeyDown}
-                    className="w-20 md:w-24 px-1.5 md:px-2 py-1 md:py-1.5 bg-black/50 border border-gray-700 rounded text-white text-[10px] md:text-xs uppercase focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                    placeholder="#FFFFFF"
+                    className="w-20 px-2 py-1 bg-black/50 border border-gray-700 rounded text-white text-xs uppercase focus:border-blue-500 outline-none"
                   />
                 </div>
               </div>
 
-              {/* Spacer matching swap button height */}
-              <div className="h-6"></div>
-
-              {/* Accent Color */}
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-300 mb-1.5">
-                  Acento
-                </label>
+                <label className="block text-xs font-medium text-gray-300 mb-1.5">Acento</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
                     value={homeColors.accent}
                     onChange={(e) => setHomeColors({ ...homeColors, accent: e.target.value })}
-                    className="w-8 h-8 md:w-10 md:h-10 rounded border-2 border-gray-600 cursor-pointer flex-shrink-0"
+                    className="w-8 h-8 rounded border-2 border-gray-600 cursor-pointer"
                   />
                   <input
                     type="text"
                     value={homeColors.accent}
                     onChange={(e) => setHomeColors({ ...homeColors, accent: e.target.value })}
                     onKeyDown={handleKeyDown}
-                    className="w-20 md:w-24 px-1.5 md:px-2 py-1 md:py-1.5 bg-black/50 border border-gray-700 rounded text-white text-[10px] md:text-xs uppercase focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                    placeholder="#FFFFFF"
+                    className="w-20 px-2 py-1 bg-black/50 border border-gray-700 rounded text-white text-xs uppercase focus:border-blue-500 outline-none"
                   />
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* RIGHT COLUMN - Away Colors (Colores de Visita) */}
-          <div className={`relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-sm p-3 md:p-4 border-2 transition-all h-full ${
-            selectedDesigns === 'visit' || selectedDesigns === 'both'
-              ? 'border-blue-500'
-              : 'border-gray-700 opacity-50'
-          }`}>
-            <h3 className="text-sm md:text-base lg:text-lg font-semibold text-white mb-3 md:mb-4">Colores de Visita</h3>
+            {/* Away Colors */}
+            <div className={`space-y-2 ${selectedDesigns === 'visit' || selectedDesigns === 'both' ? '' : 'opacity-50'}`}>
+              <h4 className="text-xs md:text-sm font-semibold text-white mb-2">Visita</h4>
 
-            <div className="space-y-2">
-              {/* Primary Color */}
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-300 mb-1.5">
-                  Primario
-                </label>
+                <label className="block text-xs font-medium text-gray-300 mb-1.5">Primario</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
                     value={awayColors.primary}
                     onChange={(e) => setAwayColors({ ...awayColors, primary: e.target.value })}
-                    className="w-8 h-8 md:w-10 md:h-10 rounded border-2 border-gray-600 cursor-pointer flex-shrink-0"
+                    className="w-8 h-8 rounded border-2 border-gray-600 cursor-pointer"
                   />
                   <input
                     type="text"
                     value={awayColors.primary}
                     onChange={(e) => setAwayColors({ ...awayColors, primary: e.target.value })}
                     onKeyDown={handleKeyDown}
-                    className="w-20 md:w-24 px-1.5 md:px-2 py-1 md:py-1.5 bg-black/50 border border-gray-700 rounded text-white text-[10px] md:text-xs uppercase focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                    placeholder="#FFFFFF"
+                    className="w-20 px-2 py-1 bg-black/50 border border-gray-700 rounded text-white text-xs uppercase focus:border-blue-500 outline-none"
                   />
                 </div>
               </div>
 
-              {/* Swap Primary ↔ Secondary */}
               <div className="flex">
                 <button
                   onClick={swapAwayPrimarySecondary}
-                  className="ml-[67%] px-1.5 py-1 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 rounded transition-colors"
+                  className="ml-auto px-1.5 py-1 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 rounded transition-colors text-xs"
                   title="Intercambiar primario y secundario"
                 >
-                  <div className="flex flex-col items-center">
-                    <svg className="w-2.5 h-2.5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                    </svg>
-                    <svg className="w-2.5 h-2.5 text-gray-300 -mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </div>
+                  ↕
                 </button>
               </div>
 
-              {/* Secondary Color */}
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-300 mb-1.5">
-                  Secundario
-                </label>
+                <label className="block text-xs font-medium text-gray-300 mb-1.5">Secundario</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
                     value={awayColors.secondary}
                     onChange={(e) => setAwayColors({ ...awayColors, secondary: e.target.value })}
-                    className="w-8 h-8 md:w-10 md:h-10 rounded border-2 border-gray-600 cursor-pointer flex-shrink-0"
+                    className="w-8 h-8 rounded border-2 border-gray-600 cursor-pointer"
                   />
                   <input
                     type="text"
                     value={awayColors.secondary}
                     onChange={(e) => setAwayColors({ ...awayColors, secondary: e.target.value })}
                     onKeyDown={handleKeyDown}
-                    className="w-20 md:w-24 px-1.5 md:px-2 py-1 md:py-1.5 bg-black/50 border border-gray-700 rounded text-white text-[10px] md:text-xs uppercase focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                    placeholder="#003366"
+                    className="w-20 px-2 py-1 bg-black/50 border border-gray-700 rounded text-white text-xs uppercase focus:border-blue-500 outline-none"
                   />
                 </div>
               </div>
 
-              {/* Swap Secondary ↔ Accent */}
               <div className="flex">
                 <button
                   onClick={swapAwaySecondaryAccent}
-                  className="ml-[67%] px-1.5 py-1 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 rounded transition-colors"
+                  className="ml-auto px-1.5 py-1 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 rounded transition-colors text-xs"
                   title="Intercambiar secundario y acento"
                 >
-                  <div className="flex flex-col items-center">
-                    <svg className="w-2.5 h-2.5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                    </svg>
-                    <svg className="w-2.5 h-2.5 text-gray-300 -mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </div>
+                  ↕
                 </button>
               </div>
 
-              {/* Accent Color */}
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-300 mb-1.5">
-                  Acento
-                </label>
+                <label className="block text-xs font-medium text-gray-300 mb-1.5">Acento</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
                     value={awayColors.accent}
                     onChange={(e) => setAwayColors({ ...awayColors, accent: e.target.value })}
-                    className="w-8 h-8 md:w-10 md:h-10 rounded border-2 border-gray-600 cursor-pointer flex-shrink-0"
+                    className="w-8 h-8 rounded border-2 border-gray-600 cursor-pointer"
                   />
                   <input
                     type="text"
                     value={awayColors.accent}
                     onChange={(e) => setAwayColors({ ...awayColors, accent: e.target.value })}
                     onKeyDown={handleKeyDown}
-                    className="w-20 md:w-24 px-1.5 md:px-2 py-1 md:py-1.5 bg-black/50 border border-gray-700 rounded text-white text-[10px] md:text-xs uppercase focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                    placeholder="#FFFFFF"
+                    className="w-20 px-2 py-1 bg-black/50 border border-gray-700 rounded text-white text-xs uppercase focus:border-blue-500 outline-none"
                   />
                 </div>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Optional Per-Team/Product Overrides */}
+        {teamProductCombinations.length > 1 && (
+          <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md rounded-lg shadow-sm p-4 border border-gray-700">
+            <h3 className="text-sm md:text-base font-semibold text-white mb-2">Personalizaciones Opcionales</h3>
+            <p className="text-xs text-gray-400 mb-4">
+              Personaliza colores para equipos o productos específicos
+            </p>
+
+            <div className="space-y-2">
+              {teamProductCombinations.map((combo) => {
+                const isExpanded = expandedOverrides.has(combo.key);
+                const override = localOverrides[combo.key];
+
+                return (
+                  <div key={combo.key} className="border border-gray-700 rounded-lg">
+                    <button
+                      onClick={() => toggleOverride(combo.key)}
+                      className="w-full flex items-center justify-between p-3 hover:bg-gray-800/50 transition-colors"
+                    >
+                      <div className="text-left">
+                        <p className="text-sm font-medium text-white">{combo.teamName}</p>
+                        <p className="text-xs text-gray-400">{combo.productName}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isExpanded && <span className="text-xs text-blue-400">Personalizado</span>}
+                        <svg
+                          className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </button>
+
+                    {isExpanded && override && (
+                      <div className="p-4 border-t border-gray-700 bg-black/20">
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* Home Override */}
+                          <div className="space-y-2">
+                            <h5 className="text-xs font-semibold text-white">Local</h5>
+                            <div>
+                              <label className="block text-xs text-gray-300 mb-1">Primario</label>
+                              <input
+                                type="color"
+                                value={override.home?.primary || homeColors.primary}
+                                onChange={(e) => updateOverrideColors(combo.key, 'home', {
+                                  ...override.home!,
+                                  primary: e.target.value
+                                })}
+                                className="w-full h-8 rounded border border-gray-600 cursor-pointer"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-300 mb-1">Secundario</label>
+                              <input
+                                type="color"
+                                value={override.home?.secondary || homeColors.secondary}
+                                onChange={(e) => updateOverrideColors(combo.key, 'home', {
+                                  ...override.home!,
+                                  secondary: e.target.value
+                                })}
+                                className="w-full h-8 rounded border border-gray-600 cursor-pointer"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-300 mb-1">Acento</label>
+                              <input
+                                type="color"
+                                value={override.home?.accent || homeColors.accent}
+                                onChange={(e) => updateOverrideColors(combo.key, 'home', {
+                                  ...override.home!,
+                                  accent: e.target.value
+                                })}
+                                className="w-full h-8 rounded border border-gray-600 cursor-pointer"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Away Override */}
+                          <div className="space-y-2">
+                            <h5 className="text-xs font-semibold text-white">Visita</h5>
+                            <div>
+                              <label className="block text-xs text-gray-300 mb-1">Primario</label>
+                              <input
+                                type="color"
+                                value={override.away?.primary || awayColors.primary}
+                                onChange={(e) => updateOverrideColors(combo.key, 'away', {
+                                  ...override.away!,
+                                  primary: e.target.value
+                                })}
+                                className="w-full h-8 rounded border border-gray-600 cursor-pointer"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-300 mb-1">Secundario</label>
+                              <input
+                                type="color"
+                                value={override.away?.secondary || awayColors.secondary}
+                                onChange={(e) => updateOverrideColors(combo.key, 'away', {
+                                  ...override.away!,
+                                  secondary: e.target.value
+                                })}
+                                className="w-full h-8 rounded border border-gray-600 cursor-pointer"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-300 mb-1">Acento</label>
+                              <input
+                                type="color"
+                                value={override.away?.accent || awayColors.accent}
+                                onChange={(e) => updateOverrideColors(combo.key, 'away', {
+                                  ...override.away!,
+                                  accent: e.target.value
+                                })}
+                                className="w-full h-8 rounded border border-gray-600 cursor-pointer"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </WizardLayout>
   );

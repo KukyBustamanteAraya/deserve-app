@@ -27,6 +27,7 @@ export interface ProductImage {
   id: string;
   product_id: string;
   url: string;
+  alt?: string;  // Alternative property name used in some components
   alt_text: string | null;
   sort_order: number;
   created_at: string;
@@ -67,6 +68,7 @@ export interface Team {
   created_by: string;
   created_at: string;
   updated_at: string;
+  gender_category?: 'male' | 'female' | 'both';
 }
 
 export interface Profile {
@@ -91,7 +93,7 @@ export interface CatalogPreviewResponse {
 }
 
 // Utility types
-export type SportSlug = 'soccer' | 'basketball' | 'volleyball' | 'rugby' | 'golf';
+export type SportSlug = 'soccer' | 'futbol' | 'basketball' | 'volleyball' | 'rugby' | 'golf';
 
 export interface ApiError {
   error: string;

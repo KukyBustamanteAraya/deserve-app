@@ -39,7 +39,7 @@ export default function DashboardClient({ user, profile }: Props) {
         <div className="relative bg-gradient-to-br from-gray-800/90 via-black/80 to-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-2xl overflow-hidden group p-6 mb-6">
           <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
           <h2 className="text-2xl font-bold text-white relative text-center">
-            Welcome, {displayName}!
+            Wena {displayName}!
           </h2>
         </div>
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBuilderState } from '@/hooks/useBuilderState';
-import { createSupabaseBrowser } from '@/lib/supabase/client';
+import { getBrowserClient } from '@/lib/supabase/client';
 import Image from 'next/image';
 import { CustomizeBanner } from '@/components/customize/CustomizeBanner';
 import { CustomizeStepNav } from '@/components/customize/CustomizeStepNav';

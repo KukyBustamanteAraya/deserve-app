@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { centsToCLP } from '@/lib/currency';
 import type { ProductListItem } from '@/types/catalog';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 interface ProductCardProps {
   product: ProductListItem;
@@ -56,7 +57,7 @@ export function ProductCard({ product, className = '', priority = false }: Produ
         }
       }
     } catch (error) {
-      logger.error('Error adding to cart:', error);
+      logger.error('Error adding to cart:', toError(error));
       // Show error feedback
       const errorMessage = document.createElement('div');
       errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
@@ -132,7 +133,7 @@ export function ProductCard({ product, className = '', priority = false }: Produ
 
         {/* Price */}
         <p className="text-xl font-bold text-red-600 mt-4">
-          {centsToCLP(product.display_price_cents ?? product.price_cents ?? product.retail_price_cents ?? product.base_price_cents ?? 0)}
+          {centsToCLP(product.display_price_clp ?? product.price_clp ?? product.retail_price_clp ?? product.base_price_clp ?? 0)}
         </p>
       </div>
     </div>
@@ -180,7 +181,7 @@ export function CompactProductCard({ product, className = '' }: CompactProductCa
         </h4>
         <p className="text-xs text-gray-500 mt-1">{product.sport_name}</p>
         <p className="text-lg font-semibold text-red-600 mt-2">
-          {centsToCLP(product.display_price_cents ?? product.price_cents ?? product.retail_price_cents ?? product.base_price_cents ?? 0)}
+          {centsToCLP(product.display_price_clp ?? product.price_clp ?? product.retail_price_clp ?? product.base_price_clp ?? 0)}
         </p>
       </div>
     </Link>

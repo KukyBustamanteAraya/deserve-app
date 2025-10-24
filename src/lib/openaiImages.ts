@@ -29,7 +29,7 @@ export interface EditImageOptions {
   base: Buffer;
   mask?: Buffer;
   prompt: string;
-  size?: '1024x1024' | '1536x1536' | '2048x2048';
+  size?: '256x256' | '512x512' | '1024x1024' | '1536x1024' | '1024x1536' | '1536x1536' | '2048x2048';
   n?: number; // Number of variants to generate
   retries?: number;
 }
@@ -77,17 +77,23 @@ export async function editMultiVariant(options: EditImageOptions): Promise<Buffe
       const rgbaMask = mask ? await ensureRGBA(mask) : undefined;
 
       // Convert buffers to File objects for OpenAI API
-      const imageFile = new File([rgbaBase], 'image.png', { type: 'image/png' });
-      const maskFile = rgbaMask ? new File([rgbaMask], 'mask.png', { type: 'image/png' }) : undefined;
+      const imageFile = new File([rgbaBase as any], 'image.png', { type: 'image/png' });
+      const maskFile = rgbaMask ? new File([rgbaMask as any], 'mask.png', { type: 'image/png' }) : undefined;
 
       // Use dall-e-2 for image editing (returns URLs, not base64)
       logger.debug('[OpenAI] Using dall-e-2 model (URL mode)');
+
+      // Map sizes to valid dall-e-2 sizes (it only supports 256x256, 512x512, 1024x1024)
+      const validSize = (['1536x1024', '1024x1536', '1536x1536', '2048x2048'].includes(size || ''))
+        ? '1024x1024'
+        : (size || '1024x1024');
+
       const response = await getClient().images.edit({
         model: 'dall-e-2',
         image: imageFile,
         mask: maskFile,
         prompt,
-        size,
+        size: validSize as any,
         n: n || 1,
         // Note: dall-e-2 doesn't support response_format, always returns URLs
       });

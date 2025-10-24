@@ -51,7 +51,7 @@ export interface Database {
           logo_url: string | null
           primary_color: string | null
           secondary_color: string | null
-          team_type: 'small' | 'large' | 'institution' | null
+          team_type: 'single_team' | 'institution' | null
           created_by: string
           created_at: string
           updated_at: string
@@ -64,7 +64,7 @@ export interface Database {
           logo_url?: string | null
           primary_color?: string | null
           secondary_color?: string | null
-          team_type?: 'small' | 'large' | 'institution' | null
+          team_type?: 'single_team' | 'institution' | null
           created_by: string
           created_at?: string
           updated_at?: string
@@ -77,7 +77,7 @@ export interface Database {
           logo_url?: string | null
           primary_color?: string | null
           secondary_color?: string | null
-          team_type?: 'small' | 'large' | 'institution' | null
+          team_type?: 'single_team' | 'institution' | null
           created_by?: string
           created_at?: string
           updated_at?: string
@@ -112,9 +112,9 @@ export interface Database {
           name: string
           slug: string
           description: string | null
-          price_cents: number
-          base_price_cents: number | null
-          retail_price_cents: number | null
+          price_clp: number
+          base_price_clp: number | null
+          retail_price_clp: number | null
           product_type_slug: string | null
           hero_path: string | null
           status: string
@@ -130,9 +130,9 @@ export interface Database {
           name: string
           slug: string
           description?: string | null
-          price_cents: number
-          base_price_cents?: number | null
-          retail_price_cents?: number | null
+          price_clp: number
+          base_price_clp?: number | null
+          retail_price_clp?: number | null
           product_type_slug?: string | null
           hero_path?: string | null
           status?: string
@@ -148,9 +148,9 @@ export interface Database {
           name?: string
           slug?: string
           description?: string | null
-          price_cents?: number
-          base_price_cents?: number | null
-          retail_price_cents?: number | null
+          price_clp?: number
+          base_price_clp?: number | null
+          retail_price_clp?: number | null
           product_type_slug?: string | null
           hero_path?: string | null
           status?: string
@@ -164,11 +164,20 @@ export interface Database {
           id: string
           team_id: string
           requested_by: string
+          user_id: string | null
+          user_type: 'player' | 'manager' | 'coach' | null
+          sport_slug: string | null
+          design_id: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          accent_color: string | null
           status: string
+          approval_status: 'pending_review' | 'approved' | 'changes_requested' | 'revision_ready' | null
           brief: string | null
           mockup_urls: string[] | null
           feedback: string | null
           order_id: string | null
+          order_stage: 'design_phase' | 'pending_order' | 'in_order' | 'order_locked' | null
           created_at: string
           updated_at: string
         }
@@ -176,11 +185,20 @@ export interface Database {
           id?: string
           team_id: string
           requested_by: string
+          user_id?: string | null
+          user_type?: 'player' | 'manager' | 'coach' | null
+          sport_slug?: string | null
+          design_id?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          accent_color?: string | null
           status?: string
+          approval_status?: 'pending_review' | 'approved' | 'changes_requested' | 'revision_ready' | null
           brief?: string | null
           mockup_urls?: string[] | null
           feedback?: string | null
           order_id?: string | null
+          order_stage?: 'design_phase' | 'pending_order' | 'in_order' | 'order_locked' | null
           created_at?: string
           updated_at?: string
         }
@@ -188,11 +206,20 @@ export interface Database {
           id?: string
           team_id?: string
           requested_by?: string
+          user_id?: string | null
+          user_type?: 'player' | 'manager' | 'coach' | null
+          sport_slug?: string | null
+          design_id?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          accent_color?: string | null
           status?: string
+          approval_status?: 'pending_review' | 'approved' | 'changes_requested' | 'revision_ready' | null
           brief?: string | null
           mockup_urls?: string[] | null
           feedback?: string | null
           order_id?: string | null
+          order_stage?: 'design_phase' | 'pending_order' | 'in_order' | 'order_locked' | null
           created_at?: string
           updated_at?: string
         }
@@ -200,37 +227,68 @@ export interface Database {
       orders: {
         Row: {
           id: string
+          order_number: string | null
           user_id: string
           team_id: string | null
           status: string
+          payment_status: 'unpaid' | 'partial' | 'paid' | 'refunded' | null
+          payment_mode: 'individual' | 'manager_pays_all' | null
           currency: string
-          subtotal_cents: number
-          total_cents: number
+          subtotal_clp: number
+          discount_clp: number
+          tax_clp: number
+          shipping_clp: number
+          total_clp: number
+          total_amount_clp: number
+          can_modify: boolean | null
+          locked_at: string | null
           notes: string | null
+          shipped_at: string | null
+          delivered_at: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
+          order_number?: string | null
           user_id: string
           team_id?: string | null
           status?: string
+          payment_status?: 'unpaid' | 'partial' | 'paid' | 'refunded' | null
+          payment_mode?: 'individual' | 'manager_pays_all' | null
           currency?: string
-          subtotal_cents: number
-          total_cents: number
+          subtotal_clp: number
+          discount_clp?: number
+          tax_clp?: number
+          shipping_clp?: number
+          total_amount_clp: number
+          can_modify?: boolean | null
+          locked_at?: string | null
           notes?: string | null
+          shipped_at?: string | null
+          delivered_at?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
+          order_number?: string | null
           user_id?: string
           team_id?: string | null
           status?: string
+          payment_status?: 'unpaid' | 'partial' | 'paid' | 'refunded' | null
+          payment_mode?: 'individual' | 'manager_pays_all' | null
           currency?: string
-          subtotal_cents?: number
-          total_cents?: number
+          subtotal_clp?: number
+          discount_clp?: number
+          tax_clp?: number
+          shipping_clp?: number
+          total_amount_clp?: number
+          can_modify?: boolean | null
+          locked_at?: string | null
           notes?: string | null
+          shipped_at?: string | null
+          delivered_at?: string | null
           created_at?: string
           updated_at?: string
         }

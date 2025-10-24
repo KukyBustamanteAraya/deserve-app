@@ -2,7 +2,7 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-interface GlowButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface GlowButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onDrag' | 'onDragStart' | 'onDragEnd' | 'onAnimationStart' | 'onAnimationEnd'> {
   variant?: "primary" | "ghost";
   glowColor?: string;
 }

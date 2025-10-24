@@ -3,8 +3,8 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { redirect } from 'next/navigation'
 
-function createSupabaseServerClient() {
-  const cookieStore = cookies()
+async function createSupabaseServerClient() {
+  const cookieStore = await cookies()
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -21,7 +21,7 @@ function createSupabaseServerClient() {
 }
 
 export async function requireAdmin() {
-  const supabase = createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
 
   // 1) Make sure we have a logged-in user
   const { data: { user } } = await supabase.auth.getUser()

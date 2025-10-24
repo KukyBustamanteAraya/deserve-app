@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (authError) {
-      logger.error('Error sending invite:', authError);
+      logger.error('Error sending invite:', toError(authError));
       return NextResponse.json(
         { error: authError.message },
         { status: 500 }

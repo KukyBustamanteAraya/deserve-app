@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 const UpdateProductSchema = z.object({
   sport_ids: z.array(z.number()).optional(),      // Array of sport IDs (snake_case to match form)
@@ -26,7 +27,7 @@ export async function PATCH(
     const body = await request.json();
 
     const validatedData = UpdateProductSchema.parse(body);
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Check if product exists
     const { data: existingProduct, error: fetchError } = await supabase
@@ -99,7 +100,7 @@ export async function PATCH(
       .single();
 
     if (error) {
-      logger.error('Error updating product:', error);
+      logger.error('Error updating product:', toError(error));
       return NextResponse.json(
         { error: 'Failed to update product', details: error.message },
         { status: 500 }
@@ -118,7 +119,7 @@ export async function PATCH(
       );
     }
 
-    logger.error('Admin products PATCH error:', error);
+    logger.error('Admin products PATCH error:', toError(error));
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
@@ -132,7 +133,7 @@ export async function DELETE(
 ) {
   try {
     await requireAdmin();
-    const supabase = createSupabaseServer();
+    const supabase = await createSupabaseServer();
 
     // Check if product exists
     const { data: existingProduct, error: fetchError } = await supabase
@@ -154,7 +155,7 @@ export async function DELETE(
       .eq('id', params.id);
 
     if (error) {
-      logger.error('Error deleting product:', error);
+      logger.error('Error deleting product:', toError(error));
       return NextResponse.json(
         { error: 'Failed to delete product' },
         { status: 500 }
@@ -169,7 +170,7 @@ export async function DELETE(
       { status: 200 }
     );
   } catch (error) {
-    logger.error('Admin products DELETE error:', error);
+    logger.error('Admin products DELETE error:', toError(error));
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

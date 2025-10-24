@@ -3,17 +3,18 @@
 import { requireAdmin } from '@/lib/auth/admin-guard';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 import { apiSuccess, apiError } from '@/lib/api-response';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAdmin();
 
-    const { id } = params;
-    const supabase = createSupabaseServer();
+    const { id } = await params;
+    const supabase = await createSupabaseServer();
 
     const { data: mockups, error } = await supabase
       .from('design_mockups')
@@ -30,27 +31,27 @@ export async function GET(
       .order('created_at', { ascending: true });
 
     if (error) {
-      logger.error('Error fetching mockups:', error);
+      logger.error('Error fetching mockups:', toError(error));
       return apiError('Failed to fetch mockups', 500);
     }
 
     return apiSuccess(mockups || [], `Found ${mockups?.length || 0} mockups`);
 
   } catch (error) {
-    logger.error('Unexpected error fetching mockups:', error);
+    logger.error('Unexpected error fetching mockups:', toError(error));
     return apiError('An unexpected error occurred while fetching mockups');
   }
 }
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAdmin();
 
-    const { id: design_id } = params;
-    const supabase = createSupabaseServer();
+    const { id: design_id } = await params;
+    const supabase = await createSupabaseServer();
     const body = await request.json();
 
     const {
@@ -132,14 +133,14 @@ export async function POST(
       .single();
 
     if (error) {
-      logger.error('Error creating mockup:', error);
+      logger.error('Error creating mockup:', toError(error));
       return apiError('Failed to create mockup', 500);
     }
 
     return apiSuccess(mockup, 'Mockup created successfully', 201);
 
   } catch (error) {
-    logger.error('Unexpected error creating mockup:', error);
+    logger.error('Unexpected error creating mockup:', toError(error));
     return apiError('An unexpected error occurred while creating mockup');
   }
 }

@@ -3,9 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase/server-client';
 import { RosterMemberSchema, type RosterCommitResult } from '@/types/roster';
 import { logger } from '@/lib/logger';
+import { toError, toSupabaseError } from '@/lib/error-utils';
 
 export async function POST(request: NextRequest) {
-  const supabase = createSupabaseServer();
+  const supabase = await createSupabaseServer();
   
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: result });
   } catch (error) {
-    logger.error('Roster commit error:', error);
+    logger.error('Roster commit error:', toError(error));
     return NextResponse.json(
       { error: 'Failed to commit roster' },
       { status: 500 }
