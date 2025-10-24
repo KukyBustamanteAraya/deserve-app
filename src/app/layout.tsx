@@ -11,13 +11,27 @@ import ProgressBar from '@/components/ProgressBar';
 import { env } from '@/lib/env';
 
 export const metadata: Metadata = {
-  title: "Deserve App",
-  description: "Your trusted platform for services",
+  title: "Deserve - Equipamiento Deportivo Personalizado",
+  description: "Plataforma de equipamiento deportivo personalizado para equipos e instituciones en Chile",
+  manifest: "/manifest.json",
+  themeColor: "#e21c21",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Deserve",
+  },
+  icons: {
+    icon: "/icon-192x192.png",
+    apple: "/icon-192x192.png",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({

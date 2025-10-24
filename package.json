@@ -47,6 +47,7 @@
     "framer-motion": "^12.23.24",
     "mercadopago": "^2.9.0",
     "next": "14.2.32",
+    "next-pwa": "^5.6.0",
     "openai": "^6.2.0",
     "react": "18.3.1",
     "react-colorful": "^5.6.1",

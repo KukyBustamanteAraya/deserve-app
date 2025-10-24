@@ -1,0 +1,65 @@
+{
+  "name": "Deserve - Equipamiento Deportivo Personalizado",
+  "short_name": "Deserve",
+  "description": "Plataforma de equipamiento deportivo personalizado para equipos e instituciones en Chile",
+  "theme_color": "#e21c21",
+  "background_color": "#000000",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-256x256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "sports",
+    "shopping",
+    "business"
+  ],
+  "shortcuts": [
+    {
+      "name": "Catálogo",
+      "short_name": "Catálogo",
+      "description": "Ver productos disponibles",
+      "url": "/catalog",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Mis Equipos",
+      "short_name": "Equipos",
+      "description": "Administrar mis equipos",
+      "url": "/mi-equipo",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Diseños",
+      "short_name": "Diseños",
+      "description": "Explorar diseños",
+      "url": "/designs",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}
