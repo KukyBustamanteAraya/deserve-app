@@ -239,13 +239,14 @@ export default function OrganizationStep() {
       // Wait 1.5 seconds to show success message, then redirect
       setTimeout(() => {
         reset(); // Clear wizard state
-        // Use redirect_url from API if available (includes onboarding params for institutions)
+        // Use redirect_url from API (design request page for single teams, onboarding for institutions)
         if (redirectUrl) {
           router.push(redirectUrl);
         } else if (teamSlug) {
-          router.push(`/mi-equipo/${teamSlug}?request_created=true`);
+          // Fallback: redirect to team dashboard
+          router.push(`/mi-equipo/${teamSlug}`);
         } else {
-          router.push('/catalog?request_created=true');
+          router.push('/catalog');
         }
       }, 1500);
     } catch (err) {

@@ -233,10 +233,17 @@ const DesignDetailClient = memo(function DesignDetailClient({
         throw new Error(result.message || 'Failed to submit design request');
       }
 
-      // Success! Redirect to team page
+      // Success! Redirect to design request detail page
+      const redirectUrl = result.data?.redirect_url;
+      const designRequestId = result.data?.design_request_id;
       const teamSlug = userTeams.find(t => t.id === localSelectedTeamId)?.slug;
-      if (teamSlug) {
-        router.push(`/mi-equipo/${teamSlug}?request_created=true`);
+
+      if (redirectUrl) {
+        router.push(redirectUrl);
+      } else if (teamSlug && designRequestId) {
+        router.push(`/mi-equipo/${teamSlug}/design-requests/${designRequestId}`);
+      } else if (teamSlug) {
+        router.push(`/mi-equipo/${teamSlug}`);
       } else {
         router.push('/mi-equipo');
       }
