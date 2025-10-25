@@ -44,7 +44,7 @@ export default async function CatalogPage() {
   logger.info('[CATALOG] Rendering with sports:', { sportsCount: sports.length });
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-12">
         {/* Sport selector and product rows */}
         <CatalogWithSportSelector sports={sports} />

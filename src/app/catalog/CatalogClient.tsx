@@ -147,14 +147,14 @@ export function CatalogClient({ sports, initialProducts, initialSport }: Catalog
       {/* Sport Title - No filter dropdown */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-white">
             {activeSport
               ? `${sports.find(s => s.slug === activeSport)?.name || activeSport}`
               : 'Todos los productos'
             }
           </h2>
           {!loading && (
-            <p className="text-gray-600 mt-2">
+            <p className="text-gray-300 mt-2">
               {products?.total && products.total > 0
                 ? `${products.items.length} de ${products.total} diseños disponibles`
                 : 'No hay productos disponibles'
