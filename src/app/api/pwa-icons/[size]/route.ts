@@ -150,15 +150,14 @@ export async function GET(
     }
 
     // Return PNG with proper caching headers
-    const response = new NextResponse(iconBuffer, {
+    // Convert Buffer to Uint8Array for Response constructor
+    return new Response(new Uint8Array(iconBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'image/png',
         'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
       },
     });
-
-    return response;
   } catch (error) {
     logger.error('Error generating PWA icon:', toError(error));
     return NextResponse.json(
