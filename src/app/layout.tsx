@@ -13,16 +13,15 @@ import { env } from '@/lib/env';
 export const metadata: Metadata = {
   title: "Deserve - Equipamiento Deportivo Personalizado",
   description: "Plataforma de equipamiento deportivo personalizado para equipos e instituciones en Chile",
-  manifest: "/manifest.json",
-  themeColor: "#000000",
+  manifest: "/api/manifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Deserve",
   },
   icons: {
-    icon: "/icon-192x192.png",
-    apple: "/icon-192x192.png",
+    icon: "/api/pwa-icons/192",
+    apple: "/api/pwa-icons/192",
   },
 };
 
@@ -32,6 +31,7 @@ export const viewport: Viewport = {
   maximumScale: 5,
   userScalable: true,
   viewportFit: "cover",
+  themeColor: "#000000",
 };
 
 export default async function RootLayout({
